@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TableFlip (╯°□°）╯︵ ┻━┻</title>
+
+<script>
+// Local-dev asset cache busting without manual version bumps.
+window.__IS_LOCAL_DEV = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(location.hostname);
+window.__ASSET_VER = window.__IS_LOCAL_DEV
+  ? Date.now().toString(36)
+  : '20260531.9';
+window.assetUrl = p => `${p}?v=${window.__ASSET_VER}`;
+</script>
+
+<!-- XLSX runtime (pinned, local bundle) -->
+<script>document.write('<script src="' + assetUrl('js/xlsx.bundle.js') + '"><\/script>');</script>
+<!-- AG Grid Community — virtual-scrolling data grid with native rowSpan -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.0/styles/ag-grid.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.0/styles/ag-theme-balham-dark.min.css">
+<script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.0/dist/ag-grid-community.min.js"></script>
+<!-- sql.js — SQLite compiled to WebAssembly -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.js"></script>
+
+<script>document.write('<link rel="stylesheet" href="' + assetUrl('style.css') + '">');</script>
+</head>
+
+<body>
+<div id="dropOverlay">
+  <div class="do-icon">📂</div>
+  <div class="do-label">Drop files to load</div>
+</div>
+
+<div id="loadOverlay">
+  <div class="lo-spinner"></div>
+  <div class="lo-title">Loading files…</div>
+</div>
+
+<!-- ── Header ─────────────────────────────────────────────── -->
+<div class="hdr">
+  <h1>TableFlip (╯°□°）╯︵ ┻━┻</h1>
+  <div class="spacer"></div>
+  <span class="sub">Flip your spreadsheet tables into reports — no 250-character formulas required</span>
+</div>
+
+<!-- ── Body ─────────────────────────────────────────────────── -->
+<div class="layout">
+
+  <!-- Sidebar -->
+  <div class="sidebar-wrap">
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-inner">
+    <div class="sb-sec">
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" multiple hidden>
+      <div id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <div class="dz-icon">📂</div>
+        <div class="dz-main">Click to Load Excel / CSV files</div>
+        <div class="dz-sub">.xlsx · .xls · .csv</div>
+      </div>
+    </div>
+    <div class="sb-sec" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;border-bottom:none;">
+      <h3>Sheets (<span id="tableCount">0</span>)</h3>
+      <div class="tables-list" id="tablesList">
+        <div class="empty" style="flex:none;padding:16px">
+          <div class="empty-icon">📋</div><div>No sheets loaded</div>
+        </div>
+      </div>
+    </div>
+    </div><!-- /sidebar-inner -->
+  </div><!-- /sidebar -->
+  <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar" onclick="toggleSidebar()">&#x276E;</button>
+  </div><!-- /sidebar-wrap -->
+
+  <!-- Main -->
+  <div class="main">
+    <div class="tabs">
+      <div class="tab-btn active" data-tab="query">Report Setup <span class="tip" data-tip="Set up your report: choose a primary sheet, combine other sheets, pick columns, filter rows, sort, and summarize.">?</span></div>
+      <div class="tab-btn" data-tab="preview">Browse Sheet <span class="tip" data-tip="Browse the raw contents of any loaded sheet.">?</span></div>
+      <div class="tab-btn" data-tab="results">Report <span class="tip" data-tip="View and export the output of your last report run.">?</span></div>
+    </div>
+
+    <div class="tab-content">
+
+      <!-- ── Query tab ─────────────────────────────────────── -->
+      <div class="tab-panel active" id="tab-query">
+
+        <div id="qEmpty" class="empty">
+          <div class="empty-icon">🔗</div>
+          <div class="empty-title">Drop files to get started</div>
+          <div class="empty-sub">Drop your Excel or CSV files — each sheet becomes available to build your report from</div>
+        </div>
+
+        <div class="qb-body" id="qBuilder" style="display:none">
+          <!-- Pipeline — injected by JS -->
+          <div id="pipeline"></div>
+
+          <!-- Report Layout card -->
+          <div class="qb-card" id="colCard" style="display:none">
+            <div class="qb-title" id="colCardTitle">
+              Report Layout
+              <span class="tip" id="colCardTip" data-tip="Choose which columns appear in your report and how they are summarized. Drag chips to reorder columns. Double-click a chip to hide/show it.">?</span>
+              <span style="color:var(--muted);font-size:0.68rem;text-transform:none;letter-spacing:0" id="colCardHint">
+                — drag to reorder &nbsp;·&nbsp; double-click to show/hide
+              </span>
+            </div>
+
+            <!-- Mode toggle -->
+            <div class="agg-mode-row" style="margin-bottom:8px">
+              <label class="agg-mode-opt">
+                <input type="radio" name="aggMode" value="none" onchange="setAggMode('none')" checked>
+                <span>No summary</span>
+              </label>
+              <span class="tip" data-tip="Show every row as-is. Click chips to include/exclude columns.">?</span>
+              <label class="agg-mode-opt">
+                <input type="radio" name="aggMode" value="group" onchange="setAggMode('group')">
+                <span>Summarize</span>
+              </label>
+              <span class="tip" data-tip="Roll rows up into groups. Click a chip to make it a group key — remaining chips get auto calculations. Drag to control column order in results.">?</span>
+              <label class="agg-mode-opt">
+                <input type="radio" name="aggMode" value="totals" onchange="setAggMode('totals')">
+                <span>Keep all rows + totals</span>
+              </label>
+              <span class="tip" data-tip="Keeps every row, then adds a grand totals row at the bottom.">?</span>
+              <label class="agg-mode-opt">
+                <input type="radio" name="aggMode" value="subtotals" onchange="setAggMode('subtotals')">
+                <span>Group rows + subtotals</span>
+              </label>
+              <span class="tip" data-tip="Keeps all detail rows, grouped together. Adds a configurable subtotal row after each group, and optionally a grand total at the bottom.">?</span>
+            </div>
+
+            <div class="chips" id="colChips"></div>
+
+            <!-- Default mode: All/None buttons -->
+            <div class="btn-row" style="margin-top:8px" id="colBtnRow">
+              <button class="btn btn-ghost" onclick="selectAllCols()">All</button>
+              <button class="btn btn-ghost" onclick="selectNoneCols()">None</button>
+            </div>
+
+            <!-- Summarize mode: aggregates -->
+            <div id="aggSection" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+              <label style="margin-bottom:6px">Calculations <span class="tip" data-tip="Choose how non-group columns are summarized in Summarize mode (for example: Sum, Average, Count).">?</span></label>
+              <div id="aggItems">
+                <span style="font-size:0.76rem;color:var(--muted)">Click a column above to start grouping</span>
+              </div>
+              <div id="aggAddRow" style="display:none;margin-top:8px">
+                <button class="btn btn-ghost" onclick="addAggregate()">+ Add Calculation</button>
+                <span class="tip" data-tip="Add a calculated column to your summary.&#10;&#10;Sum — total of all values&#10;Average — arithmetic mean&#10;Min / Max — smallest or largest value&#10;Count rows — how many rows are in the group&#10;Count non-empty — rows with a value in that column&#10;Count distinct — number of unique values&#10;First / Last — the first or last value alphabetically&#10;Date range — shows earliest — latest date&#10;Date span — number of days between earliest and latest&#10;Numeric range — shows min – max as a label&#10;Numeric span — the difference between max and min&#10;List — all values joined together&#10;&#10;Give each calculation a name (e.g. Total Sales).">?</span>
+              </div>
+            </div>
+
+            <!-- Totals mode: per-column totals row -->
+            <div id="totalsSection" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+              <label style="margin-bottom:6px">Totals row — choose what each column shows <span class="tip" data-tip="For each column in your report, choose what the totals row at the bottom should display. 'Skip' leaves the cell blank — useful for name/ID columns where a total makes no sense.">?</span></label>
+              <div id="totalsItems"></div>
+            </div>
+
+            <!-- Subtotals mode: per-column subtotal configuration -->
+            <div id="subtotalsSection" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+              <label style="margin-bottom:6px">Subtotal rows — choose what each column shows <span class="tip" data-tip="For each non-group column, choose what value appears in the subtotal row after each group. 'Skip' leaves the cell blank. Group key columns always show their group value.">?</span></label>
+              <div id="subtotalsItems">
+                <span style="font-size:0.76rem;color:var(--muted)">Click columns above to choose group keys</span>
+              </div>
+              <div style="margin-top:8px">
+                <label style="font-weight:normal;display:flex;align-items:center;gap:6px;cursor:pointer">
+                  <input type="checkbox" id="chkGrandTotal" onchange="setSubtotalGrandTotal(this.checked)" checked>
+                  Include grand total row
+                  <span class="tip" data-tip="Adds one final total row at the very bottom, combining all groups.">?</span>
+                </label>
+              </div>
+              <div style="margin-top:6px">
+                <label style="font-weight:normal;display:flex;align-items:center;gap:6px;cursor:pointer">
+                  <input type="checkbox" id="chkSubtotalSpacer" onchange="setSubtotalSpacer(this.checked)">
+                  Add blank row after each subtotal
+                  <span class="tip" data-tip="Inserts an empty spacer row after each subtotal block to improve readability.">?</span>
+                </label>
+              </div>
+              <div style="margin-top:6px">
+                <label style="font-weight:normal;display:flex;align-items:center;gap:6px;cursor:pointer">
+                  <input type="checkbox" id="chkSubtotalOnTop" onchange="setSubtotalOnTop(this.checked)">
+                  Put subtotal row on top of each group
+                  <span class="tip" data-tip="Shows each group's subtotal row before that group's detail rows instead of after.">?</span>
+                </label>
+              </div>
+            </div>
+
+            <div id="aggHint" style="margin-top:8px;font-size:0.72rem;color:var(--muted);display:none"></div>
+          </div>
+
+          <!-- Sort & Filter card -->
+          <div class="qb-card" id="filterSortCard" style="display:none">
+            <div class="qb-title">Sort &amp; Filter</div>
+
+            <!-- Sort section -->
+            <label style="margin-bottom:4px">Sort By <span class="tip" data-tip="Control the order rows appear in your report. Level 1 is the primary sort; Level 2 breaks ties, and so on. Each level can sort A→Z or Z→A.">?</span></label>
+            <div id="sortItems">
+              <span style="font-size:0.76rem;color:var(--muted)">No sort — rows in natural order</span>
+            </div>
+            <button class="btn btn-ghost" style="margin-top:6px" onclick="addSort()">+ Add Sort Level</button>
+            <span class="tip" data-tip="Add a sort level. Each level you add refines the ordering within identical values from the previous level.">?</span>
+
+            <!-- Filters section -->
+            <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+              <label style="margin-bottom:4px">Filters <span class="tip" data-tip="Narrow your results by adding conditions. Only rows that match ALL active filters are included. Filters are applied before any summarization.">?</span></label>
+              <div class="filter-row-wrap" id="filterItems">
+                <span style="font-size:0.76rem;color:var(--muted)">No filters — all rows included</span>
+              </div>
+              <button class="btn btn-ghost" style="margin-top:6px" onclick="addFilter()">+ Add Filter</button>
+              <span class="tip" data-tip="Add a row condition. Choose a column, an operator, and a value.&#10;&#10;contains / starts with / ends with — text matching&#10;equals / not equals — exact match (numbers or text)&#10;&gt; &lt; &gt;= &lt;= — numeric or date comparison&#10;is empty / not empty — checks for blank values">?</span>
+            </div>
+
+            <!-- Merge duplicates section -->
+            <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+              <label style="margin-bottom:6px">Merge duplicate cells <span class="tip" data-tip="When enabled for a column, consecutive rows with the same value are visually merged into a single cell in the grid. Best results when the data is sorted by that column.">?</span></label>
+              <div id="mergeToggles">
+                <span style="font-size:0.76rem;color:var(--muted)">Load a table to see columns</span>
+              </div>
+              <div style="margin-top:8px">
+                <label style="font-weight:normal;display:flex;align-items:center;gap:6px;cursor:pointer">
+                  <input type="checkbox" id="chkMergeGroupUnderline" onchange="setMergeGroupUnderline(this.checked)">
+                  Underline merged groups
+                  <span class="tip" data-tip="Adds a subtle underline at the end of each merged duplicate block, making group boundaries easier to scan.">?</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Run -->
+          <div class="btn-row" id="runRow" style="display:none;padding-top:4px;flex-shrink:0">
+            <button class="btn btn-green" onclick="runQuery()">▶ Run Report</button>
+            <span class="tip" data-tip="Generate your report applying all combinations, filters, and summaries. Results appear in the Report tab. Large datasets may take a moment.">?</span>
+            <span id="runStatus" style="font-size:0.78rem;color:var(--muted)"></span>
+            <div style="flex:1"></div>
+            <button class="btn btn-ghost" onclick="saveState()" data-tip="Saves your current report setup — sheet combinations, filters, sort order, column picks, and summaries — to a file. Load it later to restore everything instantly.">&#128190; Save Setup</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('qbsInput').click()" data-tip="Load a previously saved report setup file. The original sheets must be loaded first. Any missing sheets or columns will be skipped and reported.">&#128194; Load Setup</button>
+          </div>
+
+        </div><!-- /qb-body -->
+      </div><!-- /tab-query -->
+
+      <!-- ── Preview tab ───────────────────────────────────── -->
+      <div class="tab-panel" id="tab-preview">
+        <div class="data-body">
+          <div class="btn-row" style="flex-shrink:0">
+            <div style="flex:1;max-width:320px">
+              <select id="previewSel" onchange="loadPreview()">
+                <option value="">— select a table to preview —</option>
+              </select>
+            </div>
+            <span id="previewMeta" style="font-size:0.76rem;color:var(--muted)"></span>
+          </div>
+          <div class="grid-wrap" id="previewWrap">
+            <div class="empty"><div class="empty-icon">👆</div><div>Select a table above</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Results tab ───────────────────────────────────── -->
+      <div class="tab-panel" id="tab-results">
+        <div class="data-body">
+          <div class="results-bar">
+            <span class="results-count" id="resultsMeta">No results yet — run a query first</span>
+            <div style="flex:1"></div>
+            <button class="btn btn-ghost" id="btnExpXlsx" style="display:none" onclick="exportAs('xlsx')" data-tip="Download the current query results as an Excel (.xlsx) spreadsheet.">⬇ Excel</button>
+            <button class="btn btn-ghost" id="btnExpCsv"  style="display:none" onclick="exportAs('csv')" data-tip="Download the current query results as a comma-separated values (.csv) file, compatible with Excel and most other tools.">⬇ CSV</button>
+          </div>
+          <div class="grid-wrap" id="resultsWrap">
+            <div class="empty">
+              <div class="empty-icon">⚡</div>
+              <div class="empty-title">No results yet</div>
+              <div class="empty-sub">Build a query and click ▶ Run Query</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /tab-content -->
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- ── Sheet selector modal ──────────────────────────────── -->
+<div class="modal-bg" id="sheetModal" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h3>Select Sheets to Load</h3>
+    <div class="msub" id="modalFile"></div>
+    <div id="modalSheets"></div>
+    <div class="btn-row" style="margin-top:12px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeModal()">Skip file</button>
+      <button class="btn btn-primary" onclick="confirmModal()">Load selected</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Loading overlay — hidden once SQLite WASM is ready ── -->
+<div id="loadingOverlay" style="
+  position:fixed;inset:0;background:var(--bg);z-index:9998;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+">
+  <div style="font-size:2rem">⚙️</div>
+  <div style="font-size:1rem;font-weight:600">Loading database engine…</div>
+  <div style="font-size:0.8rem;color:var(--muted)">Downloading SQLite WASM (~1.3 MB, cached after first use)</div>
+</div>
+
+<!-- ── Scripts (load order matters) ──────────────────────── -->
+<script>
+[
+  'js/utils.js',
+  'js/state.js',
+  'js/sqldb.js',
+  'js/engine.js',
+  'js/tabs.js',
+  'js/grid.js',
+  'js/export.js',
+  'js/aggregation.js',
+  'js/state-io.js',
+  'js/query-builder.js',
+  'js/sidebar.js',
+  'js/loader.js',
+].forEach(src => {
+  document.write('<script src="' + assetUrl(src) + '"><\/script>');
+});
+</script>
+
+<script>
+// Guard against accidental XLSX runtime drift.
+if (!window.XLSX) {
+  console.error('[xlsx] runtime missing');
+} else if (window.XLSX.style_version !== '1.3.0') {
+  console.warn('[xlsx] expected xlsx-js-style 1.3.0, got', window.XLSX.style_version || window.XLSX.version);
+}
+</script>
+
+<script>
+// Initialize SQLite. The drop zone is inert until this resolves.
+initDb()
+  .then(() => {
+    document.getElementById('loadingOverlay').style.display = 'none';
+  })
+  .catch(err => {
+    document.getElementById('loadingOverlay').innerHTML = `
+      <div style="font-size:2rem">❌</div>
+      <div style="font-size:1rem;font-weight:600">Failed to load database engine</div>
+      <div style="font-size:0.8rem;color:var(--muted)">${err.message}</div>
+      <div style="font-size:0.8rem;color:var(--muted);margin-top:6px">Requires internet connection on first use (WASM is cached afterwards)</div>
+    `;
+  });
+</script>
+
+<script>
+// Tooltip manager — renders a fixed-position overlay near any [data-tip] element,
+// escaping overflow:hidden containers.
+(function () {
+  const box = document.createElement('div');
+  Object.assign(box.style, {
+    position: 'fixed', zIndex: '9500', display: 'none',
+    background: 'var(--bg2)', border: '1px solid var(--border)',
+    borderRadius: '8px', padding: '9px 13px',
+    fontSize: '0.76rem', lineHeight: '1.6', color: 'var(--text)',
+    whiteSpace: 'pre-wrap', maxWidth: '300px', pointerEvents: 'none',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.55)',
+  });
+  document.body.appendChild(box);
+
+  document.addEventListener('mouseover', e => {
+    const src = e.target.closest('[data-tip]');
+    if (!src) return;
+    box.textContent = src.dataset.tip;
+    box.style.display = 'block';
+    const r   = src.getBoundingClientRect();
+    const bw  = 304;
+    let left  = r.left + r.width / 2 - bw / 2;
+    left      = Math.max(6, Math.min(left, window.innerWidth - bw - 6));
+    const top = r.top - box.offsetHeight - 8;
+    box.style.left = left + 'px';
+    box.style.top  = (top < 6 ? r.bottom + 8 : top) + 'px';
+  });
+
+  document.addEventListener('mouseout', e => {
+    if (e.target.closest('[data-tip]')) box.style.display = 'none';
+  });
+})();
+</script>
+</body>
+</html>
