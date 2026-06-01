@@ -32,6 +32,7 @@ function saveState() {
       left:  c.left || '',
       op:    c.op || '-',
       right: c.right || '',
+      compVal: c.compVal ?? '',
       window: Math.max(1, parseInt(c.window, 10) || 7),
       explicitOrder: !!c.explicitOrder,
       orderCol: c.orderCol || '',
@@ -129,17 +130,21 @@ function loadState(file) {
     db.joins = [];
 
     // ── Calculated stages ───────────────────────────────────────────────────
-    const VALID_CALC_OPS = new Set(['+', '-', '*', '/', 'ROLLAVG', 'PCTTOTAL']);
+    const COMPARISON_OPS = new Set(['>', '<', '=', '!=', '>=', '<=']);
+    const VALID_CALC_OPS = new Set(['+', '-', '*', '/', 'ROLLAVG', 'PCTTOTAL', ...COMPARISON_OPS]);
     db.calcStages = [];
     for (const c of (payload.calcStages || [])) {
       const alias = (c.alias || '').trim();
       const left  = c.left || '';
       const right = c.right || '';
       const op    = VALID_CALC_OPS.has(c.op) ? c.op : '-';
+      const compVal = c.compVal ?? '';
       const window = Math.max(1, parseInt(c.window, 10) || 7);
       const explicitOrder = !!c.explicitOrder;
       const orderCol = c.orderCol || '';
       const orderDir = c.orderDir === 'DESC' ? 'DESC' : 'ASC';
+      const isArithmetic  = ['+', '-', '*', '/'].includes(op);
+      const isComparison  = COMPARISON_OPS.has(op);
 
       if (!alias) {
         warnings.push('A calculated column with no label was skipped.');
@@ -147,9 +152,12 @@ function loadState(file) {
       }
 
       const availNow = new Set(projectedCols());
-      const isArithmetic = ['+', '-', '*', '/'].includes(op);
       if (!availNow.has(left) || (isArithmetic && !availNow.has(right))) {
         warnings.push(`Calculated column "${alias}" skipped — one or more source columns are unavailable.`);
+        continue;
+      }
+      if (isComparison && !compVal.toString().trim()) {
+        warnings.push(`Calculated column "${alias}" skipped — comparison value is missing.`);
         continue;
       }
       if (op === 'ROLLAVG' && explicitOrder && orderCol && !availNow.has(orderCol)) {
@@ -160,7 +168,7 @@ function loadState(file) {
         warnings.push(`Calculated column "${alias}" skipped — label conflicts with an existing column.`);
         continue;
       }
-      db.calcStages.push({ alias, left, op, right, window, explicitOrder, orderCol, orderDir });
+      db.calcStages.push({ alias, left, op, right, compVal, window, explicitOrder, orderCol, orderDir });
     }
 
     // ── Derive available columns now that stacks/lookups are set ─────────────

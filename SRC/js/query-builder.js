@@ -405,10 +405,12 @@ function _plCalcStage(calc, i) {
   const cols   = projectedCols();
   const colMap = buildColSourceMap();
   const alias  = (calc.alias || '').trim();
-  const op = ['+', '-', '*', '/', 'ROLLAVG', 'PCTTOTAL'].includes(calc.op) ? calc.op : '-';
-  const isArithmetic = ['+', '-', '*', '/'].includes(op);
-  const isRolling    = op === 'ROLLAVG';
-  const isPctTotal   = op === 'PCTTOTAL';
+  const COMPARISON_OPS = ['>', '<', '=', '!=', '>=', '<='];
+  const op = ['+', '-', '*', '/', 'ROLLAVG', 'PCTTOTAL', ...COMPARISON_OPS].includes(calc.op) ? calc.op : '-';
+  const isArithmetic  = ['+', '-', '*', '/'].includes(op);
+  const isRolling     = op === 'ROLLAVG';
+  const isPctTotal    = op === 'PCTTOTAL';
+  const isComparison  = COMPARISON_OPS.includes(op);
   const leftOpts = cols
     .filter(c => c !== alias)
     .map(c => `<option value="${h(c)}" ${calc.left === c ? 'selected' : ''}>${h(colDisplayLabel(c, colMap))}</option>`)
@@ -424,10 +426,11 @@ function _plCalcStage(calc, i) {
   const windowVal = Math.max(1, parseInt(calc.window, 10) || 7);
   const explicitOrder = !!calc.explicitOrder;
   const orderDir = calc.orderDir === 'DESC' ? 'DESC' : 'ASC';
+  const compVal = calc.compVal ?? '';
   const err = calc._error || '';
 
   return `<div class="pl-lookup-stage${err ? ' pl-lookup-stage--invalid' : ''}">
-    <div class="pl-stage-label">Calculated column <span class="tip" data-tip="Create a virtual column from existing columns.&#10;Arithmetic: uses two columns (left op right).&#10;Rolling Avg: uses the left column + window size.&#10;% of Total: uses the left column within current filtered scope.">?</span></div>
+    <div class="pl-stage-label">Calculated column <span class="tip" data-tip="Create a virtual column from existing columns.&#10;Arithmetic: uses two columns (left op right).&#10;Rolling Avg: uses the left column + window size.&#10;% of Total: uses the left column within current filtered scope.&#10;Comparison (=, !=, &gt;, &lt;, &gt;=, &lt;=): compares a column against a value and outputs 1 (true) or 0 (false).">?</span></div>
     ${err ? `<div class="pl-lookup-error">⛔ ${h(err)}</div>` : ''}
     <div class="pl-lookup-header" style="gap:8px;flex-wrap:wrap">
       <input type="text" data-ci="${i}" data-cp="alias" placeholder="Output column name (e.g. Remaining to Ship)" value="${h(calc.alias || '')}" style="flex:1;min-width:180px">
@@ -438,17 +441,26 @@ function _plCalcStage(calc, i) {
       <select data-ci="${i}" data-cp="left" style="min-width:190px">
         <option value="">— source column —</option>${leftOpts}
       </select>
-      <select data-ci="${i}" data-cp="op" style="width:90px;flex-shrink:0">
+      <select data-ci="${i}" data-cp="op" style="width:100px;flex-shrink:0">
         <option value="+" ${op === '+' ? 'selected' : ''}>+</option>
         <option value="-" ${op === '-' ? 'selected' : ''}>−</option>
         <option value="*" ${op === '*' ? 'selected' : ''}>×</option>
         <option value="/" ${op === '/' ? 'selected' : ''}>÷</option>
         <option value="ROLLAVG" ${op === 'ROLLAVG' ? 'selected' : ''}>Rolling Avg</option>
         <option value="PCTTOTAL" ${op === 'PCTTOTAL' ? 'selected' : ''}>% of Total</option>
+        <optgroup label="Compare to value">
+          <option value="=" ${op === '=' ? 'selected' : ''}>=</option>
+          <option value="!=" ${op === '!=' ? 'selected' : ''}>!=</option>
+          <option value=">" ${op === '>' ? 'selected' : ''}>&gt;</option>
+          <option value=">=" ${op === '>=' ? 'selected' : ''}>&gt;=</option>
+          <option value="<" ${op === '<' ? 'selected' : ''}>&lt;</option>
+          <option value="<=" ${op === '<=' ? 'selected' : ''}>&lt;=</option>
+        </optgroup>
       </select>
       ${isArithmetic ? `<select data-ci="${i}" data-cp="right" style="min-width:190px">
         <option value="">— compare with column —</option>${rightOpts}
       </select>` : ''}
+      ${isComparison ? `<input type="text" data-ci="${i}" data-cp="compVal" placeholder="value to compare" value="${h(compVal)}" style="min-width:130px">` : ''}
       ${isRolling ? `<span class="pl-key-pair-label" style="margin-left:6px">Window</span>
       <input type="number" min="1" step="1" value="${windowVal}" data-ci="${i}" data-cp="window" style="width:86px;flex-shrink:0">
       <label style="display:flex;align-items:center;gap:6px;font-size:0.76rem;color:var(--muted)" title="When off, rolling uses the report Sort settings.">
@@ -462,6 +474,7 @@ function _plCalcStage(calc, i) {
         <option value="DESC" ${orderDir === 'DESC' ? 'selected' : ''}>DESC</option>
       </select>` : ''}` : ''}
       ${isPctTotal ? `<span style="font-size:0.72rem;color:var(--muted);margin-left:6px">Scope: current filtered rows${(db.aggMode || 'none') === 'subtotals' && (db.subtotalBy || []).length ? ' (per subtotal group)' : ''}</span>` : ''}
+      ${isComparison ? `<span style="font-size:0.72rem;color:var(--muted);margin-left:6px">Result: 1 if true, 0 if false</span>` : ''}
     </div>
   </div>`;
 }
@@ -563,6 +576,7 @@ function addCalcStage() {
     left: '',
     op: '-',
     right: '',
+    compVal: '',
     window: 7,
     explicitOrder: false,
     orderCol: '',
@@ -639,15 +653,17 @@ function _calcStageError(calc, i) {
   const alias = (calc.alias || '').trim();
   if (!alias) return 'Provide a label for this calculated column.';
   const op = calc.op;
-  const isArithmetic = ['+', '-', '*', '/'].includes(op);
-  const isRolling    = op === 'ROLLAVG';
-  const isPctTotal   = op === 'PCTTOTAL';
-  if (!isArithmetic && !isRolling && !isPctTotal) return 'Pick a valid operator.';
+  const isArithmetic  = ['+', '-', '*', '/'].includes(op);
+  const isRolling     = op === 'ROLLAVG';
+  const isPctTotal    = op === 'PCTTOTAL';
+  const isComparison  = ['>', '<', '=', '!=', '>=', '<='].includes(op);
+  if (!isArithmetic && !isRolling && !isPctTotal && !isComparison) return 'Pick a valid operator.';
   if ((isRolling || isPctTotal) && (db.aggMode || 'none') === 'group') {
     return 'Rolling Avg and % of Total are available in detail/totals/subtotals modes (not summarize mode).';
   }
   if (!calc.left) return 'Pick a source column.';
   if (isArithmetic && !calc.right) return 'Pick the second source column.';
+  if (isComparison && !(calc.compVal ?? '').toString().trim()) return 'Enter a value to compare against.';
   if (isRolling) {
     const w = Math.max(1, parseInt(calc.window, 10) || 0);
     if (!Number.isFinite(w) || w < 1) return 'Rolling average window must be 1 or greater.';
@@ -1073,7 +1089,7 @@ function renderFilters() {
       <select class="fop" data-fi="${i}" data-fp="op">
         ${FILTER_OPS.map(op => `<option value="${op}" ${f.op === op ? 'selected' : ''}>${op}</option>`).join('')}
       </select>
-      <input type="text" list="fdl_${i}" placeholder="value" value="${h(f.val)}"
+      <input type="text" list="fdl_${i}" placeholder="value (use | for OR, e.g. open|pending)" value="${h(f.val)}"
              data-fi="${i}" data-fp="val"${noVal ? ' style="display:none"' : ''}>
       <datalist id="fdl_${i}"></datalist>
       <button class="btn btn-danger" data-rmf="${i}">✕</button>
