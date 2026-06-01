@@ -67,6 +67,7 @@ function buildColSourceMap() {
       explicitOrder: !!calc?.explicitOrder,
       orderCol: calc?.orderCol || '',
       orderDir: calc?.orderDir === 'DESC' ? 'DESC' : 'ASC',
+      compareMode: calc?.compareMode === 'OR' ? 'OR' : 'AND',
       conditions: Array.isArray(calc?.conditions) ? calc.conditions : [],
     });
   }
@@ -201,9 +202,10 @@ function _buildCombineSQL(params) {
         return `(CASE WHEN ${denom} = 0 THEN NULL ELSE (${l} / ${denom}) * 100 END)`;
       }
       case 'COMPARE': {
-        // Multi-condition AND builder: each condition is { col, op, val }
+        // Multi-condition compare builder: each condition is { col, op, val }
         const conds = (s.conditions || []).filter(c => c?.col && String(c?.val ?? '').trim());
         if (!conds.length) return 'NULL';
+        const glue = s.compareMode === 'OR' ? ' OR ' : ' AND ';
         const parts = conds.map(cond => {
           const colExpr = calcExpr(cond.col, new Set(trail));
           const cNum    = toNum(colExpr);
@@ -219,7 +221,7 @@ function _buildCombineSQL(params) {
           if (cv !== '' && Number.isFinite(n)) return `${cNum} ${compOp} ${n}`;
           return `${cTxt} ${compOp === '=' ? '=' : '!='} '${cv.replace(/'/g, "''")}'`;
         });
-        return `(CASE WHEN ${parts.join(' AND ')} THEN 1 ELSE 0 END)`;
+        return `(CASE WHEN ${parts.join(glue)} THEN 1 ELSE 0 END)`;
       }
       default:  return 'NULL';
     }
