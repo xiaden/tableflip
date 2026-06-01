@@ -50,6 +50,27 @@ function _hideLayoutAliasesForSource(tid, col = null) {
   _setLayoutAliasesForSourceVisibility(tid, col, false);
 }
 
+function _lookupColumnUsedElsewhere(tid, col, excludeLookupIndex = -1) {
+  const lookups = Array.isArray(db.lookups) ? db.lookups : [];
+  for (let i = 0; i < lookups.length; i++) {
+    if (i === excludeLookupIndex) continue;
+    const lk = lookups[i];
+    if (!lk || lk.rightId !== tid) continue;
+    if (Array.isArray(lk.cols) && lk.cols.includes(col)) return true;
+  }
+  return false;
+}
+
+function _hideLookupLayoutAliasesSafely(tid, col = null, excludeLookupIndex = -1) {
+  const rt = tid ? db.tables?.[tid] : null;
+  if (!rt || !Array.isArray(rt.cols)) return;
+  const cols = col === null ? rt.cols : [col];
+  for (const c of cols) {
+    if (_lookupColumnUsedElsewhere(tid, c, excludeLookupIndex)) continue;
+    _hideLayoutAliasesForSource(tid, c);
+  }
+}
+
 function _isAliasVisibleInLayout(alias, mode) {
   if (!alias) return true;
   if (mode === 'group' || mode === 'subtotals') return true;
@@ -275,7 +296,7 @@ function renderPipeline(ids) {
         lk.keyPairs  = [{ left: '', right: '' }];
         const rt = lk.rightId && db.tables[lk.rightId];
         lk.cols = rt ? [...rt.cols] : [];
-        if (prevRightId && prevRightId !== lk.rightId) _hideLayoutAliasesForSource(prevRightId);
+        if (prevRightId && prevRightId !== lk.rightId) _hideLookupLayoutAliasesSafely(prevRightId, null, i);
         if (lk.rightId) _showLayoutAliasesForSource(lk.rightId);
       } else if (lp === 'required') {
         lk.required = e.target.value === '1';
@@ -393,7 +414,7 @@ function renderPipeline(ids) {
       const idx = (lk.cols || []).indexOf(col);
       if (idx >= 0) {
         lk.cols.splice(idx, 1);
-        _hideLayoutAliasesForSource(lk.rightId, col);
+        _hideLookupLayoutAliasesSafely(lk.rightId, col, i);
       }
       else {
         if (!lk.cols) lk.cols = [];
@@ -1031,7 +1052,7 @@ function selectAllLookupCols(i) {
 function selectNoneLookupCols(i) {
   const lk = db.lookups[i];
   lk.cols = [];
-  _hideLayoutAliasesForSource(lk.rightId);
+  _hideLookupLayoutAliasesSafely(lk.rightId, null, i);
   _afterCombineChange();
 }
 
