@@ -69,6 +69,9 @@ function buildColSourceMap() {
       orderDir: calc?.orderDir === 'DESC' ? 'DESC' : 'ASC',
       compareMode: calc?.compareMode === 'OR' ? 'OR' : 'AND',
       conditions: Array.isArray(calc?.conditions) ? calc.conditions : [],
+      customTF: !!calc?.customTF,
+      trueVal: calc?.trueVal ?? '',
+      falseVal: calc?.falseVal ?? '',
     });
   }
 
@@ -221,7 +224,14 @@ function _buildCombineSQL(params) {
           if (cv !== '' && Number.isFinite(n)) return `${cNum} ${compOp} ${n}`;
           return `${cTxt} ${compOp === '=' ? '=' : '!='} '${cv.replace(/'/g, "''")}'`;
         });
-        return `(CASE WHEN ${parts.join(glue)} THEN 1 ELSE 0 END)`;
+        const sqlLiteral = v => {
+          const s = String(v).trim();
+          const stripped = s.replace(/,/g, '');
+          return /^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(stripped) ? stripped : `'${s.replace(/'/g, "''")}'`;
+        };
+        const thenVal = s.customTF && String(s.trueVal ?? '').trim() !== '' ? sqlLiteral(s.trueVal) : '1';
+        const elseVal = s.customTF && String(s.falseVal ?? '').trim() !== '' ? sqlLiteral(s.falseVal) : '0';
+        return `(CASE WHEN ${parts.join(glue)} THEN ${thenVal} ELSE ${elseVal} END)`;
       }
       default:  return 'NULL';
     }
