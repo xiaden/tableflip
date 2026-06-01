@@ -210,12 +210,12 @@ function _buildCombineSQL(params) {
           const cTxt    = `CAST(${colExpr} AS TEXT)`;
           const compOp  = ['=', '!=', '>', '>=', '<', '<='].includes(cond.op) ? cond.op : '=';
           const cv      = String(cond.val ?? '').trim();
+          const cvStripped = cv.replace(/,/g, '');
+          const n       = parseFloat(cvStripped);
           if (['>', '>=', '<', '<='].includes(compOp)) {
-            const n = parseFloat(cv.replace(/,/g, ''));
             return `${cNum} ${compOp} ${Number.isFinite(n) ? n : 0}`;
           }
           // = or !=: numeric if possible, else text
-          const n = parseFloat(cv.replace(/,/g, ''));
           if (cv !== '' && Number.isFinite(n)) return `${cNum} ${compOp} ${n}`;
           return `${cTxt} ${compOp === '=' ? '=' : '!='} '${cv.replace(/'/g, "''")}'`;
         });
