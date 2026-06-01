@@ -379,14 +379,12 @@ function makeResultCols(cols, mergedSet, spanCache, underlineStartByRow = new Ma
   return dataCols.map((c, cIdx) => {
     const src       = colMap.get(c);
     const dispLabel = colDisplayLabel(c, colMap);
-    const renamed   = src ? db.columnLabels?.[src.tid]?.[src.col] : undefined;
+    const renamed   = (src && src.kind !== 'calc') ? db.columnLabels?.[src.tid]?.[src.col] : undefined;
     const color     = src ? getTableColor(src.tid) : null;
 
     const doRename = () => {
-      if (!src) return;
-      const newLabel = window.prompt('New label (blank to reset):', renamed || '');
-      if (newLabel === null) return;
-      setColLabel(src.tid, src.col, newLabel.trim());
+      if (!renameProjectedColumn(c)) return;
+      renderQueryBuilder();
       if (db.result) renderResults(db.result);
     };
 
@@ -399,8 +397,8 @@ function makeResultCols(cols, mergedSet, spanCache, underlineStartByRow = new Ma
       floatingFilter: true,
       sortable:    true,
       resizable:   true,
-      headerComponent: _makeHeaderComponent(dispLabel, color, renamed, src ? src.col : null, doRename,
-        renamed ? () => { setColLabel(src.tid, src.col, src.col); if (db.result) renderResults(db.result); } : null),
+      headerComponent: _makeHeaderComponent(dispLabel, color, renamed, (src && src.kind !== 'calc') ? src.col : null, doRename,
+        (src && src.kind !== 'calc' && renamed) ? () => { setColLabel(src.tid, src.col, src.col); renderQueryBuilder(); if (db.result) renderResults(db.result); } : null),
       cellRenderer: params => {
         const v = params.value;
         return v == null ? '' : String(v);

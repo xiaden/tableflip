@@ -437,6 +437,15 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
   border-color: var(--chip-color, var(--accent));
   color: var(--chip-fg, #fff);
 }
+.pl-col-chip.pl-col-chip-layout-hidden {
+  opacity: 0.45;
+  filter: saturate(0.2);
+}
+.pl-col-chip.on.pl-col-chip-layout-hidden {
+  background: var(--bg3) !important;
+  border-color: var(--border) !important;
+  color: var(--muted) !important;
+}
 .pl-col-chip:hover:not(.on) { border-color: var(--chip-color, var(--accent)); color: var(--chip-color, var(--accent)); }
 
 /* Arrow connector between stages */

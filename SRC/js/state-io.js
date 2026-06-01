@@ -263,7 +263,10 @@ function loadState(file) {
 
     // ── Col Totals ────────────────────────────────────────────────────────────
     db.colTotals = {};
-    const VALID_TOTAL_FNS = new Set(['SUM', 'COUNT', 'AVG', 'MIN', 'MAX']);
+    const VALID_TOTAL_FNS = new Set([
+      'SUM', 'COUNT', 'COUNT ROWS', 'COUNT NON-EMPTY', 'COUNT DISTINCT',
+      'AVG', 'MIN', 'MAX', 'LIST',
+    ]);
     for (const [col, fn] of Object.entries(payload.colTotals || {})) {
       if (available.has(col) && VALID_TOTAL_FNS.has(fn)) db.colTotals[col] = fn;
     }
@@ -331,12 +334,12 @@ function loadState(file) {
       },
       totals: {
         selCols: totalsSel,
-        colTotals: sanitizeColFns(sanitizeModeState.totals?.colTotals || db.colTotals, VALID_TOTAL_FNS),
+        colTotals: sanitizeColFns(sanitizeModeState.totals?.colTotals ?? db.colTotals, VALID_TOTAL_FNS),
       },
       subtotals: {
         selCols: subtotalsSel,
         subtotalBy: subtotalByState,
-        subtotalFns: sanitizeColFns(modeSubtotals?.subtotalFns || db.subtotalFns, VALID_SUBTOTAL_FNS),
+        subtotalFns: sanitizeColFns(modeSubtotals?.subtotalFns ?? db.subtotalFns, VALID_SUBTOTAL_FNS),
         subtotalGrandTotal: modeSubtotals && Object.prototype.hasOwnProperty.call(modeSubtotals, 'subtotalGrandTotal')
           ? modeSubtotals.subtotalGrandTotal !== false
           : db.subtotalGrandTotal !== false,
