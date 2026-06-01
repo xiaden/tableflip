@@ -225,8 +225,9 @@ function _buildCombineSQL(params) {
           return `${cTxt} ${compOp === '=' ? '=' : '!='} '${cv.replace(/'/g, "''")}'`;
         });
         const sqlLiteral = v => {
-          const n = parseFloat(String(v).replace(/,/g, ''));
-          return Number.isFinite(n) ? String(n) : `'${String(v).replace(/'/g, "''")}'`;
+          const s = String(v).trim();
+          const stripped = s.replace(/,/g, '');
+          return /^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(stripped) ? stripped : `'${s.replace(/'/g, "''")}'`;
         };
         const thenVal = s.customTF && String(s.trueVal ?? '').trim() !== '' ? sqlLiteral(s.trueVal) : '1';
         const elseVal = s.customTF && String(s.falseVal ?? '').trim() !== '' ? sqlLiteral(s.falseVal) : '0';

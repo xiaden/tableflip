@@ -333,6 +333,8 @@ function renderPipeline(ids) {
       });
     }
     // Also handle live input for trueVal / falseVal fields
+    // el.dataset.cond === undefined ensures we only match top-level calc inputs,
+    // not per-condition val inputs which also carry data-cp="val" and data-cond.
     if (el.tagName === 'INPUT' && el.dataset.cond === undefined && (el.dataset.cp === 'trueVal' || el.dataset.cp === 'falseVal')) {
       el.addEventListener('input', e => {
         const i = +e.target.dataset.ci;
@@ -569,6 +571,11 @@ function _plCalcStage(calc, i) {
     .map(c => `<option value="${h(c)}" ${selCol === c ? 'selected' : ''}>${h(colDisplayLabel(c, colMap))}</option>`)
     .join('');
 
+  // Display labels used in the result description
+  const trueDisplay  = calc.customTF && String(calc.trueVal  ?? '').trim() !== '' ? h(String(calc.trueVal))  : '1';
+  const falseDisplay = calc.customTF && String(calc.falseVal ?? '').trim() !== '' ? h(String(calc.falseVal)) : '0';
+  const condModeText = compareMode === 'OR' ? 'any condition is' : 'all conditions are';
+
   const conditionsHtml = isCompare ? `
     ${conditions.map((cond, j) => `
     <div class="pl-key-pair" style="margin-top:${j === 0 ? '6px' : '4px'}">
@@ -602,7 +609,7 @@ function _plCalcStage(calc, i) {
         <input type="text" data-ci="${i}" data-cp="falseVal" placeholder="e.g. No" value="${h(String(calc.falseVal ?? ''))}" style="width:110px;flex-shrink:0">
       </div>` : ''}
     </div>
-    <div style="font-size:0.72rem;color:var(--muted);margin-top:4px">Result: ${calc.customTF && String(calc.trueVal ?? '').trim() !== '' ? h(String(calc.trueVal)) : '1'} if ${compareMode === 'OR' ? 'any condition is' : 'all conditions are'} true, ${calc.customTF && String(calc.falseVal ?? '').trim() !== '' ? h(String(calc.falseVal)) : '0'} if not</div>
+    <div style="font-size:0.72rem;color:var(--muted);margin-top:4px">Result: ${trueDisplay} if ${condModeText} true, ${falseDisplay} if not</div>
   ` : '';
 
   return `<div class="pl-lookup-stage${err ? ' pl-lookup-stage--invalid' : ''}">
