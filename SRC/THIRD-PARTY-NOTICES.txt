@@ -238,8 +238,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
    NOTE: Only the Community edition (MIT-licensed) of AG Grid is used.
-   The AG Grid files used by this application are loaded from jsDelivr CDN
-   (https://cdn.jsdelivr.net/) and have not been modified.
+   The AG Grid files used by this application are bundled locally in
+   the application distribution and have not been modified.
 
 
 ------------------------------------------------------------
@@ -273,8 +273,8 @@ SOFTWARE.
 
    NOTE: sql.js wraps SQLite, which is in the public domain
    (https://www.sqlite.org/copyright.html). The sql.js WebAssembly files
-   used by this application are loaded from cdnjs
-   (https://cdnjs.cloudflare.com/) and have not been modified.
+   used by this application are bundled locally in the application
+   distribution and have not been modified.
 
 
 ------------------------------------------------------------
