@@ -334,13 +334,17 @@ function buildQuery({ mode = 'group' } = {}) {
   const groupRefs  = [];
 
   if (hasAgg) {
+    const selColsSet = db.selCols instanceof Set ? db.selCols : null;
     for (const alias of db.groupBy) {
+      if (selColsSet && !selColsSet.has(alias)) continue;
       const r = ref(alias);
       selParts.push(`${r} AS ${quoteId(alias)}`);
       groupRefs.push(r);
       colAliases.push(alias);
     }
     for (const agg of db.aggregates) {
+      const outName0 = agg.alias.trim() || defaultAggAlias(agg.fn, (agg.col && agg.col !== '*') ? colDisplayLabel(agg.col, map) : 'all rows');
+      if (selColsSet && !selColsSet.has(outName0)) continue;
       const colLabel = (agg.col && agg.col !== '*') ? colDisplayLabel(agg.col, map) : 'all rows';
       const outName  = agg.alias.trim() || defaultAggAlias(agg.fn, colLabel);
       let expr;

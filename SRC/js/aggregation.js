@@ -357,6 +357,8 @@ function setSubtotalOnTop(checked) {
 function renderAggregateItems(cols) {
   const wrap   = document.getElementById('aggItems');
   const colMap = buildColSourceMap();
+  // Only offer visible columns in the aggregate column pickers
+  cols = (db.selCols instanceof Set) ? cols.filter(c => db.selCols.has(c)) : cols;
 
   if (!db.aggregates.length) {
     if (db.groupBy.length > 0) {

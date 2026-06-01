@@ -49,13 +49,7 @@ function renderResults(result) {
   // Append totals row with a local sentinel for row styling — never stored in db.result
   const tableData = totalsRow ? [...rows, { ...totalsRow, _isTotalsRow: true }] : rows;
 
-  const mergedSet = new Set(db.mergedCols || []);
-
-  // Precompute span extents for merged columns to avoid O(n²) per cell
-  const spanCache = _buildSpanCache(tableData, cols, mergedSet);
-  const underlineStartByRow = _buildMergeUnderlineStartMap(tableData, cols, mergedSet, spanCache);
-
-  const colDefs = makeResultCols(cols, mergedSet, spanCache, underlineStartByRow);
+  const colDefs = makeResultCols(cols);
 
   const options = {
     rowData:           tableData,
@@ -71,53 +65,10 @@ function renderResults(result) {
         return v == null ? '' : String(v);
       },
     },
-    suppressRowTransform:      true,  // required for rowSpan to work
     pagination:                true,
     paginationPageSize:        500,
     paginationPageSizeSelector:[100, 250, 500, 1000, 5000],
     multiSortKey:              'ctrl',
-    getRowStyle: params => {
-      const d = params.data;
-      if (!d) return;
-      const rowType = Number.isFinite(Number(d._row_type)) ? Number(d._row_type) : 0;
-      if (d._isTotalsRow || rowType === 3) {
-        return {
-          fontWeight:  '700',
-          background:  'rgba(88,166,255,0.10)',
-        };
-      }
-      if (rowType === 1) {
-        return {
-          fontWeight: '600',
-          fontStyle:  'italic',
-          background: 'rgba(160,160,160,0.09)',
-        };
-      }
-      if (rowType === 2) {
-        return {
-          background: 'transparent',
-          borderTop:  'none',
-          pointerEvents: 'none',
-        };
-      }
-    },
-    rowClassRules: {
-      'row-spacer': params => {
-        if (!params.data) return false;
-        const t = Number(params.data._row_type);
-        return Number.isFinite(t) && t === 2;
-      },
-      'row-summary-subtotal': params => {
-        if (!params.data) return false;
-        const t = Number(params.data._row_type);
-        return Number.isFinite(t) && t === 1;
-      },
-      'row-summary-grand': params => {
-        if (!params.data) return false;
-        const t = Number(params.data._row_type);
-        return params.data._isTotalsRow || (Number.isFinite(t) && t === 3);
-      },
-    },
     onColumnMoved:   () => _saveResultColState(),
     onColumnResized: () => _saveResultColState(),
     onColumnVisible: () => _saveResultColState(),
@@ -392,11 +343,10 @@ function clearExclusions(tableId) {
 
 // ── Column def builders ───────────────────────────────────────────────────────
 
-function makeResultCols(cols, mergedSet, spanCache, underlineStartByRow = new Map()) {
+function makeResultCols(cols) {
   const colMap = buildColSourceMap();
   const dataCols = cols.filter(c => c !== '_rowno' && c !== '_row_type' && c !== '_isTotalsRow');
-  const firstDataCol = dataCols[0] || null;
-  return dataCols.map((c, cIdx) => {
+  return dataCols.map(c => {
     const src       = colMap.get(c);
     const dispLabel = colDisplayLabel(c, colMap);
     const renamed   = (src && src.kind !== 'calc') ? db.columnLabels?.[src.tid]?.[src.col] : undefined;
@@ -408,7 +358,7 @@ function makeResultCols(cols, mergedSet, spanCache, underlineStartByRow = new Ma
       if (db.result) renderResults(db.result);
     };
 
-    const colDef = {
+    return {
       field:       c,
       headerName:  dispLabel,
       tooltipField: c,
@@ -423,43 +373,7 @@ function makeResultCols(cols, mergedSet, spanCache, underlineStartByRow = new Ma
         const v = params.value;
         return v == null ? '' : String(v);
       },
-      cellClassRules: {
-        'summary-box-h': params => _isSummaryRowData(params.data),
-        'summary-box-left': params => _isSummaryRowData(params.data) && c === firstDataCol,
-        'summary-box-right': params => _isSummaryRowData(params.data) && c === _lastSummaryDataField(params.data, dataCols),
-        'merge-group-underline': params => {
-          if (!db.mergeGroupUnderline) return false;
-          const rowIdx = params.node && params.node.rowIndex;
-          if (rowIdx == null) return false;
-          const start = underlineStartByRow.get(rowIdx);
-          return start != null && cIdx >= start;
-        },
-      },
     };
-
-    // Apply rowSpan for merged duplicate cells
-    if (mergedSet.has(c) && spanCache[c]) {
-      const colSpans = spanCache[c];
-      colDef.rowSpan = params => {
-        const idx = params.node && params.node.rowIndex;
-        if (idx == null) return 1;
-        const s = colSpans[idx];
-        return s == null ? 1 : (s === 0 ? 1 : s);
-      };
-      colDef.cellClassRules = {
-        ...colDef.cellClassRules,
-        'cell-span-hidden': params => {
-          const idx = params.node && params.node.rowIndex;
-          return idx != null && colSpans[idx] === 0;
-        },
-        'cell-span-top': params => {
-          const idx = params.node && params.node.rowIndex;
-          return idx != null && (colSpans[idx] ?? 1) > 1;
-        },
-      };
-    }
-
-    return colDef;
   });
 }
 
