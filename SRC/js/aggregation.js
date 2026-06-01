@@ -176,9 +176,11 @@ function renderAggregation() {
   if (!db.base || !db.tables[db.base]) return;
 
   const projected  = projectedCols();
-  const cols       = db.colOrder
+  const allCols    = db.colOrder
     ? db.colOrder.filter(c => projected.includes(c))
     : projected;
+  // Only work with columns visible in the report layout
+  const cols = (db.selCols instanceof Set) ? allCols.filter(c => db.selCols.has(c)) : allCols;
   const mode       = db.aggMode || 'none';
   const aggSection = document.getElementById('aggSection');
   const totSec     = document.getElementById('totalsSection');
