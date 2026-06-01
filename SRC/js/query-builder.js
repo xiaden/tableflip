@@ -1503,8 +1503,8 @@ function runQuery() {
           // No aggregates defined: just return sorted detail rows
           db.result = { rows: detailRows, totalsRow: null, cols: detailCols };
           status.textContent = detailRows.length.toLocaleString() + ' rows';
-          renderResults(db.result);
           switchTab('results');
+          renderResults(db.result);
           return;
         }
 
@@ -1521,8 +1521,8 @@ function runQuery() {
           cols:      totalsQ.cols,
         };
         status.textContent = detailRows.length.toLocaleString() + ' rows + grand total';
-        renderResults(db.result);
         switchTab('results');
+        renderResults(db.result);
 
       } else if (db.aggMode === 'subtotals') {
         const result = buildSubtotalsQuery();
@@ -1537,17 +1537,18 @@ function runQuery() {
         db.result = { rows, totalsRow: null, cols: result.displayCols, hasSubtotals: true };
         status.textContent  = detailCount.toLocaleString() + ' rows + ' + subtotalCount + ' subtotals'
           + (db.subtotalGrandTotal !== false ? ' + grand total' : '');
-        renderResults(db.result);
         switchTab('results');
+        renderResults(db.result);
 
       } else {
         // ── Summarize / plain mode (default) ─────────────────────────────────
-        const { sql, params, cols } = buildQuery();
+        const mode = db.aggMode === 'group' ? 'group' : 'detail';
+        const { sql, params, cols } = buildQuery({ mode });
         const rows = execQuery(sql, params);
         db.result = { rows, totalsRow: null, cols };
         status.textContent = rows.length.toLocaleString() + ' rows';
-        renderResults(db.result);
         switchTab('results');
+        renderResults(db.result);
       }
     } catch (ex) {
       status.textContent = 'Error';

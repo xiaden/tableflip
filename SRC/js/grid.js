@@ -3,6 +3,20 @@
 let gridResult  = null;  // AG Grid API for results
 let gridPreview = null;  // AG Grid API for preview
 
+function refreshResultGridLayout() {
+  if (!gridResult) return;
+  try { gridResult.resetRowHeights?.(); } catch (_) {}
+  try { gridResult.refreshCells?.({ force: true }); } catch (_) {}
+  try { gridResult.redrawRows?.(); } catch (_) {}
+}
+
+function refreshPreviewGridLayout() {
+  if (!gridPreview) return;
+  try { gridPreview.resetRowHeights?.(); } catch (_) {}
+  try { gridPreview.refreshCells?.({ force: true }); } catch (_) {}
+  try { gridPreview.redrawRows?.(); } catch (_) {}
+}
+
 // ── Results grid ──────────────────────────────────────────────────────────────
 function renderResults(result) {
   const wrap    = document.getElementById('resultsWrap');
@@ -111,6 +125,9 @@ function renderResults(result) {
 
   const el = document.getElementById('resGrid');
   gridResult = agGrid.createGrid(el, options);
+
+  // Let layout settle, then force a render pass (helps after tab switches).
+  requestAnimationFrame(() => requestAnimationFrame(() => refreshResultGridLayout()));
 
   // Restore saved column state (order + widths) if available
   if (db.colState) {
@@ -353,6 +370,9 @@ function loadPreview() {
       }
     },
   });
+
+  // Let layout settle, then force a render pass (helps after tab switches).
+  requestAnimationFrame(() => requestAnimationFrame(() => refreshPreviewGridLayout()));
 }
 
 function toggleRowExclusion(tableId, rowno) {
