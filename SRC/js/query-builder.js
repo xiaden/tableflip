@@ -27,7 +27,7 @@ function _isSourceVisibleInLayout(tid, col, colMap, mode) {
   return !seen;
 }
 
-function _showLayoutAliasesForSource(tid, col = null) {
+function _setLayoutAliasesForSourceVisibility(tid, col = null, isVisible = true) {
   const mode = db.aggMode || 'none';
   if (!tid || mode === 'group' || mode === 'subtotals') return;
   const aliases = projectedCols();
@@ -37,8 +37,17 @@ function _showLayoutAliasesForSource(tid, col = null) {
     const src = colMap.get(alias);
     if (src?.tid !== tid) continue;
     if (col !== null && src?.col !== col) continue;
-    db.selCols.add(alias);
+    if (isVisible) db.selCols.add(alias);
+    else db.selCols.delete(alias);
   }
+}
+
+function _showLayoutAliasesForSource(tid, col = null) {
+  _setLayoutAliasesForSourceVisibility(tid, col, true);
+}
+
+function _hideLayoutAliasesForSource(tid, col = null) {
+  _setLayoutAliasesForSourceVisibility(tid, col, false);
 }
 
 function _isAliasVisibleInLayout(alias, mode) {
@@ -261,10 +270,13 @@ function renderPipeline(ids) {
       if (!lp) return;
       const lk = db.lookups[i];
       if (lp === 'rightId') {
+        const prevRightId = lk.rightId;
         lk.rightId   = e.target.value;
         lk.keyPairs  = [{ left: '', right: '' }];
         const rt = lk.rightId && db.tables[lk.rightId];
         lk.cols = rt ? [...rt.cols] : [];
+        if (prevRightId && prevRightId !== lk.rightId) _hideLayoutAliasesForSource(prevRightId);
+        if (lk.rightId) _showLayoutAliasesForSource(lk.rightId);
       } else if (lp === 'required') {
         lk.required = e.target.value === '1';
       } else if (lp === 'kpLeft' || lp === 'kpRight') {
@@ -379,7 +391,10 @@ function renderPipeline(ids) {
       const col = el.dataset.lcc;
       const lk  = db.lookups[i];
       const idx = (lk.cols || []).indexOf(col);
-      if (idx >= 0) lk.cols.splice(idx, 1);
+      if (idx >= 0) {
+        lk.cols.splice(idx, 1);
+        _hideLayoutAliasesForSource(lk.rightId, col);
+      }
       else {
         if (!lk.cols) lk.cols = [];
         lk.cols.push(col);
@@ -397,7 +412,10 @@ function renderPipeline(ids) {
       const allCols = db.tables[db.base].cols;
       if (!db.baseCols) db.baseCols = [...allCols];
       const idx = db.baseCols.indexOf(col);
-      if (idx >= 0) db.baseCols.splice(idx, 1);
+      if (idx >= 0) {
+        db.baseCols.splice(idx, 1);
+        _hideLayoutAliasesForSource(db.base, col);
+      }
       else {
         db.baseCols.push(col);
         _showLayoutAliasesForSource(db.base, col);
@@ -430,6 +448,7 @@ function renderPipeline(ids) {
   });
   pl.querySelector('[data-bc-none]')?.addEventListener('click', () => {
     db.baseCols = [];
+    _hideLayoutAliasesForSource(db.base);
     _afterCombineChange();
   });
 
@@ -1010,7 +1029,9 @@ function selectAllLookupCols(i) {
   }
 }
 function selectNoneLookupCols(i) {
-  db.lookups[i].cols = [];
+  const lk = db.lookups[i];
+  lk.cols = [];
+  _hideLayoutAliasesForSource(lk.rightId);
   _afterCombineChange();
 }
 

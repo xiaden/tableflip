@@ -13,7 +13,9 @@ function buildColSourceMap() {
   const map = new Map();
   if (!db.base || !db.tables[db.base]) return map;
 
-  (db.baseCols || db.tables[db.base].cols).forEach(c => map.set(c, { tid: db.base, col: c }));
+  // Keep all base columns in the source map so hidden columns remain usable
+  // for downstream lookups/calculations/filters/sorts.
+  db.tables[db.base].cols.forEach(c => map.set(c, { tid: db.base, col: c }));
 
   const hasLookups = db.lookups && db.lookups.length > 0;
   if (hasLookups) {
@@ -22,7 +24,9 @@ function buildColSourceMap() {
       if (!_lkKeyPairs(lk).length) continue;  // no complete pairs — skip cols too
       const rt     = db.tables[lk.rightId];
       const prefix = tablePrefix(rt.name);
-      (lk.cols || []).forEach(c => {
+      // Keep all lookup columns in the source map (output visibility is
+      // controlled separately via db.selCols).
+      rt.cols.forEach(c => {
         const alias = map.has(c) ? prefix + c : c;
         if (!map.has(alias)) map.set(alias, { tid: lk.rightId, col: c });
       });
@@ -112,7 +116,7 @@ function _lkKeyPairs(lk) {
 // any col from a prior lookup's table even if they're not bringing it into the output.
 function projectedColsUpToLookup(upTo) {
   if (!db.base || !db.tables[db.base]) return [];
-  const cols   = [...(db.baseCols || db.tables[db.base].cols)];
+  const cols   = [...db.tables[db.base].cols];
   const colSet = new Set(cols);
   for (let i = 0; i < upTo; i++) {
     const lk = (db.lookups || [])[i];
