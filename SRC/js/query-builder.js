@@ -27,6 +27,20 @@ function _isSourceVisibleInLayout(tid, col, colMap, mode) {
   return !seen;
 }
 
+function _showLayoutAliasesForSource(tid, col = null) {
+  const mode = db.aggMode || 'none';
+  if (!tid || mode === 'group' || mode === 'subtotals') return;
+  const aliases = projectedCols();
+  if (!(db.selCols instanceof Set)) db.selCols = new Set(aliases);
+  const colMap = buildColSourceMap();
+  for (const alias of aliases) {
+    const src = colMap.get(alias);
+    if (src?.tid !== tid) continue;
+    if (col !== null && src?.col !== col) continue;
+    db.selCols.add(alias);
+  }
+}
+
 // ── Top-level render ──────────────────────────────────────────────────────────
 function renderQueryBuilder() {
   const ids = Object.keys(db.tables).sort((a, b) => db.tables[a].name.localeCompare(db.tables[b].name));
@@ -343,15 +357,7 @@ function renderPipeline(ids) {
       else {
         if (!lk.cols) lk.cols = [];
         lk.cols.push(col);
-        const mode = db.aggMode || 'none';
-        if (lk.rightId && mode !== 'group' && mode !== 'subtotals') {
-          if (!(db.selCols instanceof Set)) db.selCols = new Set(projectedCols());
-          const colMap = buildColSourceMap();
-          for (const alias of projectedCols()) {
-            const src = colMap.get(alias);
-            if (src?.tid === lk.rightId && src?.col === col) db.selCols.add(alias);
-          }
-        }
+        _showLayoutAliasesForSource(lk.rightId, col);
       }
       el.classList.toggle('on', (lk.cols || []).includes(col));
       _afterCombineChange();
@@ -368,15 +374,7 @@ function renderPipeline(ids) {
       if (idx >= 0) db.baseCols.splice(idx, 1);
       else {
         db.baseCols.push(col);
-        const mode = db.aggMode || 'none';
-        if (mode !== 'group' && mode !== 'subtotals') {
-          if (!(db.selCols instanceof Set)) db.selCols = new Set(projectedCols());
-          const colMap = buildColSourceMap();
-          for (const alias of projectedCols()) {
-            const src = colMap.get(alias);
-            if (src?.tid === db.base && src?.col === col) db.selCols.add(alias);
-          }
-        }
+        _showLayoutAliasesForSource(db.base, col);
       }
       // If all selected, normalise back to null
       if (db.baseCols.length === allCols.length) db.baseCols = null;
@@ -386,15 +384,7 @@ function renderPipeline(ids) {
   // All/None base col buttons
   pl.querySelector('[data-bc-all]')?.addEventListener('click', () => {
     db.baseCols = null;
-    const mode = db.aggMode || 'none';
-    if (mode !== 'group' && mode !== 'subtotals') {
-      if (!(db.selCols instanceof Set)) db.selCols = new Set(projectedCols());
-      const colMap = buildColSourceMap();
-      for (const alias of projectedCols()) {
-        const src = colMap.get(alias);
-        if (src?.tid === db.base) db.selCols.add(alias);
-      }
-    }
+    _showLayoutAliasesForSource(db.base);
     _afterCombineChange();
   });
   pl.querySelector('[data-bc-none]')?.addEventListener('click', () => {
@@ -943,15 +933,7 @@ function selectAllLookupCols(i) {
   const rt = lk.rightId && db.tables[lk.rightId];
   if (rt) {
     lk.cols = [...rt.cols];
-    const mode = db.aggMode || 'none';
-    if (mode !== 'group' && mode !== 'subtotals') {
-      if (!(db.selCols instanceof Set)) db.selCols = new Set(projectedCols());
-      const colMap = buildColSourceMap();
-      for (const alias of projectedCols()) {
-        const src = colMap.get(alias);
-        if (src?.tid === lk.rightId) db.selCols.add(alias);
-      }
-    }
+    _showLayoutAliasesForSource(lk.rightId);
     _afterCombineChange();
   }
 }
