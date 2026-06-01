@@ -246,12 +246,19 @@ function renderPipeline(ids) {
   // Calc inputs
   pl.querySelectorAll('[data-ci]').forEach(el => {
     el.addEventListener('change', e => {
-      const i  = +e.target.dataset.ci;
-      const cp = e.target.dataset.cp;
+      const i    = +e.target.dataset.ci;
+      const cp   = e.target.dataset.cp;
+      const condIdx = e.target.dataset.cond;
       if (!cp) return;
       const c = db.calcStages?.[i];
       if (!c) return;
-      if (cp === 'alias') {
+      if (condIdx !== undefined) {
+        // Condition field (col, op, or val)
+        const j = +condIdx;
+        if (!Array.isArray(c.conditions)) c.conditions = [];
+        if (!c.conditions[j]) c.conditions[j] = { col: '', op: '=', val: '' };
+        c.conditions[j][cp] = e.target.value;
+      } else if (cp === 'alias') {
         const oldAlias = (c.alias || '').trim();
         c.alias = e.target.value;
         const newAlias = (c.alias || '').trim();
@@ -260,9 +267,51 @@ function renderPipeline(ids) {
         c.explicitOrder = !!e.target.checked;
       } else if (cp === 'window') {
         c.window = Math.max(1, parseInt(e.target.value, 10) || 1);
+      } else if (cp === 'op') {
+        c[cp] = e.target.value;
+        // Auto-initialize conditions when switching to COMPARE
+        if (e.target.value === 'COMPARE' && (!Array.isArray(c.conditions) || !c.conditions.length)) {
+          c.conditions = [{ col: '', op: '=', val: '' }];
+        }
       } else {
         c[cp] = e.target.value;
       }
+      _afterCombineChange();
+    });
+
+    // Also handle live input for condition val fields
+    if (el.tagName === 'INPUT' && el.dataset.cond !== undefined && el.dataset.cp === 'val') {
+      el.addEventListener('input', e => {
+        const i = +e.target.dataset.ci;
+        const j = +e.target.dataset.cond;
+        const c = db.calcStages?.[i];
+        if (!c || !Array.isArray(c.conditions) || !c.conditions[j]) return;
+        c.conditions[j].val = e.target.value;
+        _afterCombineChange();
+      });
+    }
+  });
+
+  // Add condition button
+  pl.querySelectorAll('[data-addcond]').forEach(el => {
+    el.addEventListener('click', () => {
+      const i = +el.dataset.addcond;
+      const c = db.calcStages?.[i];
+      if (!c) return;
+      if (!Array.isArray(c.conditions)) c.conditions = [];
+      c.conditions.push({ col: '', op: '=', val: '' });
+      _afterCombineChange();
+    });
+  });
+
+  // Remove condition button
+  pl.querySelectorAll('[data-rmcond]').forEach(el => {
+    el.addEventListener('click', () => {
+      const i = +el.dataset.ci;
+      const j = +el.dataset.rmcond;
+      const c = db.calcStages?.[i];
+      if (!c || !Array.isArray(c.conditions) || c.conditions.length <= 1) return;
+      c.conditions.splice(j, 1);
       _afterCombineChange();
     });
   });
@@ -405,10 +454,12 @@ function _plCalcStage(calc, i) {
   const cols   = projectedCols();
   const colMap = buildColSourceMap();
   const alias  = (calc.alias || '').trim();
-  const op = ['+', '-', '*', '/', 'ROLLAVG', 'PCTTOTAL'].includes(calc.op) ? calc.op : '-';
+  const VALID_OPS = ['+', '-', '*', '/', 'ROLLAVG', 'PCTTOTAL', 'COMPARE'];
+  const op = VALID_OPS.includes(calc.op) ? calc.op : '-';
   const isArithmetic = ['+', '-', '*', '/'].includes(op);
   const isRolling    = op === 'ROLLAVG';
   const isPctTotal   = op === 'PCTTOTAL';
+  const isCompare    = op === 'COMPARE';
   const leftOpts = cols
     .filter(c => c !== alias)
     .map(c => `<option value="${h(c)}" ${calc.left === c ? 'selected' : ''}>${h(colDisplayLabel(c, colMap))}</option>`)
@@ -426,25 +477,57 @@ function _plCalcStage(calc, i) {
   const orderDir = calc.orderDir === 'DESC' ? 'DESC' : 'ASC';
   const err = calc._error || '';
 
+  // Build comparison ops options for conditions
+  const COND_OPS = ['=', '!=', '>', '>=', '<', '<='];
+  const conditions = Array.isArray(calc.conditions) ? calc.conditions : [];
+
+  const condOptsFor = (selOp) => COND_OPS
+    .map(o => `<option value="${h(o)}" ${selOp === o ? 'selected' : ''}>${h(o)}</option>`)
+    .join('');
+  const colOptsFor  = (selCol) => cols
+    .filter(c => c !== alias)
+    .map(c => `<option value="${h(c)}" ${selCol === c ? 'selected' : ''}>${h(colDisplayLabel(c, colMap))}</option>`)
+    .join('');
+
+  const conditionsHtml = isCompare ? `
+    ${conditions.map((cond, j) => `
+    <div class="pl-key-pair" style="margin-top:${j === 0 ? '6px' : '4px'}">
+      <span class="pl-key-pair-label">${j === 0 ? 'Where' : 'AND'}</span>
+      <select data-ci="${i}" data-cond="${j}" data-cp="col" style="min-width:160px">
+        <option value="">— column —</option>${colOptsFor(cond.col || '')}
+      </select>
+      <select data-ci="${i}" data-cond="${j}" data-cp="op" style="width:62px;flex-shrink:0">
+        ${condOptsFor(cond.op || '=')}
+      </select>
+      <input type="text" data-ci="${i}" data-cond="${j}" data-cp="val" placeholder="value" value="${h(cond.val || '')}" style="min-width:110px">
+      ${conditions.length > 1 ? `<button class="btn btn-danger" style="flex-shrink:0" data-rmcond="${j}" data-ci="${i}" title="Remove this condition">✕</button>` : ''}
+    </div>`).join('')}
+    <div style="margin-top:5px">
+      <button class="btn btn-ghost" style="font-size:0.76rem;padding:3px 8px" data-addcond="${i}">＋ AND …</button>
+    </div>
+    <div style="font-size:0.72rem;color:var(--muted);margin-top:4px">Result: 1 if all conditions true, 0 if not</div>
+  ` : '';
+
   return `<div class="pl-lookup-stage${err ? ' pl-lookup-stage--invalid' : ''}">
-    <div class="pl-stage-label">Calculated column <span class="tip" data-tip="Create a virtual column from existing columns.&#10;Arithmetic: uses two columns (left op right).&#10;Rolling Avg: uses the left column + window size.&#10;% of Total: uses the left column within current filtered scope.">?</span></div>
+    <div class="pl-stage-label">Calculated column <span class="tip" data-tip="Create a virtual column from existing columns.&#10;Arithmetic: uses two columns (left op right).&#10;Rolling Avg: uses the left column + window size.&#10;% of Total: uses the left column within current filtered scope.&#10;Compare: tests one or more column conditions (AND) and outputs 1 (true) or 0 (false).">?</span></div>
     ${err ? `<div class="pl-lookup-error">⛔ ${h(err)}</div>` : ''}
     <div class="pl-lookup-header" style="gap:8px;flex-wrap:wrap">
       <input type="text" data-ci="${i}" data-cp="alias" placeholder="Output column name (e.g. Remaining to Ship)" value="${h(calc.alias || '')}" style="flex:1;min-width:180px">
       <button class="btn btn-danger" style="flex-shrink:0" data-rmcalc="${i}">✕</button>
     </div>
     <div class="pl-key-pair" style="margin-top:8px">
-      <span class="pl-key-pair-label">Formula</span>
+      ${isCompare ? '' : `<span class="pl-key-pair-label">Formula</span>
       <select data-ci="${i}" data-cp="left" style="min-width:190px">
         <option value="">— source column —</option>${leftOpts}
-      </select>
-      <select data-ci="${i}" data-cp="op" style="width:90px;flex-shrink:0">
+      </select>`}
+      <select data-ci="${i}" data-cp="op" style="width:${isCompare ? '120px' : '100px'};flex-shrink:0">
         <option value="+" ${op === '+' ? 'selected' : ''}>+</option>
         <option value="-" ${op === '-' ? 'selected' : ''}>−</option>
         <option value="*" ${op === '*' ? 'selected' : ''}>×</option>
         <option value="/" ${op === '/' ? 'selected' : ''}>÷</option>
         <option value="ROLLAVG" ${op === 'ROLLAVG' ? 'selected' : ''}>Rolling Avg</option>
         <option value="PCTTOTAL" ${op === 'PCTTOTAL' ? 'selected' : ''}>% of Total</option>
+        <option value="COMPARE" ${op === 'COMPARE' ? 'selected' : ''}>Compare…</option>
       </select>
       ${isArithmetic ? `<select data-ci="${i}" data-cp="right" style="min-width:190px">
         <option value="">— compare with column —</option>${rightOpts}
@@ -463,6 +546,7 @@ function _plCalcStage(calc, i) {
       </select>` : ''}` : ''}
       ${isPctTotal ? `<span style="font-size:0.72rem;color:var(--muted);margin-left:6px">Scope: current filtered rows${(db.aggMode || 'none') === 'subtotals' && (db.subtotalBy || []).length ? ' (per subtotal group)' : ''}</span>` : ''}
     </div>
+    ${isCompare ? conditionsHtml : ''}
   </div>`;
 }
 
@@ -563,6 +647,7 @@ function addCalcStage() {
     left: '',
     op: '-',
     right: '',
+    conditions: [],
     window: 7,
     explicitOrder: false,
     orderCol: '',
@@ -619,6 +704,9 @@ function _renameProjectedAliasRefs(oldAlias, newAlias) {
     if (c.left === oldAlias) c.left = newAlias;
     if (c.right === oldAlias) c.right = newAlias;
     if (c.orderCol === oldAlias) c.orderCol = newAlias;
+    for (const cond of (c.conditions || [])) {
+      if (cond.col === oldAlias) cond.col = newAlias;
+    }
   }
 
   if (db.colTotals && Object.prototype.hasOwnProperty.call(db.colTotals, oldAlias)) {
@@ -642,24 +730,42 @@ function _calcStageError(calc, i) {
   const isArithmetic = ['+', '-', '*', '/'].includes(op);
   const isRolling    = op === 'ROLLAVG';
   const isPctTotal   = op === 'PCTTOTAL';
-  if (!isArithmetic && !isRolling && !isPctTotal) return 'Pick a valid operator.';
+  const isCompare    = op === 'COMPARE';
+  if (!isArithmetic && !isRolling && !isPctTotal && !isCompare) return 'Pick a valid operator.';
   if ((isRolling || isPctTotal) && (db.aggMode || 'none') === 'group') {
     return 'Rolling Avg and % of Total are available in detail/totals/subtotals modes (not summarize mode).';
   }
-  if (!calc.left) return 'Pick a source column.';
-  if (isArithmetic && !calc.right) return 'Pick the second source column.';
-  if (isRolling) {
-    const w = Math.max(1, parseInt(calc.window, 10) || 0);
-    if (!Number.isFinite(w) || w < 1) return 'Rolling average window must be 1 or greater.';
-    if (calc.explicitOrder && !calc.orderCol) return 'Pick an order-by column for explicit order mode.';
-  }
 
-  const cols = new Set(projectedCols());
-  if (!cols.has(calc.left) || (isArithmetic && !cols.has(calc.right))) {
-    return 'One or more source columns are no longer available (sheet removed or stage changed).';
-  }
-  if (isRolling && calc.explicitOrder && calc.orderCol && !cols.has(calc.orderCol)) {
-    return 'Order-by column is no longer available.';
+  if (isCompare) {
+    const conditions = Array.isArray(calc.conditions) ? calc.conditions : [];
+    if (!conditions.length) return 'Add at least one comparison condition.';
+    const cols = new Set(projectedCols());
+    for (let ci = 0; ci < conditions.length; ci++) {
+      const cond = conditions[ci];
+      if (!cond.col) return `Pick a column for condition ${ci + 1}.`;
+      if (!cols.has(cond.col)) return `Column for condition ${ci + 1} is no longer available.`;
+      if (!String(cond.val ?? '').trim()) return `Enter a value for condition ${ci + 1}.`;
+      if (cond.col === alias) return 'A condition column cannot reference the output column itself.';
+    }
+  } else {
+    if (!calc.left) return 'Pick a source column.';
+    if (isArithmetic && !calc.right) return 'Pick the second source column.';
+    if (isRolling) {
+      const w = Math.max(1, parseInt(calc.window, 10) || 0);
+      if (!Number.isFinite(w) || w < 1) return 'Rolling average window must be 1 or greater.';
+      if (calc.explicitOrder && !calc.orderCol) return 'Pick an order-by column for explicit order mode.';
+    }
+
+    const cols = new Set(projectedCols());
+    if (!cols.has(calc.left) || (isArithmetic && !cols.has(calc.right))) {
+      return 'One or more source columns are no longer available (sheet removed or stage changed).';
+    }
+    if (isRolling && calc.explicitOrder && calc.orderCol && !cols.has(calc.orderCol)) {
+      return 'Order-by column is no longer available.';
+    }
+    if (calc.left === alias || (isArithmetic && calc.right === alias) || (isRolling && calc.orderCol === alias)) {
+      return 'A column cannot reference itself.';
+    }
   }
 
   // Alias conflicts with existing non-calc columns or duplicates another calc alias.
@@ -671,9 +777,6 @@ function _calcStageError(calc, i) {
   const duplicates = (db.calcStages || []).filter((c, idx) => idx !== i && (c.alias || '').trim() === alias);
   if (duplicates.length) return 'Label must be unique across calculated columns.';
 
-  if (calc.left === alias || (isArithmetic && calc.right === alias) || (isRolling && calc.orderCol === alias)) {
-    return 'A column cannot reference itself.';
-  }
   return null;
 }
 
@@ -1040,7 +1143,7 @@ function _populateFilterDatalist(i, alias) {
 }
 
 function addFilter() {
-  db.filters.push({ col: '', op: 'contains', val: '' });
+  db.filters.push({ col: '', op: 'contains', vals: [''] });
   renderFilters();
 }
 
@@ -1064,6 +1167,14 @@ function renderFilters() {
 
   wrap.innerHTML = db.filters.map((f, i) => {
     const noVal = NO_VAL_OPS.has(f.op);
+    // Support both old `val` string and new `vals` array
+    const vals = Array.isArray(f.vals) ? f.vals : [f.val ?? ''];
+    const orValInputs = vals.map((v, j) => `
+      ${j > 0 ? '<span style="font-size:0.7rem;color:var(--muted);padding:0 1px;flex-shrink:0">OR</span>' : ''}
+      <input type="text" list="fdl_${i}" placeholder="value" value="${h(v)}"
+             data-fi="${i}" data-vi="${j}" data-fp="val" style="width:120px">
+      ${j > 0 ? `<button class="btn btn-danger" style="padding:2px 5px;font-size:0.75rem;flex-shrink:0" data-rmval="${j}" data-fi="${i}" title="Remove this OR value">✕</button>` : ''}
+    `).join('');
     return `
     <div class="filter-row">
       <select data-fi="${i}" data-fp="col">
@@ -1073,9 +1184,11 @@ function renderFilters() {
       <select class="fop" data-fi="${i}" data-fp="op">
         ${FILTER_OPS.map(op => `<option value="${op}" ${f.op === op ? 'selected' : ''}>${op}</option>`).join('')}
       </select>
-      <input type="text" list="fdl_${i}" placeholder="value" value="${h(f.val)}"
-             data-fi="${i}" data-fp="val"${noVal ? ' style="display:none"' : ''}>
-      <datalist id="fdl_${i}"></datalist>
+      <span class="filter-or-wrap" style="display:${noVal ? 'none' : 'flex'};gap:4px;align-items:center;flex-wrap:wrap">
+        ${orValInputs}
+        <button class="btn btn-ghost" style="padding:2px 7px;font-size:0.76rem;flex-shrink:0" data-addorval="${i}" title="Add OR value">＋</button>
+        <datalist id="fdl_${i}"></datalist>
+      </span>
       <button class="btn btn-danger" data-rmf="${i}">✕</button>
     </div>`;
   }).join('');
@@ -1087,25 +1200,58 @@ document.getElementById('filterItems').addEventListener('change', e => {
   const { fi, fp } = e.target.dataset;
   if (fi === undefined || !fp) return;
   const i = +fi;
-  db.filters[i][fp] = e.target.value;
+  const f = db.filters[i];
+  if (!f) return;
   if (fp === 'col') {
-    db.filters[i].val = '';
-    const row = e.target.closest('.filter-row');
-    row.querySelector('input[data-fp="val"]').value = '';
-    _populateFilterDatalist(i, e.target.value);
-  }
-  if (fp === 'op') {
-    const inp = e.target.closest('.filter-row').querySelector('input[data-fp="val"]');
-    inp.style.display = NO_VAL_OPS.has(e.target.value) ? 'none' : '';
+    f.col = e.target.value;
+    f.vals = [''];
+    renderFilters();
+    if (f.col) _populateFilterDatalist(i, f.col);
+  } else if (fp === 'op') {
+    f.op = e.target.value;
+    const orWrap = e.target.closest('.filter-row').querySelector('.filter-or-wrap');
+    if (orWrap) orWrap.style.display = NO_VAL_OPS.has(e.target.value) ? 'none' : 'flex';
   }
 });
 document.getElementById('filterItems').addEventListener('input', e => {
-  const { fi, fp } = e.target.dataset;
-  if (fi !== undefined && fp === 'val') db.filters[+fi].val = e.target.value;
+  const { fi, vi, fp } = e.target.dataset;
+  if (fi !== undefined && fp === 'val' && vi !== undefined) {
+    const f = db.filters[+fi];
+    if (f) {
+      if (!Array.isArray(f.vals)) f.vals = [f.val ?? ''];
+      f.vals[+vi] = e.target.value;
+    }
+  }
 });
 document.getElementById('filterItems').addEventListener('click', e => {
-  const btn = e.target.closest('[data-rmf]');
-  if (btn) removeFilter(+btn.dataset.rmf);
+  const rmf = e.target.closest('[data-rmf]');
+  if (rmf) { removeFilter(+rmf.dataset.rmf); return; }
+
+  const addOrBtn = e.target.closest('[data-addorval]');
+  if (addOrBtn) {
+    const i = +addOrBtn.dataset.addorval;
+    const f = db.filters[i];
+    if (!f) return;
+    if (!Array.isArray(f.vals)) f.vals = [f.val ?? ''];
+    f.vals.push('');
+    renderFilters();
+    if (f.col) _populateFilterDatalist(i, f.col);
+    return;
+  }
+
+  const rmVal = e.target.closest('[data-rmval]');
+  if (rmVal) {
+    const i = +rmVal.dataset.fi;
+    const j = +rmVal.dataset.rmval;
+    const f = db.filters[i];
+    if (!f) return;
+    if (!Array.isArray(f.vals)) f.vals = [f.val ?? ''];
+    if (f.vals.length <= 1) return;
+    f.vals.splice(j, 1);
+    renderFilters();
+    if (f.col) _populateFilterDatalist(i, f.col);
+    return;
+  }
 });
 
 // ── Sort order ────────────────────────────────────────────────────────────────

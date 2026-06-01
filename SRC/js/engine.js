@@ -49,9 +49,17 @@ function buildColSourceMap() {
     const isArithmetic = ['+', '-', '*', '/'].includes(op);
     const isRolling    = op === 'ROLLAVG';
     const isPctTotal   = op === 'PCTTOTAL';
-    if (!alias || !left || (!isRolling && !isPctTotal && !isArithmetic)) continue;
-    if (!map.has(left)) continue;
-    if (isArithmetic && (!right || !map.has(right))) continue;
+    const isCompare    = op === 'COMPARE';
+    if (!alias) continue;
+    if (!isArithmetic && !isRolling && !isPctTotal && !isCompare) continue;
+    if (isCompare) {
+      const conditions = calc?.conditions || [];
+      const hasValid = conditions.some(cond => cond?.col && map.has(cond.col) && String(cond?.val ?? '').trim());
+      if (!hasValid) continue;
+    } else {
+      if (!left || !map.has(left)) continue;
+      if (isArithmetic && (!right || !map.has(right))) continue;
+    }
     if (map.has(alias)) continue; // keep existing non-calc columns authoritative
     map.set(alias, {
       kind: 'calc', alias, left, op, right, idx: i,
@@ -59,6 +67,7 @@ function buildColSourceMap() {
       explicitOrder: !!calc?.explicitOrder,
       orderCol: calc?.orderCol || '',
       orderDir: calc?.orderDir === 'DESC' ? 'DESC' : 'ASC',
+      conditions: Array.isArray(calc?.conditions) ? calc.conditions : [],
     });
   }
 
@@ -191,6 +200,27 @@ function _buildCombineSQL(params) {
         const denom = `SUM(${l}) OVER (${overParts.join(' ')})`;
         return `(CASE WHEN ${denom} = 0 THEN NULL ELSE (${l} / ${denom}) * 100 END)`;
       }
+      case 'COMPARE': {
+        // Multi-condition AND builder: each condition is { col, op, val }
+        const conds = (s.conditions || []).filter(c => c?.col && String(c?.val ?? '').trim());
+        if (!conds.length) return 'NULL';
+        const parts = conds.map(cond => {
+          const colExpr = calcExpr(cond.col, new Set(trail));
+          const cNum    = toNum(colExpr);
+          const cTxt    = `CAST(${colExpr} AS TEXT)`;
+          const compOp  = ['=', '!=', '>', '>=', '<', '<='].includes(cond.op) ? cond.op : '=';
+          const cv      = String(cond.val ?? '').trim();
+          const cvStripped = cv.replace(/,/g, '');
+          const n       = parseFloat(cvStripped);
+          if (['>', '>=', '<', '<='].includes(compOp)) {
+            return `${cNum} ${compOp} ${Number.isFinite(n) ? n : 0}`;
+          }
+          // = or !=: numeric if possible, else text
+          if (cv !== '' && Number.isFinite(n)) return `${cNum} ${compOp} ${n}`;
+          return `${cTxt} ${compOp === '=' ? '=' : '!='} '${cv.replace(/'/g, "''")}'`;
+        });
+        return `(CASE WHEN ${parts.join(' AND ')} THEN 1 ELSE 0 END)`;
+      }
       default:  return 'NULL';
     }
   };
@@ -263,8 +293,13 @@ function _buildCombineSQL(params) {
     const fs = map.get(f.col);
     if (fs?.kind === 'calc' && (fs.op === 'ROLLAVG' || fs.op === 'PCTTOTAL')) continue;
     const isNumericCalc = fs?.kind === 'calc' && ['+', '-', '*', '/', 'ROLLAVG', 'PCTTOTAL'].includes(fs.op);
-    const part = buildWhere(ref(f.col), f.op, f.val, params, { numericHint: isNumericCalc });
-    if (part) whereParts.push(part);
+    const filterVals = Array.isArray(f.vals) ? f.vals : [f.val ?? ''];
+    const orParts = filterVals
+      .map(v => buildWhere(ref(f.col), f.op, String(v ?? ''), params, { numericHint: isNumericCalc }))
+      .filter(Boolean);
+    if (!orParts.length) continue;
+    const part = orParts.length > 1 ? `(${orParts.join(' OR ')})` : orParts[0];
+    whereParts.push(part);
   }
 
   return { fromClause, joinClauses, whereParts, ref, map };
