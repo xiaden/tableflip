@@ -327,7 +327,6 @@ function renderPipeline(ids) {
         const c = db.calcStages?.[i];
         if (!c || !Array.isArray(c.conditions) || !c.conditions[j]) return;
         c.conditions[j].val = e.target.value;
-        _afterCombineChange();
       });
     }
   });
