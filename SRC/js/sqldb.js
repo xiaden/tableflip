@@ -7,10 +7,15 @@
 window.sqlDb = null;
 
 async function initDb() {
+  const resolveSqlJsAsset = file => {
+    const rel = window.assetUrl ? window.assetUrl(`js/${file}`) : `js/${file}`;
+    // sql.js switches away from fetch() for file:// absolute URLs.
+    if (window.location.protocol === 'file:') return new URL(rel, window.location.href).href;
+    return rel;
+  };
+
   const SQL = await initSqlJs({
-    locateFile: file => (
-      window.assetUrl ? window.assetUrl(`js/${file}`) : `js/${file}`
-    ),
+    locateFile: resolveSqlJsAsset,
   });
   window.sqlDb = new SQL.Database();
 }
