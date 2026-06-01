@@ -27,6 +27,13 @@ function _isSourceVisibleInLayout(tid, col, colMap, mode) {
   return !seen;
 }
 
+function _isAliasVisibleInLayout(alias, mode) {
+  if (!alias) return true;
+  if (mode === 'group' || mode === 'subtotals') return true;
+  if (!(db.selCols instanceof Set)) return true;
+  return db.selCols.has(alias);
+}
+
 // ── Top-level render ──────────────────────────────────────────────────────────
 function renderQueryBuilder() {
   const ids = Object.keys(db.tables).sort((a, b) => db.tables[a].name.localeCompare(db.tables[b].name));
@@ -289,6 +296,9 @@ function renderPipeline(ids) {
         if (e.target.value === 'COMPARE' && (!Array.isArray(c.conditions) || !c.conditions.length)) {
           c.conditions = [{ col: '', op: '=', val: '' }];
         }
+        if (e.target.value === 'COMPARE') {
+          c.compareMode = c.compareMode === 'OR' ? 'OR' : 'AND';
+        }
       } else {
         c[cp] = e.target.value;
       }
@@ -312,9 +322,11 @@ function renderPipeline(ids) {
   pl.querySelectorAll('[data-addcond]').forEach(el => {
     el.addEventListener('click', () => {
       const i = +el.dataset.addcond;
+      const cm = el.dataset.cm === 'OR' ? 'OR' : 'AND';
       const c = db.calcStages?.[i];
       if (!c) return;
       if (!Array.isArray(c.conditions)) c.conditions = [];
+      c.compareMode = cm;
       c.conditions.push({ col: '', op: '=', val: '' });
       _afterCombineChange();
     });
@@ -360,6 +372,21 @@ function renderPipeline(ids) {
       _afterCombineChange();
     });
   });
+
+  // Calculated output chip
+  pl.querySelectorAll('[data-ccc]').forEach(el => {
+    el.addEventListener('click', () => {
+      const i = +el.dataset.ci;
+      const c = db.calcStages?.[i];
+      const alias = (c?.alias || '').trim();
+      if (!alias) return;
+      if (!db.selCols) db.selCols = new Set(projectedCols());
+      if (db.selCols.has(alias)) db.selCols.delete(alias);
+      else db.selCols.add(alias);
+      _afterCombineChange();
+    });
+  });
+
   // All/None base col buttons
   pl.querySelector('[data-bc-all]')?.addEventListener('click', () => {
     db.baseCols = null;
@@ -497,6 +524,7 @@ function _plCalcStage(calc, i) {
   // Build comparison ops options for conditions
   const COND_OPS = ['=', '!=', '>', '>=', '<', '<='];
   const conditions = Array.isArray(calc.conditions) ? calc.conditions : [];
+  const compareMode = calc.compareMode === 'OR' ? 'OR' : 'AND';
 
   const condOptsFor = (selOp) => COND_OPS
     .map(o => `<option value="${h(o)}" ${selOp === o ? 'selected' : ''}>${h(o)}</option>`)
@@ -509,7 +537,7 @@ function _plCalcStage(calc, i) {
   const conditionsHtml = isCompare ? `
     ${conditions.map((cond, j) => `
     <div class="pl-key-pair" style="margin-top:${j === 0 ? '6px' : '4px'}">
-      <span class="pl-key-pair-label">${j === 0 ? 'Where' : 'AND'}</span>
+      <span class="pl-key-pair-label">${j === 0 ? 'Where' : compareMode}</span>
       <select data-ci="${i}" data-cond="${j}" data-cp="col" style="min-width:160px">
         <option value="">— column —</option>${colOptsFor(cond.col || '')}
       </select>
@@ -520,18 +548,27 @@ function _plCalcStage(calc, i) {
       ${conditions.length > 1 ? `<button class="btn btn-danger" style="flex-shrink:0" data-rmcond="${j}" data-ci="${i}" title="Remove this condition">✕</button>` : ''}
     </div>`).join('')}
     <div style="margin-top:5px">
-      <button class="btn btn-ghost" style="font-size:0.76rem;padding:3px 8px" data-addcond="${i}">＋ AND …</button>
+      ${conditions.length <= 1 ? `
+      <button class="btn btn-ghost" style="font-size:0.76rem;padding:3px 8px" data-addcond="${i}" data-cm="AND">＋ AND …</button>
+      <button class="btn btn-ghost" style="font-size:0.76rem;padding:3px 8px" data-addcond="${i}" data-cm="OR">＋ OR …</button>
+      ` : `
+      <button class="btn btn-ghost" style="font-size:0.76rem;padding:3px 8px" data-addcond="${i}" data-cm="${compareMode}">＋ ${compareMode} …</button>
+      `}
     </div>
-    <div style="font-size:0.72rem;color:var(--muted);margin-top:4px">Result: 1 if all conditions true, 0 if not</div>
+    <div style="font-size:0.72rem;color:var(--muted);margin-top:4px">Result: 1 if ${compareMode === 'OR' ? 'any condition is' : 'all conditions are'} true, 0 if not</div>
   ` : '';
 
   return `<div class="pl-lookup-stage${err ? ' pl-lookup-stage--invalid' : ''}">
-    <div class="pl-stage-label">Calculated column <span class="tip" data-tip="Create a virtual column from existing columns.&#10;Arithmetic: uses two columns (left op right).&#10;Rolling Avg: uses the left column + window size.&#10;% of Total: uses the left column within current filtered scope.&#10;Compare: tests one or more column conditions (AND) and outputs 1 (true) or 0 (false).">?</span></div>
+    <div class="pl-stage-label">Calculated column <span class="tip" data-tip="Create a virtual column from existing columns.&#10;Arithmetic: uses two columns (left op right).&#10;Rolling Avg: uses the left column + window size.&#10;% of Total: uses the left column within current filtered scope.&#10;Compare: tests one or more column conditions using one mode (AND or OR) and outputs 1 (true) or 0 (false).">?</span></div>
     ${err ? `<div class="pl-lookup-error">⛔ ${h(err)}</div>` : ''}
     <div class="pl-lookup-header" style="gap:8px;flex-wrap:wrap">
       <input type="text" data-ci="${i}" data-cp="alias" placeholder="Output column name (e.g. Remaining to Ship)" value="${h(calc.alias || '')}" style="flex:1;min-width:180px">
       <button class="btn btn-danger" style="flex-shrink:0" data-rmcalc="${i}">✕</button>
     </div>
+    ${alias ? `<div class="pl-lookup-cols" style="margin-top:6px">
+      <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Output:</span>
+      <span class="pl-col-chip ${_isAliasVisibleInLayout(alias, db.aggMode || 'none') ? 'on' : ''}" data-ci="${i}" data-ccc="${h(alias)}">${h(colDisplayLabel(alias, colMap))}</span>
+    </div>` : ''}
     <div class="pl-key-pair" style="margin-top:8px">
       ${isCompare ? '' : `<span class="pl-key-pair-label">Formula</span>
       <select data-ci="${i}" data-cp="left" style="min-width:190px">
@@ -665,6 +702,7 @@ function addCalcStage() {
     op: '-',
     right: '',
     conditions: [],
+    compareMode: 'AND',
     window: 7,
     explicitOrder: false,
     orderCol: '',

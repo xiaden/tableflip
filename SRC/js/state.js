@@ -9,7 +9,7 @@ window.db = {
   baseCols:     null,  // null = all columns; array = selected subset from base sheet
   stacks:       [],    // tableIds to UNION ALL with base (same structure)
   lookups:      [],    // [{ rightId, leftKey, rightKey, cols:[], required:false }]
-  calcStages:   [],    // [{ alias, left, op, right, window, explicitOrder, orderCol, orderDir }]
+  calcStages:   [],    // [{ alias, left, op, right, conditions, compareMode, window, explicitOrder, orderCol, orderDir }]
   joins:        [],    // legacy — kept for backward compat with saved .rcjson files
   selCols:      null,
   colOrder:     null,
