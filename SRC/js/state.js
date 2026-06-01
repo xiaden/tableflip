@@ -17,6 +17,7 @@ window.db = {
   groupBy:      [],
   aggregates:   [],
   aggMode:            'none',
+  aggModeState:       null,  // per-mode layout settings snapshot
   colTotals:          {},
   subtotalBy:         [],
   subtotalFns:        {},

@@ -5,6 +5,8 @@ const STATE_VERSION = 1;
 // ── Save ──────────────────────────────────────────────────────────────────────
 function saveState() {
   if (!db.base) { toast('Nothing to save — load a data file first.', 'err'); return; }
+  if (typeof saveActiveAggModeState === 'function') saveActiveAggModeState();
+  if (typeof ensureAggModeState === 'function') ensureAggModeState();
 
   const raw = window.prompt('Save query as:', 'my-query');
   if (raw === null) return;                         // user cancelled
@@ -54,6 +56,7 @@ function saveState() {
     groupBy:      [...db.groupBy],
     aggregates:   db.aggregates.map(a => ({ ...a })),
     aggMode:            db.aggMode || 'none',
+    aggModeState:       JSON.parse(JSON.stringify(db.aggModeState || {})),
     colTotals:          { ...(db.colTotals || {}) },
     subtotalBy:         [...(db.subtotalBy || [])],
     subtotalFns:        { ...(db.subtotalFns || {}) },
@@ -260,7 +263,10 @@ function loadState(file) {
 
     // ── Col Totals ────────────────────────────────────────────────────────────
     db.colTotals = {};
-    const VALID_TOTAL_FNS = new Set(['SUM', 'COUNT', 'AVG', 'MIN', 'MAX']);
+    const VALID_TOTAL_FNS = new Set([
+      'SUM', 'COUNT', 'COUNT ROWS', 'COUNT NON-EMPTY', 'COUNT DISTINCT',
+      'AVG', 'MIN', 'MAX', 'LIST',
+    ]);
     for (const [col, fn] of Object.entries(payload.colTotals || {})) {
       if (available.has(col) && VALID_TOTAL_FNS.has(fn)) db.colTotals[col] = fn;
     }
@@ -283,6 +289,69 @@ function loadState(file) {
     db.subtotalGrandTotal = payload.subtotalGrandTotal !== false;
     db.subtotalSpacer     = !!payload.subtotalSpacer;
     db.subtotalOnTop      = !!payload.subtotalOnTop;
+
+    // ── Per-mode layout state ───────────────────────────────────────────────
+    const sanitizeSelCols = (sel) => {
+      if (!Array.isArray(sel)) return null;
+      return sel.filter(c => available.has(c));
+    };
+    const sanitizeAggregates = (list) => {
+      if (!Array.isArray(list)) return [];
+      return list
+        .filter(a => a && typeof a === 'object' && (!a.col || a.col === '*' || available.has(a.col)))
+        .map(a => ({ fn: a.fn || 'SUM', col: a.col || '*', alias: a.alias || '', auto: !!a.auto }));
+    };
+    const sanitizeColFns = (obj, validFns) => {
+      const out = {};
+      for (const [col, fn] of Object.entries(obj || {})) {
+        if (available.has(col) && validFns.has(fn)) out[col] = fn;
+      }
+      return out;
+    };
+    const sanitizeModeState = payload.aggModeState && typeof payload.aggModeState === 'object'
+      ? payload.aggModeState
+      : {};
+    const modeSubtotals = sanitizeModeState.subtotals && typeof sanitizeModeState.subtotals === 'object'
+      ? sanitizeModeState.subtotals
+      : null;
+    const totalsSel = sanitizeSelCols(sanitizeModeState.totals?.selCols ?? payload.selCols);
+    const noneSel = sanitizeSelCols(sanitizeModeState.none?.selCols ?? payload.selCols);
+    const subtotalsSel = sanitizeSelCols(sanitizeModeState.subtotals?.selCols ?? payload.selCols);
+    const groupByState = Array.isArray(sanitizeModeState.group?.groupBy)
+      ? sanitizeModeState.group.groupBy.filter(c => available.has(c))
+      : [...db.groupBy];
+    const subtotalByState = Array.isArray(sanitizeModeState.subtotals?.subtotalBy)
+      ? sanitizeModeState.subtotals.subtotalBy.filter(c => available.has(c))
+      : [...db.subtotalBy];
+
+    db.aggModeState = {
+      none: {
+        selCols: noneSel,
+      },
+      group: {
+        groupBy: groupByState,
+        aggregates: sanitizeAggregates(sanitizeModeState.group?.aggregates ?? db.aggregates),
+      },
+      totals: {
+        selCols: totalsSel,
+        colTotals: sanitizeColFns(sanitizeModeState.totals?.colTotals ?? db.colTotals, VALID_TOTAL_FNS),
+      },
+      subtotals: {
+        selCols: subtotalsSel,
+        subtotalBy: subtotalByState,
+        subtotalFns: sanitizeColFns(modeSubtotals?.subtotalFns ?? db.subtotalFns, VALID_SUBTOTAL_FNS),
+        subtotalGrandTotal: modeSubtotals && Object.prototype.hasOwnProperty.call(modeSubtotals, 'subtotalGrandTotal')
+          ? modeSubtotals.subtotalGrandTotal !== false
+          : db.subtotalGrandTotal !== false,
+        subtotalSpacer: modeSubtotals && Object.prototype.hasOwnProperty.call(modeSubtotals, 'subtotalSpacer')
+          ? !!modeSubtotals.subtotalSpacer
+          : !!db.subtotalSpacer,
+        subtotalOnTop: modeSubtotals && Object.prototype.hasOwnProperty.call(modeSubtotals, 'subtotalOnTop')
+          ? !!modeSubtotals.subtotalOnTop
+          : !!db.subtotalOnTop,
+      },
+    };
+    if (typeof loadAggModeState === 'function') loadAggModeState(db.aggMode || 'none');
 
     // ── Merged cols ─────────────────────────────────────────────────────────────
     db.mergedCols = (payload.mergedCols || []).filter(c => typeof c === 'string');

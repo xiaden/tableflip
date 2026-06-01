@@ -126,6 +126,31 @@ function setColLabel(tid, physCol, label) {
   }
 }
 
+function renameProjectedColumn(alias) {
+  const colMap = buildColSourceMap();
+  const src = colMap.get(alias);
+  if (!src) return false;
+
+  if (src.kind === 'calc') {
+    const calc = Array.isArray(db.calcStages) ? db.calcStages[src.idx] : null;
+    if (!calc) return false;
+    const current = (calc.alias || '').trim() || alias;
+    const next = window.prompt('Rename column:', current);
+    if (next === null) return false;
+    const renamed = next.trim();
+    if (!renamed || renamed === current) return false;
+    calc.alias = renamed;
+    if (typeof _renameProjectedAliasRefs === 'function') _renameProjectedAliasRefs(current, renamed);
+    return true;
+  }
+
+  const current = db.columnLabels?.[src.tid]?.[src.col] || '';
+  const next = window.prompt('Rename column (blank to reset):', current);
+  if (next === null) return false;
+  setColLabel(src.tid, src.col, next.trim());
+  return true;
+}
+
 // Full display label for an alias: "ShortName → UserLabel"
 function colDisplayLabel(alias, map) {
   const src = (map || buildColSourceMap()).get(alias);

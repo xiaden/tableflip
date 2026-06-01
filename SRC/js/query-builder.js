@@ -15,6 +15,18 @@ function _sampleTipFor(tid, col, extra = []) {
   return `data-tip="${lines.map(line => h(line)).join('&#10;')}"`;
 }
 
+function _isSourceVisibleInLayout(tid, col, colMap, mode) {
+  if (mode === 'group' || mode === 'subtotals') return true;
+  if (!(db.selCols instanceof Set)) return true;
+  let seen = false;
+  for (const [alias, src] of colMap.entries()) {
+    if (src?.tid !== tid || src?.col !== col) continue;
+    seen = true;
+    if (db.selCols.has(alias)) return true;
+  }
+  return !seen;
+}
+
 // ── Top-level render ──────────────────────────────────────────────────────────
 function renderQueryBuilder() {
   const ids = Object.keys(db.tables).sort((a, b) => db.tables[a].name.localeCompare(db.tables[b].name));
@@ -63,6 +75,7 @@ function onBaseChange(val) {
   db.groupBy    = [];
   db.aggregates = [];
   db.aggMode    = 'none';
+  db.aggModeState = null;
   db.colTotals  = {};
   db.sorts      = [];
   db.filters    = [];
@@ -77,6 +90,8 @@ function renderPipeline(ids) {
   const sortedIds = ids.sort((a, b) => db.tables[a].name.localeCompare(db.tables[b].name));
   const usedAsLookup = new Set((db.lookups || []).map(l => l.rightId).filter(Boolean));
   const usedAsStack  = new Set(db.stacks || []);
+  const layoutColMap = db.base && db.tables[db.base] ? buildColSourceMap() : new Map();
+  const layoutMode = db.aggMode || 'none';
 
   // Available sheets for stack/lookup (not already used)
   const stackAvail  = sortedIds.filter(id => id !== db.base && !usedAsStack.has(id) && !usedAsLookup.has(id));
@@ -107,11 +122,12 @@ function renderPipeline(ids) {
       <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Columns:</span>
       ${allCols.map(c => {
         const isOn      = activeCols.has(c);
+        const isLayoutVisible = _isSourceVisibleInLayout(db.base, c, layoutColMap, layoutMode);
         const color     = getTableColor(db.base);
         const chipStyle = isOn
           ? `background:${color};border-color:${color};color:${chipFgColor(color)}`
           : `border-left:3px solid ${color}`;
-        return `<span class="pl-col-chip ${isOn ? 'on' : ''}" data-bcc="${h(c)}" style="${chipStyle}" ${_sampleTipFor(db.base, c, ['Click to include/exclude this column from the starting sheet.'])}>${h(colUserLabel(db.base, c))}</span>`;
+        return `<span class="pl-col-chip ${isOn ? 'on' : ''} ${isLayoutVisible ? '' : 'pl-col-chip-layout-hidden'}" data-bcc="${h(c)}" style="${chipStyle}" ${_sampleTipFor(db.base, c, ['Click to include/exclude this column from the starting sheet.'])}>${h(colUserLabel(db.base, c))}</span>`;
       }).join('')}
       <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-bc-all="1">All</button>
       <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-bc-none="1">None</button>
@@ -143,7 +159,7 @@ function renderPipeline(ids) {
 
   // ── Lookup stages ──────────────────────────────────────────────────────────
   (db.lookups || []).forEach((lk, i) => {
-    html += _plLookupStage(lk, i, sortedIds, usedAsLookup, usedAsStack);
+    html += _plLookupStage(lk, i, sortedIds, usedAsLookup, usedAsStack, layoutColMap, layoutMode);
     html += _plArrow(`lk${i}`);
   });
 
@@ -381,7 +397,7 @@ function _plArrow(key) {
   </div>`;
 }
 
-function _plLookupStage(lk, i, sortedIds, usedAsLookup, usedAsStack) {
+function _plLookupStage(lk, i, sortedIds, usedAsLookup, usedAsStack, layoutColMap, layoutMode) {
   const rt        = lk.rightId && db.tables[lk.rightId];
   const leftCols  = projectedColsUpToLookup(i);
   const rightCols = rt ? rt.cols : [];
@@ -417,7 +433,8 @@ function _plLookupStage(lk, i, sortedIds, usedAsLookup, usedAsStack) {
 
   const colChips = rt ? rt.cols.map(c => {
     const isOn = (lk.cols || []).includes(c);
-    return `<span class="pl-col-chip ${isOn ? 'on' : ''} ${lkColorCls}" data-li="${i}" data-lcc="${h(c)}" ${_sampleTipFor(lk.rightId, c, ['Click to include/exclude this lookup column in report output.'])}>${h(colUserLabel(lk.rightId, c))}</span>`;
+    const isLayoutVisible = _isSourceVisibleInLayout(lk.rightId, c, layoutColMap, layoutMode);
+    return `<span class="pl-col-chip ${isOn ? 'on' : ''} ${isLayoutVisible ? '' : 'pl-col-chip-layout-hidden'} ${lkColorCls}" data-li="${i}" data-lcc="${h(c)}" ${_sampleTipFor(lk.rightId, c, ['Click to include/exclude this lookup column in report output.'])}>${h(colUserLabel(lk.rightId, c))}</span>`;
   }).join('') : '';
 
   return `<div class="pl-lookup-stage${lk._dupError ? ' pl-lookup-stage--invalid' : ''}">
@@ -721,6 +738,48 @@ function _renameProjectedAliasRefs(oldAlias, newAlias) {
     }
     delete db.subtotalFns[oldAlias];
   }
+
+  if (db.aggModeState && typeof db.aggModeState === 'object') {
+    const replaceInSel = state => {
+      if (!state || !Array.isArray(state.selCols)) return;
+      for (let i = 0; i < state.selCols.length; i++) {
+        if (state.selCols[i] === oldAlias) state.selCols[i] = newAlias;
+      }
+    };
+    replaceInSel(db.aggModeState.none);
+    replaceInSel(db.aggModeState.totals);
+    replaceInSel(db.aggModeState.subtotals);
+    const groupState = db.aggModeState.group;
+    if (groupState && Array.isArray(groupState.groupBy)) {
+      for (let i = 0; i < groupState.groupBy.length; i++) {
+        if (groupState.groupBy[i] === oldAlias) groupState.groupBy[i] = newAlias;
+      }
+    }
+    if (groupState && Array.isArray(groupState.aggregates)) {
+      for (const a of groupState.aggregates) {
+        if (a && a.col === oldAlias) a.col = newAlias;
+      }
+    }
+    const totalsState = db.aggModeState.totals;
+    if (totalsState?.colTotals && Object.prototype.hasOwnProperty.call(totalsState.colTotals, oldAlias)) {
+      if (!Object.prototype.hasOwnProperty.call(totalsState.colTotals, newAlias)) {
+        totalsState.colTotals[newAlias] = totalsState.colTotals[oldAlias];
+      }
+      delete totalsState.colTotals[oldAlias];
+    }
+    const subtotalsState = db.aggModeState.subtotals;
+    if (subtotalsState && Array.isArray(subtotalsState.subtotalBy)) {
+      for (let i = 0; i < subtotalsState.subtotalBy.length; i++) {
+        if (subtotalsState.subtotalBy[i] === oldAlias) subtotalsState.subtotalBy[i] = newAlias;
+      }
+    }
+    if (subtotalsState?.subtotalFns && Object.prototype.hasOwnProperty.call(subtotalsState.subtotalFns, oldAlias)) {
+      if (!Object.prototype.hasOwnProperty.call(subtotalsState.subtotalFns, newAlias)) {
+        subtotalsState.subtotalFns[newAlias] = subtotalsState.subtotalFns[oldAlias];
+      }
+      delete subtotalsState.subtotalFns[oldAlias];
+    }
+  }
 }
 
 function _calcStageError(calc, i) {
@@ -1022,7 +1081,7 @@ document.getElementById('colChips').addEventListener('dblclick', e => {
     if (!db.selCols) db.selCols = new Set(projectedCols());
     if (db.selCols.has(col)) db.selCols.delete(col);
     else db.selCols.add(col);
-    renderColChips();
+    renderQueryBuilder();
   }
 });
 
@@ -1031,15 +1090,10 @@ document.getElementById('colChips').addEventListener('contextmenu', e => {
   const chip = e.target.closest('.chip[data-col]');
   if (!chip) return;
   e.preventDefault();
-  const alias  = chip.dataset.col;
-  const colMap = buildColSourceMap();
-  const src    = colMap.get(alias);
-  if (!src) return; // computed/aggregate column — nothing to rename
-  const current  = db.columnLabels?.[src.tid]?.[src.col] || '';
-  const newLabel = window.prompt('Rename column (blank to reset):', current);
-  if (newLabel === null) return;
-  setColLabel(src.tid, src.col, newLabel.trim());
-  renderColChips();
+  const alias = chip.dataset.col;
+  if (!renameProjectedColumn(alias)) return;
+  renderQueryBuilder();
+  if (db.result) renderResults(db.result);
 });
 
 // Drag-and-drop reordering
