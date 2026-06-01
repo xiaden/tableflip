@@ -4,18 +4,15 @@
 // All table data lives in the SQLite WASM heap, not V8.
 // After ingestion the raw JS arrays are released so the GC can reclaim them.
 
+const _SQLJS_VERSION = '1.12.0';
+
 window.sqlDb = null;
 
 async function initDb() {
-  const resolveSqlJsAsset = file => {
-    const rel = window.assetUrl ? window.assetUrl(`js/${file}`) : `js/${file}`;
-    // sql.js switches away from fetch() for file:// absolute URLs.
-    if (window.location.protocol === 'file:') return new URL(rel, window.location.href).href;
-    return rel;
-  };
-
+  // Always fetch the WASM binary from the CDN so it works under file:// and
+  // any other origin without CORS issues.
   const SQL = await initSqlJs({
-    locateFile: resolveSqlJsAsset,
+    locateFile: file => `https://cdn.jsdelivr.net/npm/sql.js@${_SQLJS_VERSION}/dist/${file}`,
   });
   window.sqlDb = new SQL.Database();
 }

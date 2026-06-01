@@ -272,9 +272,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
    NOTE: sql.js wraps SQLite, which is in the public domain
-   (https://www.sqlite.org/copyright.html). The sql.js WebAssembly files
-   used by this application are bundled locally in the application
-   distribution and have not been modified.
+   (https://www.sqlite.org/copyright.html). The sql.js JavaScript runtime
+   used by this application is bundled locally. The WebAssembly binary
+   (sql-wasm.wasm) is fetched at runtime from cdn.jsdelivr.net and has
+   not been modified.
 
 
 ------------------------------------------------------------

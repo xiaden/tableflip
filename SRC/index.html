@@ -297,7 +297,7 @@ window.assetUrl = p => `${p}?v=${window.__ASSET_VER}`;
 ">
   <div style="font-size:2rem">⚙️</div>
   <div style="font-size:1rem;font-weight:600">Loading database engine…</div>
-  <div style="font-size:0.8rem;color:var(--muted)">Loading bundled SQLite WASM runtime</div>
+  <div style="font-size:0.8rem;color:var(--muted)">Loading SQLite WASM runtime…</div>
 </div>
 
 <!-- ── Scripts (load order matters) ──────────────────────── -->
@@ -340,7 +340,7 @@ initDb()
       <div style="font-size:2rem">❌</div>
       <div style="font-size:1rem;font-weight:600">Failed to load database engine</div>
       <div style="font-size:0.8rem;color:var(--muted)">${err.message}</div>
-      <div style="font-size:0.8rem;color:var(--muted);margin-top:6px">Check that bundled js/sql-wasm.wasm is present and readable.</div>
+      <div style="font-size:0.8rem;color:var(--muted);margin-top:6px">Check your internet connection — the SQLite WASM runtime is fetched from cdn.jsdelivr.net.</div>
     `;
   });
 </script>
