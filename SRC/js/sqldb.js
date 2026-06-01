@@ -10,7 +10,7 @@ async function initDb() {
   const resolveSqlJsAsset = file => {
     const rel = window.assetUrl ? window.assetUrl(`js/${file}`) : `js/${file}`;
     // sql.js switches away from fetch() for file:// absolute URLs.
-    if (window.location?.protocol === 'file:') return new URL(rel, window.location.href).href;
+    if (window.location.protocol === 'file:') return new URL(rel, window.location.href).href;
     return rel;
   };
 
