@@ -39,6 +39,7 @@ function saveState() {
         op:  cond.op  || '=',
         val: cond.val ?? '',
       })),
+      compareMode: c.compareMode === 'OR' ? 'OR' : 'AND',
       window: Math.max(1, parseInt(c.window, 10) || 7),
       explicitOrder: !!c.explicitOrder,
       orderCol: c.orderCol || '',
@@ -172,6 +173,7 @@ function loadState(file) {
       const explicitOrder = !!c.explicitOrder;
       const orderCol = c.orderCol || '';
       const orderDir = c.orderDir === 'DESC' ? 'DESC' : 'ASC';
+      const compareMode = c.compareMode === 'OR' ? 'OR' : 'AND';
 
       if (!alias) {
         warnings.push('A calculated column with no label was skipped.');
@@ -199,7 +201,7 @@ function loadState(file) {
         warnings.push(`Calculated column "${alias}" skipped — label conflicts with an existing column.`);
         continue;
       }
-      db.calcStages.push({ alias, left, op, right, conditions, window, explicitOrder, orderCol, orderDir });
+      db.calcStages.push({ alias, left, op, right, conditions, compareMode, window, explicitOrder, orderCol, orderDir });
     }
 
     // ── Derive available columns now that stacks/lookups are set ─────────────
