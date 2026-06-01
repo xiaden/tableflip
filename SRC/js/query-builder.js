@@ -16,7 +16,6 @@ function _sampleTipFor(tid, col, extra = []) {
 }
 
 function _isSourceVisibleInLayout(tid, col, colMap, mode) {
-  if (mode === 'group' || mode === 'subtotals') return true;
   if (!(db.selCols instanceof Set)) return true;
   let seen = false;
   for (const [alias, src] of colMap.entries()) {
@@ -29,7 +28,7 @@ function _isSourceVisibleInLayout(tid, col, colMap, mode) {
 
 function _setLayoutAliasesForSourceVisibility(tid, col = null, isVisible = true) {
   const mode = db.aggMode || 'none';
-  if (!tid || mode === 'group' || mode === 'subtotals') return;
+  if (!tid) return;
   const aliases = projectedCols();
   if (!(db.selCols instanceof Set)) db.selCols = new Set(aliases);
   const colMap = buildColSourceMap();
@@ -73,7 +72,6 @@ function _hideLookupLayoutAliasesSafely(tid, col = null, excludeLookupIndex = -1
 
 function _isAliasVisibleInLayout(alias, mode) {
   if (!alias) return true;
-  if (mode === 'group' || mode === 'subtotals') return true;
   if (!(db.selCols instanceof Set)) return true;
   return db.selCols.has(alias);
 }
@@ -168,17 +166,13 @@ function renderPipeline(ids) {
 
   const baseColChipsHtml = db.base && db.tables[db.base] ? (() => {
     const allCols   = db.tables[db.base].cols;
-    const activeCols = db.baseCols ? new Set(db.baseCols) : new Set(allCols);
     return `<div class="pl-lookup-cols" style="margin-top:6px">
       <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Columns:</span>
       ${allCols.map(c => {
-        const isOn      = activeCols.has(c);
         const isLayoutVisible = _isSourceVisibleInLayout(db.base, c, layoutColMap, layoutMode);
         const color     = getTableColor(db.base);
-        const chipStyle = isOn
-          ? `background:${color};border-color:${color};color:${chipFgColor(color)}`
-          : `border-left:3px solid ${color}`;
-        return `<span class="pl-col-chip ${isOn ? 'on' : ''} ${isLayoutVisible ? '' : 'pl-col-chip-layout-hidden'}" data-bcc="${h(c)}" style="${chipStyle}" ${_sampleTipFor(db.base, c, ['Click to include/exclude this column from the starting sheet.'])}>${h(colUserLabel(db.base, c))}</span>`;
+        const chipStyle = `background:${color};border-color:${color};color:${chipFgColor(color)}`;
+        return `<span class="pl-col-chip on ${isLayoutVisible ? '' : 'pl-col-chip-layout-hidden'}" data-bcc="${h(c)}" style="${chipStyle}" ${_sampleTipFor(db.base, c, ['Click to show/hide this column in the report layout.'])}>${h(colUserLabel(db.base, c))}</span>`;
       }).join('')}
       <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-bc-all="1">All</button>
       <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-bc-none="1">None</button>
@@ -411,17 +405,10 @@ function renderPipeline(ids) {
       const i   = +el.dataset.li;
       const col = el.dataset.lcc;
       const lk  = db.lookups[i];
-      const idx = (lk.cols || []).indexOf(col);
-      if (idx >= 0) {
-        lk.cols.splice(idx, 1);
-        _hideLookupLayoutAliasesSafely(lk.rightId, col, i);
-      }
-      else {
-        if (!lk.cols) lk.cols = [];
-        lk.cols.push(col);
-        _showLayoutAliasesForSource(lk.rightId, col);
-      }
-      el.classList.toggle('on', (lk.cols || []).includes(col));
+      const colMap = buildColSourceMap();
+      const isLayoutVisible = _isSourceVisibleInLayout(lk.rightId, col, colMap, db.aggMode || 'none');
+      if (isLayoutVisible) _hideLookupLayoutAliasesSafely(lk.rightId, col, i);
+      else _showLayoutAliasesForSource(lk.rightId, col);
       _afterCombineChange();
     });
   });
@@ -429,20 +416,11 @@ function renderPipeline(ids) {
   // Base column chips
   pl.querySelectorAll('[data-bcc]').forEach(el => {
     el.addEventListener('click', () => {
-      const col     = el.dataset.bcc;
-      const allCols = db.tables[db.base].cols;
-      if (!db.baseCols) db.baseCols = [...allCols];
-      const idx = db.baseCols.indexOf(col);
-      if (idx >= 0) {
-        db.baseCols.splice(idx, 1);
-        _hideLayoutAliasesForSource(db.base, col);
-      }
-      else {
-        db.baseCols.push(col);
-        _showLayoutAliasesForSource(db.base, col);
-      }
-      // If all selected, normalise back to null
-      if (db.baseCols.length === allCols.length) db.baseCols = null;
+      const col    = el.dataset.bcc;
+      const colMap = buildColSourceMap();
+      const isLayoutVisible = _isSourceVisibleInLayout(db.base, col, colMap, db.aggMode || 'none');
+      if (isLayoutVisible) _hideLayoutAliasesForSource(db.base, col);
+      else _showLayoutAliasesForSource(db.base, col);
       _afterCombineChange();
     });
   });
@@ -463,12 +441,10 @@ function renderPipeline(ids) {
 
   // All/None base col buttons
   pl.querySelector('[data-bc-all]')?.addEventListener('click', () => {
-    db.baseCols = null;
     _showLayoutAliasesForSource(db.base);
     _afterCombineChange();
   });
   pl.querySelector('[data-bc-none]')?.addEventListener('click', () => {
-    db.baseCols = [];
     _hideLayoutAliasesForSource(db.base);
     _afterCombineChange();
   });
@@ -535,9 +511,8 @@ function _plLookupStage(lk, i, sortedIds, usedAsLookup, usedAsStack, layoutColMa
     </div>`).join('');
 
   const colChips = rt ? rt.cols.map(c => {
-    const isOn = (lk.cols || []).includes(c);
     const isLayoutVisible = _isSourceVisibleInLayout(lk.rightId, c, layoutColMap, layoutMode);
-    return `<span class="pl-col-chip ${isOn ? 'on' : ''} ${isLayoutVisible ? '' : 'pl-col-chip-layout-hidden'} ${lkColorCls}" data-li="${i}" data-lcc="${h(c)}" ${_sampleTipFor(lk.rightId, c, ['Click to include/exclude this lookup column in report output.'])}>${h(colUserLabel(lk.rightId, c))}</span>`;
+    return `<span class="pl-col-chip on ${isLayoutVisible ? '' : 'pl-col-chip-layout-hidden'} ${lkColorCls}" data-li="${i}" data-lcc="${h(c)}" ${_sampleTipFor(lk.rightId, c, ['Click to show/hide this lookup column in the report layout.'])}>${h(colUserLabel(lk.rightId, c))}</span>`;
   }).join('') : '';
 
   return `<div class="pl-lookup-stage${lk._dupError ? ' pl-lookup-stage--invalid' : ''}">
@@ -1044,14 +1019,12 @@ function selectAllLookupCols(i) {
   const lk = db.lookups[i];
   const rt = lk.rightId && db.tables[lk.rightId];
   if (rt) {
-    lk.cols = [...rt.cols];
     _showLayoutAliasesForSource(lk.rightId);
     _afterCombineChange();
   }
 }
 function selectNoneLookupCols(i) {
   const lk = db.lookups[i];
-  lk.cols = [];
   _hideLookupLayoutAliasesSafely(lk.rightId, null, i);
   _afterCombineChange();
 }
@@ -1109,6 +1082,9 @@ function renderColChips() {
     const src      = colMap.get(c);
     const colorCls = src ? getTableColorClass(src.tid) : '';
     const label    = h(colDisplayLabel(c, colMap));
+
+    // Skip columns hidden from the layout
+    if (db.selCols instanceof Set && !db.selCols.has(c)) return '';
 
     let tip = '';
     if (src?.kind === 'calc') {
@@ -1611,12 +1587,16 @@ function renderMergeToggles(cols) {
   if (ulChk) ulChk.checked = !!db.mergeGroupUnderline;
 
   const baseDisplayCols = (cols || []).filter(c => c !== '_rowno' && c !== '_row_type' && c !== '_isTotalsRow');
+  // Only show columns visible in the report layout
+  const visibleDisplayCols = (db.selCols instanceof Set)
+    ? baseDisplayCols.filter(c => db.selCols.has(c))
+    : baseDisplayCols;
   const orderedFromLayout = Array.isArray(db.colOrder)
-    ? db.colOrder.filter(c => baseDisplayCols.includes(c))
+    ? db.colOrder.filter(c => visibleDisplayCols.includes(c))
     : [];
   const displayCols = [
     ...orderedFromLayout,
-    ...baseDisplayCols.filter(c => !orderedFromLayout.includes(c)),
+    ...visibleDisplayCols.filter(c => !orderedFromLayout.includes(c)),
   ];
   if (!displayCols.length) {
     wrap.innerHTML = '<span style="font-size:0.76rem;color:var(--muted)">No result columns</span>';

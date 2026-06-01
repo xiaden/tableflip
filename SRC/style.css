@@ -684,7 +684,7 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
 
 /* Hide cells covered by a row-spanning cell */
 .ag-theme-balham-dark .cell-span-hidden {
-  visibility: hidden;
+  display: none;
 }
 
 /* Keep merged (row-spanned) cell content top-aligned */
