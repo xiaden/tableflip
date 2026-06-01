@@ -27,6 +27,28 @@ function _isSourceVisibleInLayout(tid, col, colMap, mode) {
   return !seen;
 }
 
+function _showLayoutAliasesForSource(tid, col) {
+  const mode = db.aggMode || 'none';
+  if (mode === 'group' || mode === 'subtotals') return;
+  if (!(db.selCols instanceof Set)) db.selCols = new Set(projectedCols());
+  const colMap = buildColSourceMap();
+  for (const alias of projectedCols()) {
+    const src = colMap.get(alias);
+    if (src?.tid === tid && src?.col === col) db.selCols.add(alias);
+  }
+}
+
+function _showLayoutAliasesForTable(tid) {
+  const mode = db.aggMode || 'none';
+  if (mode === 'group' || mode === 'subtotals') return;
+  if (!(db.selCols instanceof Set)) db.selCols = new Set(projectedCols());
+  const colMap = buildColSourceMap();
+  for (const alias of projectedCols()) {
+    const src = colMap.get(alias);
+    if (src?.tid === tid) db.selCols.add(alias);
+  }
+}
+
 // ── Top-level render ──────────────────────────────────────────────────────────
 function renderQueryBuilder() {
   const ids = Object.keys(db.tables).sort((a, b) => db.tables[a].name.localeCompare(db.tables[b].name));
@@ -340,7 +362,11 @@ function renderPipeline(ids) {
       const lk  = db.lookups[i];
       const idx = (lk.cols || []).indexOf(col);
       if (idx >= 0) lk.cols.splice(idx, 1);
-      else { if (!lk.cols) lk.cols = []; lk.cols.push(col); }
+      else {
+        if (!lk.cols) lk.cols = [];
+        lk.cols.push(col);
+        if (lk.rightId) _showLayoutAliasesForSource(lk.rightId, col);
+      }
       el.classList.toggle('on', (lk.cols || []).includes(col));
       _afterCombineChange();
     });
@@ -354,7 +380,10 @@ function renderPipeline(ids) {
       if (!db.baseCols) db.baseCols = [...allCols];
       const idx = db.baseCols.indexOf(col);
       if (idx >= 0) db.baseCols.splice(idx, 1);
-      else db.baseCols.push(col);
+      else {
+        db.baseCols.push(col);
+        _showLayoutAliasesForSource(db.base, col);
+      }
       // If all selected, normalise back to null
       if (db.baseCols.length === allCols.length) db.baseCols = null;
       _afterCombineChange();
@@ -363,6 +392,7 @@ function renderPipeline(ids) {
   // All/None base col buttons
   pl.querySelector('[data-bc-all]')?.addEventListener('click', () => {
     db.baseCols = null;
+    _showLayoutAliasesForTable(db.base);
     _afterCombineChange();
   });
   pl.querySelector('[data-bc-none]')?.addEventListener('click', () => {
@@ -909,7 +939,11 @@ function removeLookup(i) {
 function selectAllLookupCols(i) {
   const lk = db.lookups[i];
   const rt = lk.rightId && db.tables[lk.rightId];
-  if (rt) { lk.cols = [...rt.cols]; _afterCombineChange(); }
+  if (rt) {
+    lk.cols = [...rt.cols];
+    _showLayoutAliasesForTable(lk.rightId);
+    _afterCombineChange();
+  }
 }
 function selectNoneLookupCols(i) {
   db.lookups[i].cols = [];
@@ -1080,7 +1114,6 @@ document.getElementById('colChips').addEventListener('dblclick', e => {
   } else {
     if (!db.selCols) db.selCols = new Set(projectedCols());
     if (db.selCols.has(col)) db.selCols.delete(col);
-    else db.selCols.add(col);
     renderQueryBuilder();
   }
 });
