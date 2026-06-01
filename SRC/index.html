@@ -206,7 +206,7 @@ window.assetUrl = p => `${p}?v=${window.__ASSET_VER}`;
                 <span style="font-size:0.76rem;color:var(--muted)">No filters — all rows included</span>
               </div>
               <button class="btn btn-ghost" style="margin-top:6px" onclick="addFilter()">+ Add Filter</button>
-              <span class="tip" data-tip="Add a row condition. Choose a column, an operator, and a value.&#10;&#10;contains / starts with / ends with — text matching&#10;equals / not equals — exact match (numbers or text)&#10;&gt; &lt; &gt;= &lt;= — numeric or date comparison&#10;is empty / not empty — checks for blank values&#10;&#10;Tip: enter multiple values separated by | to match any of them (OR logic).&#10;Example: open|pending|in progress">?</span>
+              <span class="tip" data-tip="Add a row condition. Choose a column, an operator, and a value.&#10;&#10;contains / starts with / ends with — text matching&#10;equals / not equals — exact match (numbers or text)&#10;&gt; &lt; &gt;= &lt;= — numeric or date comparison&#10;is empty / not empty — checks for blank values&#10;&#10;Use the [+] button next to the value field to add more values (OR logic).&#10;Example: add 'open', 'pending', 'in progress' to match any of those.">?</span>
             </div>
 
             <!-- Merge duplicates section -->

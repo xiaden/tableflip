@@ -32,7 +32,11 @@ function saveState() {
       left:  c.left || '',
       op:    c.op || '-',
       right: c.right || '',
-      compVal: c.compVal ?? '',
+      conditions: (c.conditions || []).map(cond => ({
+        col: cond.col || '',
+        op:  cond.op  || '=',
+        val: cond.val ?? '',
+      })),
       window: Math.max(1, parseInt(c.window, 10) || 7),
       explicitOrder: !!c.explicitOrder,
       orderCol: c.orderCol || '',
@@ -41,7 +45,11 @@ function saveState() {
     joins:        (db.joins || []).map(j => ({ ...j })),
     selCols:      db.selCols ? [...db.selCols] : null,
     colOrder:     db.colOrder ? [...db.colOrder] : null,
-    filters:      db.filters.map(f => ({ ...f })),
+    filters:      db.filters.map(f => ({
+      col:  f.col  || '',
+      op:   f.op   || 'contains',
+      vals: Array.isArray(f.vals) ? [...f.vals] : [f.val ?? ''],
+    })),
     sorts:        db.sorts.map(s => ({ ...s })),
     groupBy:      [...db.groupBy],
     aggregates:   db.aggregates.map(a => ({ ...a })),
@@ -130,21 +138,37 @@ function loadState(file) {
     db.joins = [];
 
     // ── Calculated stages ───────────────────────────────────────────────────
-    const COMPARISON_OPS = new Set(['>', '<', '=', '!=', '>=', '<=']);
-    const VALID_CALC_OPS = new Set(['+', '-', '*', '/', 'ROLLAVG', 'PCTTOTAL', ...COMPARISON_OPS]);
+    const LEGACY_COMPARISON_OPS = new Set(['>', '<', '=', '!=', '>=', '<=']);
+    const VALID_CALC_OPS = new Set(['+', '-', '*', '/', 'ROLLAVG', 'PCTTOTAL', 'COMPARE']);
     db.calcStages = [];
     for (const c of (payload.calcStages || [])) {
       const alias = (c.alias || '').trim();
       const left  = c.left || '';
       const right = c.right || '';
-      const op    = VALID_CALC_OPS.has(c.op) ? c.op : '-';
-      const compVal = c.compVal ?? '';
+      const isArithmetic = ['+', '-', '*', '/'].includes(c.op);
+
+      // Convert legacy comparison ops to COMPARE with a single condition
+      let op, conditions;
+      if (LEGACY_COMPARISON_OPS.has(c.op)) {
+        op = 'COMPARE';
+        const legacyVal = c.compVal ?? '';
+        conditions = [{ col: left, op: c.op, val: String(legacyVal) }];
+      } else {
+        op = VALID_CALC_OPS.has(c.op) ? c.op : '-';
+        conditions = [];
+        if (op === 'COMPARE') {
+          conditions = Array.isArray(c.conditions) ? c.conditions.map(cond => ({
+            col: cond.col || '',
+            op:  ['=', '!=', '>', '>=', '<', '<='].includes(cond.op) ? cond.op : '=',
+            val: String(cond.val ?? ''),
+          })) : [];
+        }
+      }
+
       const window = Math.max(1, parseInt(c.window, 10) || 7);
       const explicitOrder = !!c.explicitOrder;
       const orderCol = c.orderCol || '';
       const orderDir = c.orderDir === 'DESC' ? 'DESC' : 'ASC';
-      const isArithmetic  = ['+', '-', '*', '/'].includes(op);
-      const isComparison  = COMPARISON_OPS.has(op);
 
       if (!alias) {
         warnings.push('A calculated column with no label was skipped.');
@@ -152,13 +176,17 @@ function loadState(file) {
       }
 
       const availNow = new Set(projectedCols());
-      if (!availNow.has(left) || (isArithmetic && !availNow.has(right))) {
+      if (op !== 'COMPARE' && (!availNow.has(left) || (isArithmetic && !availNow.has(right)))) {
         warnings.push(`Calculated column "${alias}" skipped — one or more source columns are unavailable.`);
         continue;
       }
-      if (isComparison && !compVal.toString().trim()) {
-        warnings.push(`Calculated column "${alias}" skipped — comparison value is missing.`);
-        continue;
+      if (op === 'COMPARE') {
+        const validConds = conditions.filter(cond => cond.col && availNow.has(cond.col) && String(cond.val ?? '').trim());
+        if (!validConds.length) {
+          warnings.push(`Calculated column "${alias}" skipped — no valid comparison conditions.`);
+          continue;
+        }
+        conditions = validConds;
       }
       if (op === 'ROLLAVG' && explicitOrder && orderCol && !availNow.has(orderCol)) {
         warnings.push(`Calculated column "${alias}" skipped — explicit order column is unavailable.`);
@@ -168,7 +196,7 @@ function loadState(file) {
         warnings.push(`Calculated column "${alias}" skipped — label conflicts with an existing column.`);
         continue;
       }
-      db.calcStages.push({ alias, left, op, right, compVal, window, explicitOrder, orderCol, orderDir });
+      db.calcStages.push({ alias, left, op, right, conditions, window, explicitOrder, orderCol, orderDir });
     }
 
     // ── Derive available columns now that stacks/lookups are set ─────────────
@@ -194,7 +222,11 @@ function loadState(file) {
         warnings.push(`Filter on column "${f.col}" skipped — column not available.`);
         continue;
       }
-      db.filters.push({ col: f.col || '', op: f.op || 'contains', val: f.val || '' });
+      // Backward compat: old files use `val` string, new files use `vals` array
+      const vals = Array.isArray(f.vals)
+        ? f.vals.filter(v => typeof v === 'string')
+        : [typeof f.val === 'string' ? f.val : ''];
+      db.filters.push({ col: f.col || '', op: f.op || 'contains', vals: vals.length ? vals : [''] });
     }
 
     // ── Group By ──────────────────────────────────────────────────────────────
