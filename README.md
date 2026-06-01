@@ -17,6 +17,7 @@ Built for practical ops workflows: load files, shape data, merge/group rows visu
 - Merge-duplicate rendering for grouped readability
 - Styled Excel and CSV export
 - Browser-only runtime (no backend required)
+- Fully bundled third-party runtimes for offline environments
 
 ## 🧱 Tech stack
 
@@ -40,7 +41,7 @@ This is a static web app.
 
 - `SRC/index.html` — app entry page
 - `SRC/style.css` — app styles
-- `SRC/js/` — app modules and bundled spreadsheet runtime
+- `SRC/js/` — app modules and bundled third-party runtimes
 - `SRC/THIRD-PARTY-NOTICES.txt` — third-party attribution and license notices
 
 ## 🔒 Privacy model

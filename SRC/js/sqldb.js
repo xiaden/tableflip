@@ -8,8 +8,9 @@ window.sqlDb = null;
 
 async function initDb() {
   const SQL = await initSqlJs({
-    locateFile: file =>
-      `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/${file}`,
+    locateFile: file => (
+      window.assetUrl ? window.assetUrl(`js/${file}`) : `js/${file}`
+    ),
   });
   window.sqlDb = new SQL.Database();
 }
