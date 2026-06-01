@@ -63,6 +63,7 @@ function onBaseChange(val) {
   db.groupBy    = [];
   db.aggregates = [];
   db.aggMode    = 'none';
+  db.aggModeState = null;
   db.colTotals  = {};
   db.sorts      = [];
   db.filters    = [];
@@ -1022,7 +1023,7 @@ document.getElementById('colChips').addEventListener('dblclick', e => {
     if (!db.selCols) db.selCols = new Set(projectedCols());
     if (db.selCols.has(col)) db.selCols.delete(col);
     else db.selCols.add(col);
-    renderColChips();
+    renderAggregation();
   }
 });
 
@@ -1039,7 +1040,8 @@ document.getElementById('colChips').addEventListener('contextmenu', e => {
   const newLabel = window.prompt('Rename column (blank to reset):', current);
   if (newLabel === null) return;
   setColLabel(src.tid, src.col, newLabel.trim());
-  renderColChips();
+  renderQueryBuilder();
+  if (db.result) renderResults(db.result);
 });
 
 // Drag-and-drop reordering

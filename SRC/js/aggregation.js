@@ -75,6 +75,99 @@ const SUBTOTAL_LABELS = {
   LIST:              'List (all values)',
 };
 
+const _AGG_MODES = ['none', 'group', 'totals', 'subtotals'];
+
+function _selColsToArray(selCols) {
+  return selCols instanceof Set ? [...selCols] : null;
+}
+
+function _readAggModeState(mode) {
+  if (mode === 'group') {
+    return {
+      groupBy:    [...(db.groupBy || [])],
+      aggregates: (db.aggregates || []).map(a => ({ ...a })),
+    };
+  }
+  if (mode === 'totals') {
+    return {
+      selCols:   _selColsToArray(db.selCols),
+      colTotals: { ...(db.colTotals || {}) },
+    };
+  }
+  if (mode === 'subtotals') {
+    return {
+      selCols:            _selColsToArray(db.selCols),
+      subtotalBy:         [...(db.subtotalBy || [])],
+      subtotalFns:        { ...(db.subtotalFns || {}) },
+      subtotalGrandTotal: db.subtotalGrandTotal !== false,
+      subtotalSpacer:     !!db.subtotalSpacer,
+      subtotalOnTop:      !!db.subtotalOnTop,
+    };
+  }
+  return {
+    selCols: _selColsToArray(db.selCols),
+  };
+}
+
+function _defaultAggModeState(mode) {
+  if (mode === 'group') {
+    return { groupBy: [], aggregates: [] };
+  }
+  if (mode === 'totals') {
+    return { selCols: null, colTotals: {} };
+  }
+  if (mode === 'subtotals') {
+    return {
+      selCols:            null,
+      subtotalBy:         [],
+      subtotalFns:        {},
+      subtotalGrandTotal: true,
+      subtotalSpacer:     false,
+      subtotalOnTop:      false,
+    };
+  }
+  return { selCols: null };
+}
+
+function ensureAggModeState() {
+  if (!db.aggModeState || typeof db.aggModeState !== 'object') db.aggModeState = {};
+  for (const mode of _AGG_MODES) {
+    if (!db.aggModeState[mode] || typeof db.aggModeState[mode] !== 'object') {
+      db.aggModeState[mode] = _defaultAggModeState(mode);
+    }
+  }
+}
+
+function saveActiveAggModeState() {
+  ensureAggModeState();
+  db.aggModeState[db.aggMode || 'none'] = _readAggModeState(db.aggMode || 'none');
+}
+
+function loadAggModeState(mode) {
+  ensureAggModeState();
+  const state = db.aggModeState[mode] || _defaultAggModeState(mode);
+  if (mode === 'group') {
+    db.groupBy = Array.isArray(state.groupBy) ? [...state.groupBy] : [];
+    db.aggregates = Array.isArray(state.aggregates) ? state.aggregates.map(a => ({ ...a })) : [];
+    return;
+  }
+  if (mode === 'totals') {
+    db.selCols = Array.isArray(state.selCols) ? new Set(state.selCols) : null;
+    db.colTotals = state.colTotals && typeof state.colTotals === 'object' ? { ...state.colTotals } : {};
+    return;
+  }
+  if (mode === 'subtotals') {
+    db.selCols = Array.isArray(state.selCols) ? new Set(state.selCols) : null;
+    db.subtotalBy = Array.isArray(state.subtotalBy) ? [...state.subtotalBy] : [];
+    db.subtotalFns = state.subtotalFns && typeof state.subtotalFns === 'object' ? { ...state.subtotalFns } : {};
+    db.subtotalGrandTotal = state.subtotalGrandTotal !== false;
+    db.subtotalSpacer = !!state.subtotalSpacer;
+    db.subtotalOnTop = !!state.subtotalOnTop;
+    return;
+  }
+  db.selCols = Array.isArray(state.selCols) ? new Set(state.selCols) : null;
+}
+
 // ── Top-level render ──────────────────────────────────────────────────────────
 // Called after any mode/group/aggregate change. Drives the sections inside
 // the merged Output Columns card (aggSection, totalsSection, aggHint).
@@ -155,18 +248,15 @@ function renderAggregation() {
 }
 
 function setAggMode(mode) {
+  if (!_AGG_MODES.includes(mode)) mode = 'none';
   const prev = db.aggMode || 'none';
+  if (prev === mode) {
+    renderAggregation();
+    return;
+  }
+  saveActiveAggModeState();
   db.aggMode = mode;
-  // Switching away from group mode: clear auto aggregates and group selections
-  if (prev === 'group' && mode !== 'group') {
-    db.groupBy    = [];
-    db.aggregates = db.aggregates.filter(a => !a.auto);
-  }
-  // Switching away from subtotals mode: clear subtotals state
-  if (prev === 'subtotals' && mode !== 'subtotals') {
-    db.subtotalBy  = [];
-    db.subtotalFns = {};
-  }
+  loadAggModeState(mode);
   renderAggregation();
 }
 
