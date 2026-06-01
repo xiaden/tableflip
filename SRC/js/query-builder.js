@@ -302,6 +302,8 @@ function renderPipeline(ids) {
         _renameProjectedAliasRefs(oldAlias, newAlias);
       } else if (cp === 'explicitOrder') {
         c.explicitOrder = !!e.target.checked;
+      } else if (cp === 'customTF') {
+        c.customTF = !!e.target.checked;
       } else if (cp === 'window') {
         c.window = Math.max(1, parseInt(e.target.value, 10) || 1);
       } else if (cp === 'op') {
@@ -327,6 +329,17 @@ function renderPipeline(ids) {
         const c = db.calcStages?.[i];
         if (!c || !Array.isArray(c.conditions) || !c.conditions[j]) return;
         c.conditions[j].val = e.target.value;
+        _afterCombineChange();
+      });
+    }
+    // Also handle live input for trueVal / falseVal fields
+    if (el.tagName === 'INPUT' && el.dataset.cond === undefined && (el.dataset.cp === 'trueVal' || el.dataset.cp === 'falseVal')) {
+      el.addEventListener('input', e => {
+        const i = +e.target.dataset.ci;
+        const cp = e.target.dataset.cp;
+        const c = db.calcStages?.[i];
+        if (!c) return;
+        c[cp] = e.target.value;
         _afterCombineChange();
       });
     }
@@ -577,11 +590,23 @@ function _plCalcStage(calc, i) {
       <button class="btn btn-ghost" style="font-size:0.76rem;padding:3px 8px" data-addcond="${i}" data-cm="${compareMode}">＋ ${compareMode} …</button>
       `}
     </div>
-    <div style="font-size:0.72rem;color:var(--muted);margin-top:4px">Result: 1 if ${compareMode === 'OR' ? 'any condition is' : 'all conditions are'} true, 0 if not</div>
+    <div style="margin-top:5px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:0.76rem;color:var(--muted)">
+        <input type="checkbox" data-ci="${i}" data-cp="customTF" ${calc.customTF ? 'checked' : ''}> Custom true / false values
+      </label>
+      ${calc.customTF ? `
+      <div class="pl-key-pair" style="margin-top:4px">
+        <span class="pl-key-pair-label">True</span>
+        <input type="text" data-ci="${i}" data-cp="trueVal" placeholder="e.g. Yes" value="${h(String(calc.trueVal ?? ''))}" style="width:110px;flex-shrink:0">
+        <span class="pl-key-pair-label" style="margin-left:6px">False</span>
+        <input type="text" data-ci="${i}" data-cp="falseVal" placeholder="e.g. No" value="${h(String(calc.falseVal ?? ''))}" style="width:110px;flex-shrink:0">
+      </div>` : ''}
+    </div>
+    <div style="font-size:0.72rem;color:var(--muted);margin-top:4px">Result: ${calc.customTF && String(calc.trueVal ?? '').trim() !== '' ? h(String(calc.trueVal)) : '1'} if ${compareMode === 'OR' ? 'any condition is' : 'all conditions are'} true, ${calc.customTF && String(calc.falseVal ?? '').trim() !== '' ? h(String(calc.falseVal)) : '0'} if not</div>
   ` : '';
 
   return `<div class="pl-lookup-stage${err ? ' pl-lookup-stage--invalid' : ''}">
-    <div class="pl-stage-label">Calculated column <span class="tip" data-tip="Create a virtual column from existing columns.&#10;Arithmetic: uses two columns (left op right).&#10;Rolling Avg: uses the left column + window size.&#10;% of Total: uses the left column within current filtered scope.&#10;Compare: tests one or more column conditions using one mode (AND or OR) and outputs 1 (true) or 0 (false).">?</span></div>
+    <div class="pl-stage-label">Calculated column <span class="tip" data-tip="Create a virtual column from existing columns.&#10;Arithmetic: uses two columns (left op right).&#10;Rolling Avg: uses the left column + window size.&#10;% of Total: uses the left column within current filtered scope.&#10;Compare: tests one or more column conditions using one mode (AND or OR) and outputs 1 (true) or 0 (false). Custom true/false values can be set.">?</span></div>
     ${err ? `<div class="pl-lookup-error">⛔ ${h(err)}</div>` : ''}
     <div class="pl-lookup-header" style="gap:8px;flex-wrap:wrap">
       <input type="text" data-ci="${i}" data-cp="alias" placeholder="Output column name (e.g. Remaining to Ship)" value="${h(calc.alias || '')}" style="flex:1;min-width:180px">
@@ -725,6 +750,9 @@ function addCalcStage() {
     right: '',
     conditions: [],
     compareMode: 'AND',
+    customTF: false,
+    trueVal: '',
+    falseVal: '',
     window: 7,
     explicitOrder: false,
     orderCol: '',
