@@ -45,13 +45,12 @@ function saveState() {
       orderCol: c.orderCol || '',
       orderDir: c.orderDir === 'DESC' ? 'DESC' : 'ASC',
     })),
-    joins:        (db.joins || []).map(j => ({ ...j })),
     selCols:      db.selCols ? [...db.selCols] : null,
     colOrder:     db.colOrder ? [...db.colOrder] : null,
     filters:      db.filters.map(f => ({
       col:  f.col  || '',
       op:   f.op   || 'contains',
-      vals: Array.isArray(f.vals) ? [...f.vals] : [f.val ?? ''],
+      vals: Array.isArray(f.vals) ? [...f.vals] : [''],
     })),
     sorts:        db.sorts.map(s => ({ ...s })),
     groupBy:      [...db.groupBy],
@@ -84,7 +83,7 @@ function loadState(file) {
     try {
       payload = JSON.parse(e.target.result);
     } catch {
-      toast('Could not parse state file — is it a valid .qbs file?', 'err');
+      toast('Could not parse state file — is it a valid .rcjson file?', 'err');
       return;
     }
 
@@ -93,80 +92,145 @@ function loadState(file) {
       return;
     }
 
-    const warnings = [];
+    // ── Schema version check ──────────────────────────────────────────────────
+    if (payload.v !== STATE_VERSION) {
+      toast(`Unsupported project file version (got ${JSON.stringify(payload.v)}, expected ${STATE_VERSION}). Load aborted.`, 'err');
+      return;
+    }
+
+    // Build validated state into `next` without touching db.
+    // db is only updated at the end once all validation passes.
+    const next = {};
+
+    // Local helper: projected cols available to lookup[upTo] from the next state being built.
+    const nextProjectedUpToLookup = (upTo) => {
+      const baseId = next.base;
+      if (!baseId || !db.tables[baseId]) return [];
+      const cols   = [...db.tables[baseId].cols];
+      const colSet = new Set(cols);
+      for (let i = 0; i < upTo; i++) {
+        const lk = (next.lookups || [])[i];
+        if (!lk || !lk.rightId || !db.tables[lk.rightId]) continue;
+        const rt     = db.tables[lk.rightId];
+        const prefix = tablePrefix(rt.name);
+        rt.cols.forEach(c => {
+          const alias = colSet.has(c) ? prefix + c : c;
+          if (!colSet.has(alias)) { cols.push(alias); colSet.add(alias); }
+        });
+      }
+      return cols;
+    };
+
+    // Local helper: full projected col set from next state (base + lookups + calcs so far).
+    const nextAvailableCols = () => {
+      const cols   = nextProjectedUpToLookup((next.lookups || []).length);
+      const colSet = new Set(cols);
+      for (const c of (next.calcStages || [])) {
+        if (c.alias) colSet.add(c.alias);
+      }
+      return colSet;
+    };
 
     // ── Base table ────────────────────────────────────────────────────────────
     const savedBase = payload.base || '';
     if (!savedBase || !db.tables[savedBase]) {
-      warnings.push(`Primary sheet "${savedBase}" is not loaded — load the original file first.`);
-      // Cannot restore anything meaningful without a valid base
-      if (warnings.length) _showWarnings(warnings);
+      toast(`Primary sheet "${savedBase}" is not loaded — load the original file first.`, 'err');
       return;
     }
-    db.base = savedBase;
+    next.base = savedBase;
 
     // ── Base column selection ─────────────────────────────────────────────────
     if (Array.isArray(payload.baseCols)) {
       const valid = payload.baseCols.filter(c => db.tables[savedBase].cols.includes(c));
-      db.baseCols = valid.length === db.tables[savedBase].cols.length ? null : (valid.length ? valid : null);
+      next.baseCols = valid.length === db.tables[savedBase].cols.length ? null : (valid.length ? valid : null);
     } else {
-      db.baseCols = null;
+      next.baseCols = null;
     }
 
     // ── Stacks ────────────────────────────────────────────────────────────────
-    db.stacks = [];
+    next.stacks = [];
     for (const id of (payload.stacks || [])) {
-      if (!db.tables[id]) { warnings.push(`Stacked sheet "${id}" skipped — sheet not loaded.`); continue; }
-      if (!db.stacks.includes(id)) db.stacks.push(id);
+      if (!db.tables[id]) {
+        toast(`Stacked sheet "${id}" is not loaded — load the original file first.`, 'err');
+        return;
+      }
+      if (!next.stacks.includes(id)) next.stacks.push(id);
     }
 
     // ── Lookups ───────────────────────────────────────────────────────────────
-    db.lookups = [];
+    next.lookups = [];
     for (const lk of (payload.lookups || [])) {
       if (!lk.rightId || !db.tables[lk.rightId]) {
-        warnings.push(`Lookup sheet "${lk.rightId}" skipped — sheet not loaded.`);
-        continue;
+        toast(`Lookup sheet "${lk.rightId}" is not loaded — load the original file first.`, 'err');
+        return;
       }
-      const rt        = db.tables[lk.rightId];
-      const leftAvail = projectedColsUpToLookup(db.lookups.length);
-      const keyPairs  = (Array.isArray(lk.keyPairs) ? lk.keyPairs : []).map(p => {
-        const left  = leftAvail.includes(p.left)  ? p.left  : '';
-        const right = rt.cols.includes(p.right)   ? p.right : '';
-        if (p.left  && !left)  warnings.push(`Match column "${p.left}" not found — cleared on lookup from "${rt.name}".`);
-        if (p.right && !right) warnings.push(`Match column "${p.right}" not found — cleared on lookup from "${rt.name}".`);
-        return { left, right };
-      });
+      const rt       = db.tables[lk.rightId];
+      const leftAvail = nextProjectedUpToLookup(next.lookups.length);
+      if (!Array.isArray(lk.keyPairs) || !lk.keyPairs.length) {
+        toast(`Lookup from sheet "${rt.name}" has no key pairs. Load aborted.`, 'err');
+        return;
+      }
+      const keyPairs = [];
+      for (const p of lk.keyPairs) {
+        if (!leftAvail.includes(p.left)) {
+          toast(`Match column "${p.left}" not found — lookup from "${rt.name}". Load aborted.`, 'err');
+          return;
+        }
+        if (!rt.cols.includes(p.right)) {
+          toast(`Match column "${p.right}" not found in "${rt.name}". Load aborted.`, 'err');
+          return;
+        }
+        keyPairs.push({ left: p.left, right: p.right });
+      }
       const cols = Array.isArray(lk.cols) ? lk.cols.filter(c => rt.cols.includes(c)) : [...rt.cols];
-      db.lookups.push({ rightId: lk.rightId, keyPairs, cols, required: !!lk.required });
+      next.lookups.push({ rightId: lk.rightId, keyPairs, cols, required: !!lk.required });
     }
-    db.joins = [];
 
-    // ── Calculated stages ───────────────────────────────────────────────────
-    const LEGACY_COMPARISON_OPS = new Set(['>', '<', '=', '!=', '>=', '<=']);
+    // ── Calculated stages ─────────────────────────────────────────────────────
     const VALID_CALC_OPS = new Set(['+', '-', '*', '/', 'ROLLAVG', 'PCTTOTAL', 'COMPARE']);
-    db.calcStages = [];
+    next.calcStages = [];
     for (const c of (payload.calcStages || [])) {
       const alias = (c.alias || '').trim();
       const left  = c.left || '';
       const right = c.right || '';
       const isArithmetic = ['+', '-', '*', '/'].includes(c.op);
+      const op = VALID_CALC_OPS.has(c.op) ? c.op : null;
 
-      // Convert legacy comparison ops to COMPARE with a single condition
-      let op, conditions;
-      if (LEGACY_COMPARISON_OPS.has(c.op)) {
-        op = 'COMPARE';
-        const legacyVal = c.compVal ?? '';
-        conditions = [{ col: left, op: c.op, val: String(legacyVal) }];
-      } else {
-        op = VALID_CALC_OPS.has(c.op) ? c.op : '-';
-        conditions = [];
-        if (op === 'COMPARE') {
-          conditions = Array.isArray(c.conditions) ? c.conditions.map(cond => ({
-            col: cond.col || '',
-            op:  ['=', '!=', '>', '>=', '<', '<='].includes(cond.op) ? cond.op : '=',
-            val: String(cond.val ?? ''),
-          })) : [];
+      if (!alias) {
+        toast('A calculated column with no label was found. Load aborted.', 'err');
+        return;
+      }
+      if (!op) {
+        toast(`Calculated column "${alias}" has an unsupported operator "${c.op}". Load aborted.`, 'err');
+        return;
+      }
+
+      const availNow = nextAvailableCols();
+      if (op !== 'COMPARE' && (!availNow.has(left) || (isArithmetic && !availNow.has(right)))) {
+        toast(`Calculated column "${alias}" references unavailable column(s). Load aborted.`, 'err');
+        return;
+      }
+      let conditions = [];
+      if (op === 'COMPARE') {
+        conditions = Array.isArray(c.conditions) ? c.conditions.map(cond => ({
+          col: cond.col || '',
+          op:  ['=', '!=', '>', '>=', '<', '<='].includes(cond.op) ? cond.op : '=',
+          val: String(cond.val ?? ''),
+        })) : [];
+        const validConds = conditions.filter(cond => cond.col && availNow.has(cond.col) && String(cond.val ?? '').trim());
+        if (!validConds.length) {
+          toast(`Calculated column "${alias}" has no valid comparison conditions. Load aborted.`, 'err');
+          return;
         }
+        conditions = validConds;
+      }
+      if (op === 'ROLLAVG' && c.explicitOrder && c.orderCol && !availNow.has(c.orderCol)) {
+        toast(`Calculated column "${alias}" explicit order column is unavailable. Load aborted.`, 'err');
+        return;
+      }
+      if (availNow.has(alias)) {
+        toast(`Calculated column "${alias}" conflicts with an existing column. Load aborted.`, 'err');
+        return;
       }
 
       const window = Math.max(1, parseInt(c.window, 10) || 7);
@@ -177,103 +241,84 @@ function loadState(file) {
       const customTF = !!c.customTF;
       const trueVal = c.trueVal ?? '';
       const falseVal = c.falseVal ?? '';
-
-      if (!alias) {
-        warnings.push('A calculated column with no label was skipped.');
-        continue;
-      }
-
-      const availNow = new Set(projectedCols());
-      if (op !== 'COMPARE' && (!availNow.has(left) || (isArithmetic && !availNow.has(right)))) {
-        warnings.push(`Calculated column "${alias}" skipped — one or more source columns are unavailable.`);
-        continue;
-      }
-      if (op === 'COMPARE') {
-        const validConds = conditions.filter(cond => cond.col && availNow.has(cond.col) && String(cond.val ?? '').trim());
-        if (!validConds.length) {
-          warnings.push(`Calculated column "${alias}" skipped — no valid comparison conditions.`);
-          continue;
-        }
-        conditions = validConds;
-      }
-      if (op === 'ROLLAVG' && explicitOrder && orderCol && !availNow.has(orderCol)) {
-        warnings.push(`Calculated column "${alias}" skipped — explicit order column is unavailable.`);
-        continue;
-      }
-      if (availNow.has(alias)) {
-        warnings.push(`Calculated column "${alias}" skipped — label conflicts with an existing column.`);
-        continue;
-      }
-      db.calcStages.push({ alias, left, op, right, conditions, compareMode, customTF, trueVal, falseVal, window, explicitOrder, orderCol, orderDir });
+      next.calcStages.push({ alias, left, op, right, conditions, compareMode, customTF, trueVal, falseVal, window, explicitOrder, orderCol, orderDir });
     }
 
-    // ── Derive available columns now that stacks/lookups are set ─────────────
-    const available = new Set(projectedCols());
+    // ── Available columns after stacks/lookups/calcs ──────────────────────────
+    const available = nextAvailableCols();
 
-    // ── Selected columns + column order ────────────────────────────────────────────────────
+    // ── Selected columns + column order ──────────────────────────────────────
     if (payload.selCols === null) {
-      db.selCols = null;
+      next.selCols = null;
     } else if (Array.isArray(payload.selCols)) {
       const kept    = payload.selCols.filter(c => available.has(c));
       const dropped = payload.selCols.filter(c => !available.has(c));
-      if (dropped.length) warnings.push(`Selected columns not found and deselected: ${dropped.join(', ')}`);
-      db.selCols = kept.length ? new Set(kept) : null;
+      if (dropped.length) {
+        toast(`Selected columns not found: ${dropped.join(', ')}. Load aborted.`, 'err');
+        return;
+      }
+      next.selCols = kept.length ? new Set(kept) : null;
+    } else {
+      next.selCols = null;
     }
-    db.colOrder = Array.isArray(payload.colOrder)
+    next.colOrder = Array.isArray(payload.colOrder)
       ? payload.colOrder.filter(c => available.has(c))
       : null;
 
     // ── Filters ───────────────────────────────────────────────────────────────
-    db.filters = [];
+    next.filters = [];
     for (const f of (payload.filters || [])) {
       if (f.col && !available.has(f.col)) {
-        warnings.push(`Filter on column "${f.col}" skipped — column not available.`);
-        continue;
+        toast(`Filter on column "${f.col}" is not available. Load aborted.`, 'err');
+        return;
       }
-      // Backward compat: old files use `val` string, new files use `vals` array
-      const vals = Array.isArray(f.vals)
-        ? f.vals.filter(v => typeof v === 'string')
-        : [typeof f.val === 'string' ? f.val : ''];
-      db.filters.push({ col: f.col || '', op: f.op || 'contains', vals: vals.length ? vals : [''] });
+      if (!Array.isArray(f.vals)) {
+        toast(`Filter on column "${f.col || '(unknown)'}" has invalid values format (expected an array). Load aborted.`, 'err');
+        return;
+      }
+      const vals = f.vals.filter(v => typeof v === 'string');
+      next.filters.push({ col: f.col || '', op: f.op || 'contains', vals: vals.length ? vals : [''] });
     }
 
     // ── Group By ──────────────────────────────────────────────────────────────
-    const groupBy   = (payload.groupBy || []).filter(c => available.has(c));
     const gbDropped = (payload.groupBy || []).filter(c => !available.has(c));
-    if (gbDropped.length) warnings.push(`Group By columns not found and removed: ${gbDropped.join(', ')}`);
-    db.groupBy = groupBy;
+    if (gbDropped.length) {
+      toast(`Group By columns not found: ${gbDropped.join(', ')}. Load aborted.`, 'err');
+      return;
+    }
+    next.groupBy = (payload.groupBy || []).filter(c => available.has(c));
 
     // ── Aggregates ────────────────────────────────────────────────────────────
-    db.aggregates = [];
+    next.aggregates = [];
     for (const a of (payload.aggregates || [])) {
       if (a.col && a.col !== '*' && !available.has(a.col)) {
-        warnings.push(`Aggregate "${a.alias || a.fn}" on column "${a.col}" skipped — column not available.`);
-        continue;
+        toast(`Aggregate "${a.alias || a.fn}" on column "${a.col}" is not available. Load aborted.`, 'err');
+        return;
       }
-      db.aggregates.push({ fn: a.fn || 'SUM', col: a.col || '*', alias: a.alias || '' });
+      next.aggregates.push({ fn: a.fn || 'SUM', col: a.col || '*', alias: a.alias || '' });
     }
 
     // ── Sorts ─────────────────────────────────────────────────────────────────
-    db.sorts = [];
+    next.sorts = [];
     for (const s of (payload.sorts || [])) {
       if (s.col && !available.has(s.col)) {
-        warnings.push(`Sort on column "${s.col}" skipped — column not available.`);
-        continue;
+        toast(`Sort on column "${s.col}" is not available. Load aborted.`, 'err');
+        return;
       }
-      db.sorts.push({ col: s.col || '', dir: s.dir === 'DESC' ? 'DESC' : 'ASC' });
+      next.sorts.push({ col: s.col || '', dir: s.dir === 'DESC' ? 'DESC' : 'ASC' });
     }
 
     // ── Agg mode ──────────────────────────────────────────────────────────────
-    db.aggMode = ['group', 'totals', 'subtotals', 'none'].includes(payload.aggMode) ? payload.aggMode : 'none';
+    next.aggMode = ['group', 'totals', 'subtotals', 'none'].includes(payload.aggMode) ? payload.aggMode : 'none';
 
     // ── Col Totals ────────────────────────────────────────────────────────────
-    db.colTotals = {};
+    next.colTotals = {};
     const VALID_TOTAL_FNS = new Set([
-      'SUM', 'COUNT', 'COUNT ROWS', 'COUNT NON-EMPTY', 'COUNT DISTINCT',
+      'SUM', 'COUNT ROWS', 'COUNT NON-EMPTY', 'COUNT DISTINCT',
       'AVG', 'MIN', 'MAX', 'LIST',
     ]);
     for (const [col, fn] of Object.entries(payload.colTotals || {})) {
-      if (available.has(col) && VALID_TOTAL_FNS.has(fn)) db.colTotals[col] = fn;
+      if (available.has(col) && VALID_TOTAL_FNS.has(fn)) next.colTotals[col] = fn;
     }
 
     // ── Subtotals ─────────────────────────────────────────────────────────────
@@ -286,16 +331,16 @@ function loadState(file) {
       'NUMERIC RANGE', 'NUMERIC SPAN',
       'LIST',
     ]);
-    db.subtotalBy = (payload.subtotalBy || []).filter(c => available.has(c));
-    db.subtotalFns = {};
+    next.subtotalBy = (payload.subtotalBy || []).filter(c => available.has(c));
+    next.subtotalFns = {};
     for (const [col, fn] of Object.entries(payload.subtotalFns || {})) {
-      if (available.has(col) && VALID_SUBTOTAL_FNS.has(fn)) db.subtotalFns[col] = fn;
+      if (available.has(col) && VALID_SUBTOTAL_FNS.has(fn)) next.subtotalFns[col] = fn;
     }
-    db.subtotalGrandTotal = payload.subtotalGrandTotal !== false;
-    db.subtotalSpacer     = !!payload.subtotalSpacer;
-    db.subtotalOnTop      = !!payload.subtotalOnTop;
+    next.subtotalGrandTotal = payload.subtotalGrandTotal !== false;
+    next.subtotalSpacer     = !!payload.subtotalSpacer;
+    next.subtotalOnTop      = !!payload.subtotalOnTop;
 
-    // ── Per-mode layout state ───────────────────────────────────────────────
+    // ── Per-mode layout state ─────────────────────────────────────────────────
     const sanitizeSelCols = (sel) => {
       if (!Array.isArray(sel)) return null;
       return sel.filter(c => available.has(c));
@@ -324,66 +369,68 @@ function loadState(file) {
     const subtotalsSel = sanitizeSelCols(sanitizeModeState.subtotals?.selCols ?? payload.selCols);
     const groupByState = Array.isArray(sanitizeModeState.group?.groupBy)
       ? sanitizeModeState.group.groupBy.filter(c => available.has(c))
-      : [...db.groupBy];
+      : [...next.groupBy];
     const subtotalByState = Array.isArray(sanitizeModeState.subtotals?.subtotalBy)
       ? sanitizeModeState.subtotals.subtotalBy.filter(c => available.has(c))
-      : [...db.subtotalBy];
+      : [...next.subtotalBy];
 
-    db.aggModeState = {
+    next.aggModeState = {
       none: {
         selCols: noneSel,
       },
       group: {
         groupBy: groupByState,
-        aggregates: sanitizeAggregates(sanitizeModeState.group?.aggregates ?? db.aggregates),
+        aggregates: sanitizeAggregates(sanitizeModeState.group?.aggregates ?? next.aggregates),
       },
       totals: {
         selCols: totalsSel,
-        colTotals: sanitizeColFns(sanitizeModeState.totals?.colTotals ?? db.colTotals, VALID_TOTAL_FNS),
+        colTotals: sanitizeColFns(sanitizeModeState.totals?.colTotals ?? next.colTotals, VALID_TOTAL_FNS),
       },
       subtotals: {
         selCols: subtotalsSel,
         subtotalBy: subtotalByState,
-        subtotalFns: sanitizeColFns(modeSubtotals?.subtotalFns ?? db.subtotalFns, VALID_SUBTOTAL_FNS),
+        subtotalFns: sanitizeColFns(modeSubtotals?.subtotalFns ?? next.subtotalFns, VALID_SUBTOTAL_FNS),
         subtotalGrandTotal: modeSubtotals && Object.prototype.hasOwnProperty.call(modeSubtotals, 'subtotalGrandTotal')
           ? modeSubtotals.subtotalGrandTotal !== false
-          : db.subtotalGrandTotal !== false,
+          : next.subtotalGrandTotal !== false,
         subtotalSpacer: modeSubtotals && Object.prototype.hasOwnProperty.call(modeSubtotals, 'subtotalSpacer')
           ? !!modeSubtotals.subtotalSpacer
-          : !!db.subtotalSpacer,
+          : !!next.subtotalSpacer,
         subtotalOnTop: modeSubtotals && Object.prototype.hasOwnProperty.call(modeSubtotals, 'subtotalOnTop')
           ? !!modeSubtotals.subtotalOnTop
-          : !!db.subtotalOnTop,
+          : !!next.subtotalOnTop,
       },
     };
-    if (typeof loadAggModeState === 'function') loadAggModeState(db.aggMode || 'none');
 
-    // ── Merged cols ─────────────────────────────────────────────────────────────
-    db.mergedCols = (payload.mergedCols || []).filter(c => typeof c === 'string');
-    db.mergeGroupUnderline = !!payload.mergeGroupUnderline;
-    db.colState   = Array.isArray(payload.colState) ? payload.colState : null;
+    // ── Merged cols ───────────────────────────────────────────────────────────
+    next.mergedCols = (payload.mergedCols || []).filter(c => typeof c === 'string');
+    next.mergeGroupUnderline = !!payload.mergeGroupUnderline;
+    next.colState   = Array.isArray(payload.colState) ? payload.colState : null;
+
+    // ── Excluded rows ─────────────────────────────────────────────────────────
+    const nextExcludedRows = {};
     if (payload.excludedRows && typeof payload.excludedRows === 'object') {
       for (const [tid, arr] of Object.entries(payload.excludedRows)) {
         if (!db.tables[tid]) {
-          warnings.push(`Excluded rows for sheet "${tid}" skipped — sheet not loaded.`);
-          continue;
+          toast(`Excluded rows for sheet "${tid}" is not loaded — load the original file first.`, 'err');
+          return;
         }
         if (Array.isArray(arr) && arr.length) {
-          db.excludedRows[tid] = new Set(arr);
+          nextExcludedRows[tid] = new Set(arr);
         }
       }
     }
 
     // ── Table colors ──────────────────────────────────────────────────────────
-    db.tableColors = {};
+    next.tableColors = {};
     for (const [tid, color] of Object.entries(payload.tableColors || {})) {
       if (db.tables[tid] && typeof color === 'string' && color.startsWith('#')) {
-        db.tableColors[tid] = color;
+        next.tableColors[tid] = color;
       }
     }
 
     // ── Column labels ─────────────────────────────────────────────────────────
-    db.columnLabels = {};
+    next.columnLabels = {};
     for (const [tid, labels] of Object.entries(payload.columnLabels || {})) {
       if (!db.tables[tid]) continue;
       const validCols = new Set(db.tables[tid].cols);
@@ -391,10 +438,18 @@ function loadState(file) {
       for (const [col, label] of Object.entries(labels)) {
         if (validCols.has(col) && label && label !== col) kept[col] = label;
       }
-      if (Object.keys(kept).length) db.columnLabels[tid] = kept;
+      if (Object.keys(kept).length) next.columnLabels[tid] = kept;
+    }
+
+    // ── Apply validated state atomically ──────────────────────────────────────
+    Object.assign(db, next);
+    // Merge excluded rows into existing (do not wipe rows for unrelated sheets)
+    for (const [tid, set] of Object.entries(nextExcludedRows)) {
+      db.excludedRows[tid] = set;
     }
 
     // ── Re-render everything ──────────────────────────────────────────────────
+    if (typeof loadAggModeState === 'function') loadAggModeState(db.aggMode || 'none');
     renderQueryBuilder();
     // Ensure merge-duplicate toggles are populated immediately after loading
     // a setup file, without requiring a report run first.
@@ -402,19 +457,12 @@ function loadState(file) {
       try { renderMergeToggles(projectedCols()); } catch (_) {}
     }
     toast('Report setup loaded.', 'ok');
-    if (warnings.length) _showWarnings(warnings);
   };
 
   reader.onerror = () => toast('Failed to read file.', 'err');
   reader.readAsText(file);
 }
 
-function _showWarnings(warnings) {
-  stickyToast(
-    'Some items could not be restored:\n\n' + warnings.map(w => '• ' + w).join('\n'),
-    'warn'
-  );
-}
 
 // ── Hidden file input for loading ────────────────────────────────────────────
 (function () {

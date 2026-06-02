@@ -8,7 +8,6 @@ function tablePrefix(name) {
 
 // ── Column source map ─────────────────────────────────────────────────────────
 // Returns Map<alias → { tid, col }> — which physical table.column backs each alias.
-// Handles both the new stacks+lookups model and legacy joins.
 function buildColSourceMap() {
   const map = new Map();
   if (!db.base || !db.tables[db.base]) return map;
@@ -17,31 +16,17 @@ function buildColSourceMap() {
   // for downstream lookups/calculations/filters/sorts.
   db.tables[db.base].cols.forEach(c => map.set(c, { tid: db.base, col: c }));
 
-  const hasLookups = db.lookups && db.lookups.length > 0;
-  if (hasLookups) {
-    for (const lk of db.lookups) {
-      if (!lk.rightId || !db.tables[lk.rightId]) continue;
-      if (!_lkKeyPairs(lk).length) continue;  // no complete pairs — skip cols too
-      const rt     = db.tables[lk.rightId];
-      const prefix = tablePrefix(rt.name);
-      // Keep all lookup columns in the source map (output visibility is
-      // controlled separately via db.selCols).
-      rt.cols.forEach(c => {
-        const alias = map.has(c) ? prefix + c : c;
-        if (!map.has(alias)) map.set(alias, { tid: lk.rightId, col: c });
-      });
-    }
-  } else {
-    // Legacy: joins add all right-table columns
-    for (const j of (db.joins || [])) {
-      if (!j.rightId || !db.tables[j.rightId]) continue;
-      const rt     = db.tables[j.rightId];
-      const prefix = tablePrefix(rt.name);
-      rt.cols.forEach(c => {
-        const alias = map.has(c) ? prefix + c : c;
-        if (!map.has(alias)) map.set(alias, { tid: j.rightId, col: c });
-      });
-    }
+  for (const lk of (db.lookups || [])) {
+    if (!lk.rightId || !db.tables[lk.rightId]) continue;
+    if (!_lkKeyPairs(lk).length) continue;  // no complete pairs — skip cols too
+    const rt     = db.tables[lk.rightId];
+    const prefix = tablePrefix(rt.name);
+    // Keep all lookup columns in the source map (output visibility is
+    // controlled separately via db.selCols).
+    rt.cols.forEach(c => {
+      const alias = map.has(c) ? prefix + c : c;
+      if (!map.has(alias)) map.set(alias, { tid: lk.rightId, col: c });
+    });
   }
 
   // Virtual calculated columns (pipeline stage)
@@ -84,28 +69,8 @@ function buildColSourceMap() {
 
 function projectedCols() { return [...buildColSourceMap().keys()]; }
 
-// Legacy helper still used by old join UI rendering.
-function projectedColsUpTo(upTo) {
-  if (!db.base || !db.tables[db.base]) return [];
-  const cols   = [...db.tables[db.base].cols];
-  const colSet = new Set(cols);
-  const limit  = (upTo !== undefined) ? upTo : (db.joins || []).length;
-  for (let i = 0; i < limit; i++) {
-    const j = (db.joins || [])[i];
-    if (!j || !j.rightId || !db.tables[j.rightId]) continue;
-    const rt     = db.tables[j.rightId];
-    const prefix = tablePrefix(rt.name);
-    rt.cols.forEach(c => {
-      const alias = colSet.has(c) ? prefix + c : c;
-      if (!colSet.has(alias)) { cols.push(alias); colSet.add(alias); }
-    });
-  }
-  return cols;
-}
-
 // ── Key-pair helpers ─────────────────────────────────────────────────────────
-// Returns the normalised array of {left,right} pairs for a lookup.
-// Accepts both the new keyPairs array and the legacy leftKey/rightKey strings.
+// Returns the array of {left,right} pairs for a lookup.
 function _lkKeyPairs(lk) {
   return Array.isArray(lk.keyPairs) ? lk.keyPairs.filter(p => p.left && p.right) : [];
 }
@@ -137,7 +102,6 @@ function projectedColsUpToLookup(upTo) {
 function _buildCombineSQL(params) {
   const hasStacks  = db.stacks  && db.stacks.some(id => db.tables[id]);
   const hasLookups = db.lookups && db.lookups.some(l => l.rightId && db.tables[l.rightId]);
-  const useLegacy  = !hasLookups && !hasStacks && (db.joins || []).some(j => j.rightId && db.tables[j.rightId]);
 
   const map     = buildColSourceMap();
   const baseTid = hasStacks ? '_base' : db.base;
@@ -283,18 +247,6 @@ function _buildCombineSQL(params) {
       const onClause = onParts.join(' AND ');
       joinClauses.push(`${jType} JOIN ${quoteId(lk.rightId)} ON ${onClause}`);
     }
-  } else if (useLegacy) {
-    for (const j of db.joins) {
-      if (!j.rightId || !j.leftKey || !j.rightKey || !db.tables[j.rightId]) continue;
-      const onParts = [`${ref(j.leftKey)} = ${quoteId(j.rightId)}.${quoteId(j.rightKey)}`];
-      const excl = db.excludedRows[j.rightId];
-      if (excl && excl.size) {
-        onParts.push(`${quoteId(j.rightId)}."_rowno" NOT IN (${[...excl].join(',')})`);
-      }
-      joinClauses.push(
-        `${j.type} JOIN ${quoteId(j.rightId)} ON ${onParts.join(' AND ')}`
-      );
-    }
   }
 
   // WHERE: excluded rows + user filters
@@ -309,7 +261,7 @@ function _buildCombineSQL(params) {
     const fs = map.get(f.col);
     if (fs?.kind === 'calc' && (fs.op === 'ROLLAVG' || fs.op === 'PCTTOTAL')) continue;
     const isNumericCalc = fs?.kind === 'calc' && ['+', '-', '*', '/', 'ROLLAVG', 'PCTTOTAL'].includes(fs.op);
-    const filterVals = Array.isArray(f.vals) ? f.vals : [f.val ?? ''];
+    const filterVals = Array.isArray(f.vals) ? f.vals : [''];
     const orParts = filterVals
       .map(v => buildWhere(ref(f.col), f.op, String(v ?? ''), params, { numericHint: isNumericCalc }))
       .filter(Boolean);
@@ -366,8 +318,6 @@ function buildQuery({ mode = 'group' } = {}) {
           case 'NUMERIC RANGE':   expr = `MIN(${r}) || ' \u2013 ' || MAX(${r})`;                                 break;
           case 'NUMERIC SPAN':    expr = `MAX(${r}) - MIN(${r})`;                                                  break;
           case 'LIST':            expr = `GROUP_CONCAT(DISTINCT ${r})`;                                            break;
-          // legacy aliases from old saves
-          case 'COUNT':           expr = `COUNT(${r})`;                                                            break;
           default:                expr = `COUNT(${r})`;                                                            break;
         }
       }
@@ -424,8 +374,6 @@ function buildTotalsQuery(detailCols) {
       case 'COUNT NON-EMPTY': return `COUNT(${r}) AS ${quoteId(col)}`;
       case 'COUNT DISTINCT':  return `COUNT(DISTINCT ${r}) AS ${quoteId(col)}`;
       case 'LIST':            return `GROUP_CONCAT(DISTINCT ${r}) AS ${quoteId(col)}`;
-      // legacy alias
-      case 'COUNT':           return `COUNT(${r}) AS ${quoteId(col)}`;
       default:                return `NULL AS ${quoteId(col)}`;
     }
   });
