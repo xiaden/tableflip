@@ -32,9 +32,8 @@ function removeTable(id) {
   delete db.tables[id];
 
   if (db.base === id) {
-    Object.assign(db, { base: '', joins: [], selCols: null, groupBy: [], aggregates: [], filters: [] });
+    Object.assign(db, { base: '', selCols: null, groupBy: [], aggregates: [], filters: [] });
   }
-  db.joins = db.joins.filter(j => j.rightId !== id);
 
   renderSidebar();
   renderQueryBuilder();

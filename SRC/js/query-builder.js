@@ -118,7 +118,6 @@ function onBaseChange(val) {
   db.stacks     = [];
   db.lookups    = [];
   db.calcStages = [];
-  db.joins      = [];
   db.selCols    = null;
   db.colOrder   = null;
   db.groupBy    = [];
@@ -1336,8 +1335,7 @@ function renderFilters() {
 
   wrap.innerHTML = db.filters.map((f, i) => {
     const noVal = NO_VAL_OPS.has(f.op);
-    // Support both old `val` string and new `vals` array
-    const vals = Array.isArray(f.vals) ? f.vals : [f.val ?? ''];
+    const vals = Array.isArray(f.vals) ? f.vals : [''];
     const orValInputs = vals.map((v, j) => `
       ${j > 0 ? '<span style="font-size:0.7rem;color:var(--muted);padding:0 1px;flex-shrink:0">OR</span>' : ''}
       <input type="text" list="fdl_${i}" placeholder="value" value="${h(v)}"
@@ -1387,7 +1385,7 @@ document.getElementById('filterItems').addEventListener('input', e => {
   if (fi !== undefined && fp === 'val' && vi !== undefined) {
     const f = db.filters[+fi];
     if (f) {
-      if (!Array.isArray(f.vals)) f.vals = [f.val ?? ''];
+      if (!Array.isArray(f.vals)) f.vals = [''];
       f.vals[+vi] = e.target.value;
     }
   }
@@ -1401,7 +1399,7 @@ document.getElementById('filterItems').addEventListener('click', e => {
     const i = +addOrBtn.dataset.addorval;
     const f = db.filters[i];
     if (!f) return;
-    if (!Array.isArray(f.vals)) f.vals = [f.val ?? ''];
+    if (!Array.isArray(f.vals)) f.vals = [''];
     f.vals.push('');
     renderFilters();
     if (f.col) _populateFilterDatalist(i, f.col);
@@ -1414,7 +1412,7 @@ document.getElementById('filterItems').addEventListener('click', e => {
     const j = +rmVal.dataset.rmval;
     const f = db.filters[i];
     if (!f) return;
-    if (!Array.isArray(f.vals)) f.vals = [f.val ?? ''];
+    if (!Array.isArray(f.vals)) f.vals = [''];
     if (f.vals.length <= 1) return;
     f.vals.splice(j, 1);
     renderFilters();
