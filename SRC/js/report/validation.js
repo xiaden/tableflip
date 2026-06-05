@@ -2,8 +2,8 @@
 // ── Validation / Applicability Layer ─────────────────────────────────────────
 // Derives whether each config item is currently resolved — i.e., its source
 // tables and columns are loaded and available. This is SOURCE APPLICABILITY
-// only; config consistency (alias uniqueness, op validity, etc.) remains in
-// query-builder.js's _calcStageError / _checkAllLookups helpers.
+// only; config consistency (alias uniqueness, op validity, etc.) is handled by
+// lookup-resolver.js (checkLookupDuplicates) and calc-validator.js (checkCalcError).
 //
 // Exposes:
 //   deriveValidation()     → { reportStatus, cards, items }
@@ -48,7 +48,7 @@ function deriveValidation() {
   }
 
   // ── Projected columns (engine.js already skips unresolved/disabled sources) ──
-  const baseOk = tableExists(db.base);
+  const baseOk = !!(db.base && db.tables && db.tables[db.base]);
   const projected = new Set(baseOk ? projectedCols() : []);
 
   // ── Base ───────────────────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ function deriveValidation() {
   // ── Stacks ─────────────────────────────────────────────────────────────────
   for (let i = 0; i < (db.stacks || []).length; i++) {
     const id = db.stacks[i];
-    const ok = tableExists(id);
+    const ok = !!(id && db.tables && db.tables[id]);
     const issues = [];
     if (!ok) {
       issues.push(mkIssue(
@@ -79,8 +79,8 @@ function deriveValidation() {
     mkItem(`stack_${i}`, true, ok, issues);
   }
 
-  // ── Lookups ────────────────────────────────────────────────────────────────  // Duplicate-key errors are runtime checks from query-builder’s cache.
-  const lookupDupErrors = typeof getLookupDupErrors === 'function' ? getLookupDupErrors() : new Map();  for (let i = 0; i < (db.lookups || []).length; i++) {
+  // ── Lookups ────────────────────────────────────────────────────────────────
+  for (let i = 0; i < (db.lookups || []).length; i++) {
     const lk = db.lookups[i];
     const enabled = lk.enabled !== false;
     const issues = [];
@@ -119,8 +119,8 @@ function deriveValidation() {
       }
     }
 
-    // Check duplicate key error from runtime cache (query-builder._checkAllLookups)
-    const dupErr = lookupDupErrors.get(i);
+    // Check duplicate keys directly via lookup-resolver
+    const dupErr = typeof checkLookupDuplicates === 'function' ? checkLookupDuplicates(lk) : null;
     if (dupErr) {
       resolved = false;
       issues.push(mkIssue(
@@ -133,8 +133,6 @@ function deriveValidation() {
   }
 
   // ── Calculated stages ────────────────────────────────────────────────────────
-  // Expression errors are from query-builder’s _checkAllCalcs cache.
-  const calcErrors = typeof getCalcErrors === 'function' ? getCalcErrors() : new Map();
   for (let i = 0; i < (db.calcStages || []).length; i++) {
     const c = db.calcStages[i];
     const enabled = c.enabled !== false;
@@ -148,8 +146,8 @@ function deriveValidation() {
         `Calculated column "${alias}" — one or more source columns are not available`
       ));
     }
-    // Check expression error from runtime cache (query-builder._checkAllCalcs)
-    const calcErr = calcErrors.get(i);
+    // Check expression error directly via calc-validator
+    const calcErr = typeof checkCalcError === 'function' ? checkCalcError(c, i) : null;
     if (calcErr) {
       resolved = false;
       issues.push(mkIssue(
@@ -322,7 +320,7 @@ function deriveValidation() {
         `Merge-display column "${col}" is not available`,
         { missingColumn: col }
       )];
-      mkItem(`merge_${col}`, true, false, issues);
+      mkItem(`merge_${col}`, true, true, issues);
     }
   }
 

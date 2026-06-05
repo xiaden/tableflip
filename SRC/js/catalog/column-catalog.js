@@ -3,11 +3,13 @@
 // ── Column Catalog ─────────────────────────────────────────────────────────────
 // Single source of truth for projected-column resolution.
 //
-// Absorbs from engine.js: tablePrefix, buildColSourceMap, projectedCols,
-// projectedColsUpToLookup.  Those names remain as global backward-compat
-// wrappers so every existing caller continues to work unchanged.
+// Core API (operates on window.db directly — all callers use this):
+//   buildColSourceMap(ctx?)    → Map<alias, entry>
+//   projectedCols(ctx?)        → string[]
+//   projectedColsUpToLookup(idx, ctx?) → string[]
+//   tablePrefix(name)          → string
 //
-// New API (accepts explicit parameters — no window.db reads):
+// Catalog-based API (accepts explicit parameters — no window.db reads):
 //   buildColumnCatalog(reportSpec, upstreamOutputs?)  → ColumnCatalog
 //   getProjectedColumns(catalog)                       → string[]
 //   resolveOutputAlias(catalog, alias)                 → entry | null
@@ -16,8 +18,6 @@
 //   getColumnsAvailableForFilter(catalog)              → string[]
 //   getColumnsAvailableForSort(catalog)                → string[]
 //   getColumnsAvailableForOutput(catalog)              → string[]
-
-// ── Backward-compat primitives (moved verbatim from engine.js) ────────────────
 
 function tablePrefix(name) {
   return name.split('—').pop().trim().replace(/[^A-Za-z0-9_]/g, '_') + '__';
@@ -114,7 +114,7 @@ function projectedColsUpToLookup(upTo, ctx) {
   return cols;
 }
 
-// ── New clean API ──────────────────────────────────────────────────────────────
+// ── Catalog-based API ──────────────────────────────────────────────────────────
 // buildColumnCatalog builds from explicit reportSpec (no window.db config reads).
 // sourceCatalog is a SourceCatalog Map<tid, { id, name, cols, kind, source }>
 // produced by buildSourceCatalog() in source-catalog.js.

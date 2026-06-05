@@ -21,6 +21,7 @@
 // API:
 //   validateLookupSpec(lookupSpec, lookupIndex) → issues[]
 //   buildLookupPlan(lookupSpec)                 → LookupJoinPlan
+//   checkLookupDuplicates(lookupSpec)           → errorString | null
 //   detectDuplicateLookupKeys(rightRows, keyPairs) → { hasDuplicates, duplicateCount }
 //   applyDuplicatePolicy(rightRows, keyPairs, policy) → row[]
 
@@ -31,7 +32,7 @@ function validateLookupSpec(lookupSpec, lookupIndex) {
     return issues;
   }
 
-  if (!tableExists(lookupSpec.rightId)) {
+  if (!(lookupSpec.rightId && db.tables && db.tables[lookupSpec.rightId])) {
     issues.push({
       code:          'RIGHT_TABLE_NOT_FOUND',
       message:       `Lookup table "${lookupSpec.rightId}" is not loaded.`,
@@ -56,7 +57,7 @@ function validateLookupSpec(lookupSpec, lookupIndex) {
         missingColumn:  pair.left,
       });
     }
-    if (!columnExists(lookupSpec.rightId, pair.right)) {
+    if (!(lookupSpec.rightId && pair.right && db.tables && db.tables[lookupSpec.rightId] && db.tables[lookupSpec.rightId].cols.includes(pair.right))) {
       issues.push({
         code:          'RIGHT_COLUMN_NOT_FOUND',
         message:       `Right key "${pair.right}" not found in lookup table.`,
@@ -78,6 +79,51 @@ function buildLookupPlan(lookupSpec) {
     required:        !!lookupSpec.required,
     duplicatePolicy: lookupSpec.duplicatePolicy || { mode: 'block' },
   };
+}
+
+// ── Duplicate-key detection (SQL-level) ──────────────────────────────────────
+// Check whether a lookup's key columns are unique in the right-side table.
+// Returns a human-readable error string, or null if the lookup is clean.
+function checkLookupDuplicates(lk) {
+  if (!lk.rightId || !db.tables[lk.rightId]) return null;
+  // When policy is 'combine', duplicates are expected and handled at execution time.
+  if (lk.duplicatePolicy && lk.duplicatePolicy.mode === 'combine') return null;
+  const pairs = _lkKeyPairs(lk);
+  if (!pairs.length) return null;
+  try {
+    const table = quoteId(lk.rightId);
+    const tname = db.tables[lk.rightId].name;
+    const rightCols = pairs.map(p => p.right);
+    const whereParts = rightCols
+      .map(c => `${quoteId(c)} IS NOT NULL AND TRIM(${quoteId(c)}) != ''`);
+    const excl = db.excludedRows?.[lk.rightId];
+    if (excl && excl.size) {
+      whereParts.push(`"_rowno" NOT IN (${[...excl].join(',')})`);
+    }
+    const whereNonNull = whereParts.join(' AND ');
+    const concatExpr = rightCols.length === 1
+      ? quoteId(rightCols[0])
+      : rightCols.map(c => quoteId(c)).join(` || CHAR(0) || `);
+    const sql = `
+      SELECT COUNT(*) AS total, COUNT(DISTINCT ${concatExpr}) AS uniq
+      FROM ${table}
+      WHERE ${whereNonNull}
+    `;
+    const rows = execQuery(sql);
+    if (!rows.length) return null;
+    const { total, uniq } = rows[0];
+    if (total > uniq) {
+      const dupes = total - uniq;
+      const keyLabels = rightCols.map(c => colUserLabel(lk.rightId, c) || c);
+      const keyDesc = keyLabels.length === 1
+        ? `"${keyLabels[0]}"`
+        : keyLabels.map(c => `"${c}"`).join(' + ');
+      return `${keyDesc} in "${tname}" has ${dupes.toLocaleString()} duplicate combination${dupes === 1 ? '' : 's'} — it's unclear which row's data applies when there are multiple matches. Choose columns that together form a unique key.`;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 // Inspect a rows array for duplicate key values.

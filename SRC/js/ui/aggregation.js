@@ -123,6 +123,7 @@ function _selColsToArray(selCols) {
 function _readAggModeState(mode) {
   if (mode === 'group') {
     return {
+      selCols:    _selColsToArray(db.selCols),
       groupBy:    [...(db.groupBy || [])],
       aggregates: (db.aggregates || []).map(a => ({ ...a })),
     };
@@ -153,11 +154,10 @@ function _defaultAggModeState(mode) {
     return { groupBy: [], aggregates: [] };
   }
   if (mode === 'totals') {
-    return { selCols: null, colTotals: {} };
+    return { colTotals: {} };
   }
   if (mode === 'subtotals') {
     return {
-      selCols:            null,
       subtotalBy:         [],
       subtotalFns:        {},
       subtotalGrandTotal: true,
@@ -165,7 +165,7 @@ function _defaultAggModeState(mode) {
       subtotalOnTop:      false,
     };
   }
-  return { selCols: null };
+  return {};
 }
 
 function ensureAggModeState() {
@@ -185,18 +185,34 @@ function saveActiveAggModeState() {
 function loadAggModeState(mode) {
   ensureAggModeState();
   const state = db.aggModeState[mode] || _defaultAggModeState(mode);
+
+  // Clear fields that are not relevant for this mode so old config
+  // from a different mode never bleeds through.
+  db.groupBy    = [];
+  db.aggregates = [];
+  db.colTotals  = {};
+  db.subtotalBy = [];
+  db.subtotalFns = {};
+
   if (mode === 'group') {
+    if ('selCols' in state) {
+      db.selCols = Array.isArray(state.selCols) ? new Set(state.selCols) : null;
+    }
     db.groupBy = Array.isArray(state.groupBy) ? [...state.groupBy] : [];
     db.aggregates = Array.isArray(state.aggregates) ? state.aggregates.map(a => ({ ...a })) : [];
     return;
   }
   if (mode === 'totals') {
-    db.selCols = Array.isArray(state.selCols) ? new Set(state.selCols) : null;
+    if ('selCols' in state) {
+      db.selCols = Array.isArray(state.selCols) ? new Set(state.selCols) : null;
+    }
     db.colTotals = state.colTotals && typeof state.colTotals === 'object' ? { ...state.colTotals } : {};
     return;
   }
   if (mode === 'subtotals') {
-    db.selCols = Array.isArray(state.selCols) ? new Set(state.selCols) : null;
+    if ('selCols' in state) {
+      db.selCols = Array.isArray(state.selCols) ? new Set(state.selCols) : null;
+    }
     db.subtotalBy = Array.isArray(state.subtotalBy) ? [...state.subtotalBy] : [];
     db.subtotalFns = state.subtotalFns && typeof state.subtotalFns === 'object' ? { ...state.subtotalFns } : {};
     db.subtotalGrandTotal = state.subtotalGrandTotal !== false;
@@ -204,7 +220,10 @@ function loadAggModeState(mode) {
     db.subtotalOnTop = !!state.subtotalOnTop;
     return;
   }
-  db.selCols = Array.isArray(state.selCols) ? new Set(state.selCols) : null;
+  // 'none' mode
+  if ('selCols' in state) {
+    db.selCols = Array.isArray(state.selCols) ? new Set(state.selCols) : null;
+  }
 }
 
 // ── Top-level render ──────────────────────────────────────────────────────────

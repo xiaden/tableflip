@@ -14,5 +14,6 @@ build/
 coverage/
 node_modules/
 
-# tasking.md and artifacts dir
+# artifacts dir and test fixtures
 /artifacts
+/SRC/testfixtures
