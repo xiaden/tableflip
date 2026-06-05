@@ -7,14 +7,14 @@
 //
 // Plan shape:
 //   {
-//     source: { base, stacks, baseCols, excludedRows },
-//     joins:  [{ rightId, keyPairs, required, excludedRows }],
-//     calculatedColumns: [...],   // colMap entries for calc cols
-//     filters:           [...],   // enabled filter specs
+//     source: { base, stacks, baseCols, excludedRows, tablesById },
+//     joins:  [{ rightId, keyPairs, required, excludedRows, rightColumns, rightTableName }],
+//     calculatedColumns: [...],
+//     filters:           [...],
 //     selectedColumns:   string[],
 //     groupBy:           string[],
 //     aggregates:        [...],
-//     sorts:             [...],   // enabled sort specs
+//     sorts:             [...],
 //     colTotals:         { alias: fn },
 //     subtotalBy:        string[],
 //     subtotalFns:       { alias: fn },
@@ -26,31 +26,50 @@
 //     validation:        object | null,
 //   }
 
-function buildQueryPlan(reportSpec, columnCatalog, validation) {
+function buildQueryPlan(reportSpec, columnCatalog, validation, sourceCatalog) {
   reportSpec    = reportSpec    || db;
-  columnCatalog = columnCatalog || buildColumnCatalog(reportSpec, typeof buildSourceCatalog === 'function' ? buildSourceCatalog() : null);
+  sourceCatalog = sourceCatalog || (typeof buildSourceCatalog === 'function' ? buildSourceCatalog() : null);
+  columnCatalog = columnCatalog || buildColumnCatalog(reportSpec, sourceCatalog);
   validation    = validation    || (typeof getValidation === 'function' ? getValidation() : null);
 
   const colMap = columnCatalog.colMap;
 
+  // Build tablesById from sourceCatalog (or db.tables fallback)
+  const tablesById = new Map();
+  if (sourceCatalog instanceof Map) {
+    for (const [tid, entry] of sourceCatalog) {
+      tablesById.set(tid, { cols: entry.cols, name: entry.name });
+    }
+  } else {
+    for (const [tid, tbl] of Object.entries(db.tables || {})) {
+      tablesById.set(tid, { cols: tbl.cols, name: tbl.name });
+    }
+  }
+
   // Source
   const source = {
     base:        reportSpec.base || '',
-    stacks:      (reportSpec.stacks || []).filter(id => db.tables && db.tables[id]),
-    baseCols:    reportSpec.baseCols || (reportSpec.base && db.tables[reportSpec.base] ? db.tables[reportSpec.base].cols : null),
+    stacks:      (reportSpec.stacks || []).filter(id => tablesById.has(id)),
+    baseCols:    reportSpec.baseCols || (tablesById.has(reportSpec.base) ? tablesById.get(reportSpec.base).cols : null),
     excludedRows: reportSpec.excludedRows || {},
+    tablesById,
   };
 
   // Joins — enabled lookups with complete key pairs and loaded right table
   const joins = (reportSpec.lookups || [])
-    .filter(lk => lk.enabled !== false && lk.rightId && db.tables && db.tables[lk.rightId])
-    .map(lk => ({
-      rightId:     lk.rightId,
-      keyPairs:    (lk.keyPairs || []).filter(p => p.left && p.right),
-      required:    !!lk.required,
-      duplicatePolicy: lk.duplicatePolicy || { mode: 'block' },
-      excludedRows: (reportSpec.excludedRows || {})[lk.rightId] || null,
-    }))
+    .filter(lk => lk.enabled !== false && lk.rightId && tablesById.has(lk.rightId))
+    .map(lk => {
+      const rtMeta = tablesById.get(lk.rightId);
+      return {
+        rightId:     lk.rightId,
+        rightColumns: rtMeta ? rtMeta.cols : [],
+        rightTableName: rtMeta ? rtMeta.name : lk.rightId,
+        keyPairs:    (lk.keyPairs || []).filter(p => p.left && p.right),
+        required:    !!lk.required,
+        duplicatePolicy: lk.duplicatePolicy || { mode: 'block' },
+        excludedRows: (reportSpec.excludedRows || {})[lk.rightId] || null,
+      };
+    })
     .filter(j => j.keyPairs.length > 0);
 
   // Calculated columns from colMap (kind === 'calc')

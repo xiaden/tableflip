@@ -41,7 +41,7 @@ function executeReport(reportSpec) {
     : null;
 
   // 4. Build query plan (intermediate representation between ReportSpec and SQL).
-  const plan = buildQueryPlan(reportSpec, columnCatalog, validation);
+  const plan = buildQueryPlan(reportSpec, columnCatalog, validation, sourceCatalog);
 
   const mode = plan.aggMode;
 

@@ -213,12 +213,12 @@ function renderFromJoinWhere(plan) {
   // FROM clause
   let fromClause;
   if (hasStacks) {
-    const baseCols = src.baseCols || (db.tables[base] ? db.tables[base].cols : []);
+    const baseCols = src.baseCols || (src.tablesById && src.tablesById.has(base) ? src.tablesById.get(base).cols : []);
     const allTids  = [base, ...src.stacks];
     const unionParts = allTids
-      .filter(tid => db.tables && db.tables[tid])
+      .filter(tid => src.tablesById && src.tablesById.has(tid))
       .map(tid => {
-        const tCols  = db.tables[tid].cols;
+        const tCols  = src.tablesById.get(tid).cols;
         const selStr = baseCols
           .map(c => tCols.includes(c) ? quoteId(c) : `NULL AS ${quoteId(c)}`)
           .join(', ');
@@ -237,27 +237,40 @@ function renderFromJoinWhere(plan) {
   for (const join of (plan.joins || [])) {
     const jType    = join.required ? 'INNER' : 'LEFT';
     const dupPolicy = join.duplicatePolicy || { mode: 'block' };
-    const rightCols = db.tables && db.tables[join.rightId] ? db.tables[join.rightId].cols : [];
+    const rightCols = join.rightColumns || [];
     const keyRightCols = new Set(join.keyPairs.map(p => p.right));
 
     let rightSource;
     if (dupPolicy.mode === 'combine' && rightCols.length > 0) {
-      // Combine mode: pre-aggregate value columns with GROUP_CONCAT
+      // Combine mode: pre-aggregate value columns with GROUP_CONCAT.
+      // Note: SQLite does not support GROUP_CONCAT(DISTINCT col, separator).
+      // For unique mode, use a DISTINCT subquery then GROUP_CONCAT with separator.
       const combine = Object.assign({ separator: '; ', unique: true }, dupPolicy.combine || {});
       const aggSeparator = combine.separator === '; ' ? '\"; \"' : `'${combine.separator.replace(/'/g, "''")}'`;
-      const aggFn = combine.unique
-        ? `GROUP_CONCAT(DISTINCT %col%, ${aggSeparator})`
-        : `GROUP_CONCAT(%col%, ${aggSeparator})`;
       const valCols = rightCols.filter(c => !keyRightCols.has(c));
-      const selectParts = [
-        ...join.keyPairs.map(p => `${quoteId(p.right)} AS ${quoteId(p.right)}`),
-        ...valCols.map(c => `${aggFn.replace('%col%', quoteId(c))} AS ${quoteId(c)}`),
-      ];
-      const whereParts = join.keyPairs
-        .map(p => `${quoteId(p.right)} IS NOT NULL AND TRIM(${quoteId(p.right)}) != ''`);
+      const whereClause = join.keyPairs
+        .map(p => `${quoteId(p.right)} IS NOT NULL AND TRIM(${quoteId(p.right)}) != ''`)
+        .join(' AND ');
       const groupParts = join.keyPairs.map(p => quoteId(p.right));
-      const subSql = `SELECT ${selectParts.join(', ')} FROM ${quoteId(join.rightId)} WHERE ${whereParts.join(' AND ')} GROUP BY ${groupParts.join(', ')}`;
-      rightSource = `(${subSql}) AS ${quoteId(join.rightId)}`;
+
+      const valExprs = valCols.map(c =>
+        `GROUP_CONCAT(${quoteId(c)}, ${aggSeparator}) AS ${quoteId(c)}`
+      );
+      const keyExprs = join.keyPairs.map(p =>
+        `${quoteId(p.right)} AS ${quoteId(p.right)}`
+      );
+
+      if (combine.unique) {
+        // Deduplicate rows first via DISTINCT subquery, then GROUP_CONCAT
+        const allCols = [...join.keyPairs.map(p => quoteId(p.right)), ...valCols.map(c => quoteId(c))];
+        const inner = `SELECT DISTINCT ${allCols.join(', ')} FROM ${quoteId(join.rightId)} WHERE ${whereClause}`;
+        const outer = `SELECT ${keyExprs.join(', ')}, ${valExprs.join(', ')} FROM (${inner}) GROUP BY ${groupParts.join(', ')}`;
+        rightSource = `(${outer}) AS ${quoteId(join.rightId)}`;
+      } else {
+        const selectParts = [...keyExprs, ...valExprs];
+        const subSql = `SELECT ${selectParts.join(', ')} FROM ${quoteId(join.rightId)} WHERE ${whereClause} GROUP BY ${groupParts.join(', ')}`;
+        rightSource = `(${subSql}) AS ${quoteId(join.rightId)}`;
+      }
     } else {
       rightSource = quoteId(join.rightId);
     }

@@ -140,7 +140,7 @@ function deriveValidation() {
     const enabled = c.enabled !== false;
     const alias = (c.alias || '').trim();
     // Unset alias is an incomplete-config issue, not a source-applicability issue
-    const resolved = !alias || projected.has(alias);
+    let resolved = !alias || projected.has(alias);
     const issues = [];
     if (alias && !resolved) {
       issues.push(mkIssue(
