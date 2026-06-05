@@ -353,3 +353,38 @@ function deriveValidation() {
     items,
   };
 }
+
+// ── Validation Caches (moved from query-builder.js) ──────────────────────────
+// Cached duplicate-key and calc-expression errors populated by the UI on each
+// render/run cycle so the report runner always has the latest snapshot.
+
+const _lookupDupErrorCache = new Map();
+const _calcErrorCache       = new Map();
+
+function getLookupDupErrors() { return _lookupDupErrorCache; }
+function getCalcErrors()      { return _calcErrorCache; }
+
+function _calcStageError(calc, i) {
+  return typeof window.checkCalcError === 'function'
+    ? window.checkCalcError(calc, i)
+    : null;
+}
+
+function _checkAllCalcs() {
+  if (!Array.isArray(db.calcStages)) db.calcStages = [];
+  _calcErrorCache.clear();
+  for (let i = 0; i < db.calcStages.length; i++) {
+    const err = _calcStageError(db.calcStages[i], i);
+    if (err) _calcErrorCache.set(i, err);
+  }
+}
+
+function _checkAllLookups() {
+  _lookupDupErrorCache.clear();
+  for (let i = 0; i < (db.lookups || []).length; i++) {
+    const err = typeof window.checkLookupDuplicates === 'function'
+      ? window.checkLookupDuplicates(db.lookups[i])
+      : null;
+    if (err) _lookupDupErrorCache.set(i, err);
+  }
+}

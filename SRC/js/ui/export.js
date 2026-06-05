@@ -225,9 +225,16 @@ function styleExportSheet(ws, cleanRows, rowKinds, mergeHeaderSet = new Set()) {
 
     const rowObj = cleanRows[r - 1] || {};
     let lastDataColIdx = range.s.c;
-    for (let i = headers.length - 1; i >= 0; i--) {
-      const v = rowObj[headers[i]];
-      if (v != null && String(v) !== '') { lastDataColIdx = range.s.c + i; break; }
+    // Summary rows (subtotal / grand total) should box the full exported width;
+    // their per-row data may be sparse (only group keys or aggregates), so
+    // always use the rightmost export column for the right border.
+    if (isSummary) {
+      lastDataColIdx = range.e.c;
+    } else {
+      for (let i = headers.length - 1; i >= 0; i--) {
+        const v = rowObj[headers[i]];
+        if (v != null && String(v) !== '') { lastDataColIdx = range.s.c + i; break; }
+      }
     }
     const rowUnderlineStart = mergeUnderlineStartByRow.get(r);
     const hasRowUnderline = rowUnderlineStart != null;

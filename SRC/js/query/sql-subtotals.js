@@ -35,6 +35,15 @@ function renderSubtotalsSql(plan) {
   const joinPart  = joinClauses.length ? '\n' + joinClauses.join('\n') : '';
   const wherePart = whereParts.length  ? '\nWHERE ' + whereParts.join('\n  AND ') : '';
 
+  // For subtotal/spacer branches, exclude rows where ALL subtotalBy columns are NULL
+  // (those don't form a meaningful group — they're just unmatched LEFT JOIN rows).
+  const nullFilter = subtotalBy.length ? subtotalBy.map(a => `${ref(a)} IS NOT NULL`).join(' OR ') : '';
+  const subWherePart = nullFilter
+    ? (whereParts.length
+        ? `\nWHERE ${whereParts.join('\n  AND ')}\n  AND (${nullFilter})`
+        : `\nWHERE (${nullFilter})`)
+    : wherePart;
+
   const detailSel = [
     ...toShow.map(a => `${ref(a)} AS ${quoteId(a)}`),
     '0 AS "_row_type"',
@@ -74,13 +83,19 @@ function renderSubtotalsSql(plan) {
 
   const branches = [`SELECT ${detailSel}\n${fromPart}${joinPart}${wherePart}`];
   if (subtotalBy.length > 0) {
-    branches.push(`SELECT ${subSel}\n${fromPart}${joinPart}${wherePart}\nGROUP BY ${subGroupClause}`);
+    branches.push(`SELECT ${subSel}\n${fromPart}${joinPart}${subWherePart}\nGROUP BY ${subGroupClause}`);
     if (includeSpacer) {
-      branches.push(`SELECT ${spacerSel}\n${fromPart}${joinPart}${wherePart}\nGROUP BY ${subGroupClause}`);
+      branches.push(`SELECT ${spacerSel}\n${fromPart}${joinPart}${subWherePart}\nGROUP BY ${subGroupClause}`);
     }
   }
   if (includeGrand) {
-    branches.push(`SELECT ${grandSel}\n${fromPart}${joinPart}${wherePart}`);
+    // Skip the grand total if every non-subtotalBy column's fn is "skip"
+    // (or absent) — the row would be all-NULL and pointless.
+    const hasGrandValue = toShow.some(
+      a => !subtotalBy.includes(a) && subtotalFns[a] && subtotalFns[a] !== 'skip');
+    if (hasGrandValue) {
+      branches.push(`SELECT ${grandSel}\n${fromPart}${joinPart}${wherePart}`);
+    }
   }
 
   const params = Array.from({ length: branches.length }, () => [...filterParams]).flat();

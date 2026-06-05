@@ -31,4 +31,3 @@ function renderWhereClause(colRef, op, val, params, opts) {
   }
 }
 
-const buildWhere = renderWhereClause;
