@@ -8,15 +8,22 @@ function tablePrefix(name) {
 
 // ── Column source map ─────────────────────────────────────────────────────────
 // Returns Map<alias → { tid, col }> — which physical table.column backs each alias.
-function buildColSourceMap() {
+// Accepts an optional ctx object with { base, lookups, calcStages }; defaults to db.
+// db.tables is always the global table registry regardless of ctx.
+function buildColSourceMap(ctx) {
+  ctx = ctx || db;
+  const base       = ctx.base;
+  const lookups    = ctx.lookups;
+  const calcStages = ctx.calcStages;
   const map = new Map();
-  if (!db.base || !db.tables[db.base]) return map;
+  if (!base || !db.tables[base]) return map;
 
   // Keep all base columns in the source map so hidden columns remain usable
   // for downstream lookups/calculations/filters/sorts.
-  db.tables[db.base].cols.forEach(c => map.set(c, { tid: db.base, col: c }));
+  db.tables[base].cols.forEach(c => map.set(c, { tid: base, col: c }));
 
-  for (const lk of (db.lookups || [])) {
+  for (const lk of (lookups || [])) {
+    if (lk.enabled === false) continue;
     if (!lk.rightId || !db.tables[lk.rightId]) continue;
     if (!_lkKeyPairs(lk).length) continue;  // no complete pairs — skip cols too
     const rt     = db.tables[lk.rightId];
@@ -30,7 +37,8 @@ function buildColSourceMap() {
   }
 
   // Virtual calculated columns (pipeline stage)
-  for (const [i, calc] of (db.calcStages || []).entries()) {
+  for (const [i, calc] of (calcStages || []).entries()) {
+    if (calc?.enabled === false) continue;
     const alias = (calc?.alias || '').trim();
     const left  = calc?.left || '';
     const right = calc?.right || '';
@@ -67,7 +75,7 @@ function buildColSourceMap() {
   return map;
 }
 
-function projectedCols() { return [...buildColSourceMap().keys()]; }
+function projectedCols(ctx) { return [...buildColSourceMap(ctx).keys()]; }
 
 // ── Key-pair helpers ─────────────────────────────────────────────────────────
 // Returns the array of {left,right} pairs for a lookup.
@@ -79,13 +87,17 @@ function _lkKeyPairs(lk) {
 // Returns cols projected by lookups[0..upTo-1] — used for 'Where' left-key dropdown.
 // Uses ALL right-table cols (rt.cols), not just lk.cols, so the user can join on
 // any col from a prior lookup's table even if they're not bringing it into the output.
-function projectedColsUpToLookup(upTo) {
-  if (!db.base || !db.tables[db.base]) return [];
-  const cols   = [...db.tables[db.base].cols];
+// Accepts an optional ctx object with { base, lookups }; defaults to db.
+function projectedColsUpToLookup(upTo, ctx) {
+  ctx = ctx || db;
+  const base    = ctx.base;
+  const lookups = ctx.lookups;
+  if (!base || !db.tables[base]) return [];
+  const cols   = [...db.tables[base].cols];
   const colSet = new Set(cols);
   for (let i = 0; i < upTo; i++) {
-    const lk = (db.lookups || [])[i];
-    if (!lk || !lk.rightId || !db.tables[lk.rightId]) continue;
+    const lk = (lookups || [])[i];
+    if (!lk || lk.enabled === false || !lk.rightId || !db.tables[lk.rightId]) continue;
     const rt     = db.tables[lk.rightId];
     const prefix = tablePrefix(rt.name);
     // Use rt.cols (all right-table cols) so user can join on cols not brought into output
@@ -135,7 +147,7 @@ function _buildCombineSQL(params) {
       resolvedSortParts.push(`${calcExpr(s.orderCol, new Set(trail))} ${s.orderDir === 'DESC' ? 'DESC' : 'ASC'}`);
     } else {
       for (const sort of (db.sorts || [])) {
-        if (!sort.col || !map.has(sort.col)) continue;
+        if (sort.enabled === false || !sort.col || !map.has(sort.col)) continue;
         resolvedSortParts.push(`${calcExpr(sort.col, new Set(trail))} ${sort.dir === 'DESC' ? 'DESC' : 'ASC'}`);
       }
     }
@@ -234,6 +246,7 @@ function _buildCombineSQL(params) {
   const joinClauses = [];
   if (hasLookups) {
     for (const lk of db.lookups) {
+      if (lk.enabled === false) continue;
       if (!lk.rightId || !db.tables[lk.rightId]) continue;
       const pairs = _lkKeyPairs(lk);
       if (!pairs.length) continue; // no complete pairs — skip
@@ -257,6 +270,7 @@ function _buildCombineSQL(params) {
   }
   // Side-table exclusions are applied in JOIN ... ON clauses to preserve LEFT JOIN behavior.
   for (const f of db.filters) {
+    if (f.enabled === false) continue;
     if (!f.col) continue;
     const fs = map.get(f.col);
     if (fs?.kind === 'calc' && (fs.op === 'ROLLAVG' || fs.op === 'PCTTOTAL')) continue;
@@ -343,7 +357,7 @@ function buildQuery({ mode = 'group' } = {}) {
   if (groupRefs.length)   sql += '\nGROUP BY ' + groupRefs.join(', ');
 
   const sortParts = (db.sorts || [])
-    .filter(s => s.col && map.has(s.col))
+    .filter(s => s.enabled !== false && s.col && map.has(s.col))
     .map(s => `${ref(s.col)} ${s.dir === 'DESC' ? 'DESC' : 'ASC'}`);
   if (sortParts.length) sql += '\nORDER BY ' + sortParts.join(', ');
 
@@ -489,7 +503,7 @@ function buildSubtotalsQuery() {
     ...sortGroupKeys.map(k => `${quoteId(k)} ASC NULLS LAST`),
     '"_sort_row_type" ASC',
     ...(db.sorts || [])
-      .filter(s => s.col && toShow.includes(s.col) && !subtotalBy.includes(s.col))
+      .filter(s => s.enabled !== false && s.col && toShow.includes(s.col) && !subtotalBy.includes(s.col))
       .map(s => `${quoteId(s.col)} ${s.dir === 'DESC' ? 'DESC' : 'ASC'}`),
   ];
 

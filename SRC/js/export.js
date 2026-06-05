@@ -2,6 +2,16 @@
 
 function exportAs(fmt) {
   if (!db.result || !db.result.rows) return;
+
+  // Block export when source applicability issues exist (same gate as runQuery).
+  const v = getValidation();
+  if (v.reportStatus === 'blocked') {
+    const blockingItems = Object.values(v.items).filter(item => item.blocking);
+    const firstMsg = blockingItems[0]?.issues[0]?.message || 'missing source data';
+    toast(`Can't export — fix source issues first (${firstMsg}${blockingItems.length > 1 ? ` and ${blockingItems.length - 1} more` : ''}).`, 'err');
+    return;
+  }
+
   const ts = new Date().toISOString().slice(0, 10);
   const fn = 'report-' + ts;
 

@@ -226,12 +226,13 @@ window.assetUrl = p => `${p}?v=${window.__ASSET_VER}`;
 
           <!-- Run -->
           <div class="btn-row" id="runRow" style="display:none;padding-top:4px;flex-shrink:0">
-            <button class="btn btn-green" onclick="runQuery()">▶ Run Report</button>
+            <button id="runBtn" class="btn btn-green" onclick="runQuery()">&#9654; Run Report</button>
+            <span id="reportStatusPill" style="font-size:0.75rem;font-weight:600;padding:2px 8px;border-radius:10px;display:none"></span>
             <span class="tip" data-tip="Generate your report applying all combinations, filters, and summaries. Results appear in the Report tab. Large datasets may take a moment.">?</span>
             <span id="runStatus" style="font-size:0.78rem;color:var(--muted)"></span>
             <div style="flex:1"></div>
             <button class="btn btn-ghost" onclick="saveState()" data-tip="Saves your current report setup — sheet combinations, filters, sort order, column picks, and summaries — to a file. Load it later to restore everything instantly.">&#128190; Save Setup</button>
-            <button class="btn btn-ghost" onclick="document.getElementById('qbsInput').click()" data-tip="Load a previously saved report setup file. The original sheets must be loaded first. Any missing sheets or columns will be skipped and reported.">&#128194; Load Setup</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('qbsInput').click()" data-tip="Load a previously saved report setup file. Missing sheets must be loaded first. Other missing columns or sheets are preserved and highlighted — fix them before running.">&#128194; Load Setup</button>
           </div>
 
         </div><!-- /qb-body -->
@@ -306,7 +307,9 @@ window.assetUrl = p => `${p}?v=${window.__ASSET_VER}`;
   'js/utils.js',
   'js/state.js',
   'js/sqldb.js',
+  'js/source-catalog.js',
   'js/engine.js',
+  'js/validation.js',
   'js/tabs.js',
   'js/grid.js',
   'js/export.js',

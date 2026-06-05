@@ -78,6 +78,9 @@ function _isAliasVisibleInLayout(alias, mode) {
 
 // ── Top-level render ──────────────────────────────────────────────────────────
 function renderQueryBuilder() {
+  // Invalidate validation cache so all sub-renderers see fresh state this cycle.
+  invalidateValidation();
+
   const ids = Object.keys(db.tables).sort((a, b) => db.tables[a].name.localeCompare(db.tables[b].name));
 
   const qEmpty = document.getElementById('qEmpty');
@@ -92,10 +95,43 @@ function renderQueryBuilder() {
   _checkAllCalcs();
 
   const hasBase = !!db.base && !!db.tables[db.base];
-  ['colCard', 'filterSortCard', 'runRow'].forEach(id => {
+  const hasBaseConfigured = !!db.base; // base is set in config, even if sheet not loaded
+
+  ['colCard', 'filterSortCard'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = hasBase ? '' : 'none';
   });
+
+  // Show runRow whenever a base is configured — even when the sheet is missing —
+  // so the Blocked indicator is visible and users can see why the report can't run.
+  const runRowEl = document.getElementById('runRow');
+  if (runRowEl) runRowEl.style.display = hasBaseConfigured ? '' : 'none';
+
+  // Update Healthy/Blocked status pill and run button state.
+  if (hasBaseConfigured) {
+    const v         = getValidation();
+    const blocked   = v.reportStatus === 'blocked';
+    const issueCount = Object.values(v.items).filter(it => it.blocking).length;
+
+    const pill    = document.getElementById('reportStatusPill');
+    const runBtn  = document.getElementById('runBtn');
+
+    if (pill) {
+      pill.style.display = '';
+      if (blocked) {
+        pill.textContent   = `\u26A0 Blocked (${issueCount} issue${issueCount !== 1 ? 's' : ''})`;
+        pill.style.background  = 'rgba(200,60,60,0.18)';
+        pill.style.color       = '#e07070';
+        pill.style.border      = '1px solid rgba(200,60,60,0.35)';
+      } else {
+        pill.textContent   = '\u2713 Healthy';
+        pill.style.background  = 'rgba(50,180,100,0.15)';
+        pill.style.color       = '#6ec87e';
+        pill.style.border      = '1px solid rgba(50,180,100,0.3)';
+      }
+    }
+    if (runBtn) runBtn.disabled = blocked;
+  }
 
   renderPipeline(ids);
 
@@ -283,6 +319,11 @@ function renderPipeline(ids) {
       const lp = e.target.dataset.lp;
       if (!lp) return;
       const lk = db.lookups[i];
+      if (lp === 'enabled') {
+        lk.enabled = e.target.checked;
+        _afterCombineChange();
+        return;
+      }
       if (lp === 'rightId') {
         const prevRightId = lk.rightId;
         lk.rightId   = e.target.value;
@@ -321,6 +362,10 @@ function renderPipeline(ids) {
         if (!Array.isArray(c.conditions)) c.conditions = [];
         if (!c.conditions[j]) c.conditions[j] = { col: '', op: '=', val: '' };
         c.conditions[j][cp] = e.target.value;
+      } else if (cp === 'enabled') {
+        c.enabled = e.target.checked;
+        _afterCombineChange();
+        return;
       } else if (cp === 'alias') {
         const oldAlias = (c.alias || '').trim();
         c.alias = e.target.value;
@@ -514,9 +559,18 @@ function _plLookupStage(lk, i, sortedIds, usedAsLookup, usedAsStack, layoutColMa
     return `<span class="pl-col-chip on ${isLayoutVisible ? '' : 'pl-col-chip-layout-hidden'} ${lkColorCls}" data-li="${i}" data-lcc="${h(c)}" ${_sampleTipFor(lk.rightId, c, ['Click to show/hide this lookup column in the report layout.'])}>${h(colUserLabel(lk.rightId, c))}</span>`;
   }).join('') : '';
 
-  return `<div class="pl-lookup-stage${lk._dupError ? ' pl-lookup-stage--invalid' : ''}">
-    <div class="pl-stage-label">Look up columns from <span class="tip" data-tip="Pull columns from another sheet by matching a shared value — like VLOOKUP. Use '+ AND' to match on multiple columns at once.">?</span></div>
+  const lkEnabled = lk.enabled !== false;
+  const lkV = getValidation().items[`lookup_${i}`];
+  const lkVBlocked = lkV && lkV.blocking;   // blocking = enabled && !resolved
+  const lkVUnresolved = lkV && !lkV.resolved;
+  const lkVMsg = lkVUnresolved && lkV.issues[0] ? lkV.issues[0].message : null;
+
+  return `<div class="pl-lookup-stage${lk._dupError || lkVBlocked ? ' pl-lookup-stage--invalid' : lkVUnresolved && !lkEnabled ? ' pl-lookup-stage--disabled-issue' : ''} ${!lkEnabled ? 'pl-stage-disabled' : ''}">
+    <div class="pl-stage-label">Look up columns from <span class="tip" data-tip="Pull columns from another sheet by matching a shared value — like VLOOKUP. Use '+ AND' to match on multiple columns at once.">?</span>
+      <label class="pl-enable-toggle" title="${lkEnabled ? 'Disable this lookup (won\'t block report)' : 'Enable this lookup'}"><input type="checkbox" data-li="${i}" data-lp="enabled" ${lkEnabled ? 'checked' : ''}><span class="pl-enable-label">${lkEnabled ? 'Enabled' : 'Disabled'}</span></label>
+    </div>
     ${lk._dupError ? `<div class="pl-lookup-error">⛔ ${h(lk._dupError)}</div>` : ''}
+    ${lkVMsg && !lk._dupError ? `<div class="pl-lookup-error">${lkVBlocked ? '⛔' : '⚠'} ${h(lkVMsg)}</div>` : ''}
     <div class="pl-lookup-header">
       <select data-li="${i}" data-lp="rightId">
         <option value="">— pick a sheet —</option>
@@ -625,9 +679,18 @@ function _plCalcStage(calc, i) {
     <div style="font-size:0.72rem;color:var(--muted);margin-top:4px">Result: ${trueDisplay} if ${condModeText} true, ${falseDisplay} if not</div>
   ` : '';
 
-  return `<div class="pl-lookup-stage${err ? ' pl-lookup-stage--invalid' : ''}">
-    <div class="pl-stage-label">Calculated column <span class="tip" data-tip="Create a virtual column from existing columns.&#10;Arithmetic: uses two columns (left op right).&#10;Rolling Avg: uses the left column + window size.&#10;% of Total: uses the left column within current filtered scope.&#10;Compare: tests one or more column conditions using one mode (AND or OR) and outputs 1 (true) or 0 (false). Custom true/false values can be set.">?</span></div>
+  const calcEnabled = calc.enabled !== false;
+  const calcV = getValidation().items[`calc_${i}`];
+  const calcVBlocked = calcV && calcV.blocking;
+  const calcVUnresolved = calcV && !calcV.resolved;
+  const calcVMsg = calcVUnresolved && calcV.issues[0] ? calcV.issues[0].message : null;
+
+  return `<div class="pl-lookup-stage${err || calcVBlocked ? ' pl-lookup-stage--invalid' : calcVUnresolved && !calcEnabled ? ' pl-lookup-stage--disabled-issue' : ''} ${!calcEnabled ? 'pl-stage-disabled' : ''}">
+    <div class="pl-stage-label">Calculated column <span class="tip" data-tip="Create a virtual column from existing columns.&#10;Arithmetic: uses two columns (left op right).&#10;Rolling Avg: uses the left column + window size.&#10;% of Total: uses the left column within current filtered scope.&#10;Compare: tests one or more column conditions using one mode (AND or OR) and outputs 1 (true) or 0 (false). Custom true/false values can be set.">?</span>
+      <label class="pl-enable-toggle" title="${calcEnabled ? 'Disable this calculated column (won\'t block report)' : 'Enable this calculated column'}"><input type="checkbox" data-ci="${i}" data-cp="enabled" ${calcEnabled ? 'checked' : ''}><span class="pl-enable-label">${calcEnabled ? 'Enabled' : 'Disabled'}</span></label>
+    </div>
     ${err ? `<div class="pl-lookup-error">⛔ ${h(err)}</div>` : ''}
+    ${calcVMsg && !err ? `<div class="pl-lookup-error">${calcVBlocked ? '⛔' : '⚠'} ${h(calcVMsg)}</div>` : ''}
     <div class="pl-lookup-header" style="gap:8px;flex-wrap:wrap">
       <input type="text" data-ci="${i}" data-cp="alias" placeholder="Output column name (e.g. Remaining to Ship)" value="${h(calc.alias || '')}" style="flex:1;min-width:180px">
       <button class="btn btn-danger" style="flex-shrink:0" data-rmcalc="${i}">✕</button>
@@ -756,7 +819,7 @@ function removeStack(id) {
 function addLookup() {
   if (!db.base) return;
   if (!db.lookups) db.lookups = [];
-  db.lookups.push({ rightId: '', keyPairs: [{ left: '', right: '' }], cols: [], required: false, _dupError: null });
+  db.lookups.push({ rightId: '', keyPairs: [{ left: '', right: '' }], cols: [], required: false, enabled: true, _dupError: null });
   _afterCombineChange();
 }
 
@@ -777,6 +840,7 @@ function addCalcStage() {
     explicitOrder: false,
     orderCol: '',
     orderDir: 'ASC',
+    enabled: true,
     _error: null,
   });
   _afterCombineChange();
@@ -1311,7 +1375,7 @@ function _populateFilterDatalist(i, alias) {
 }
 
 function addFilter() {
-  db.filters.push({ col: '', op: 'contains', vals: [''] });
+  db.filters.push({ col: '', op: 'contains', vals: [''], enabled: true });
   renderFilters();
 }
 
@@ -1336,6 +1400,11 @@ function renderFilters() {
   wrap.innerHTML = db.filters.map((f, i) => {
     const noVal = NO_VAL_OPS.has(f.op);
     const vals = Array.isArray(f.vals) ? f.vals : [''];
+    const fEnabled = f.enabled !== false;
+    const fV = getValidation().items[`filter_${i}`];
+    const fBlocked = fV && fV.blocking;
+    const fUnresolved = fV && !fV.resolved;
+    const fIssueMsg = fUnresolved && fV.issues[0] ? fV.issues[0].message : null;
     const orValInputs = vals.map((v, j) => `
       ${j > 0 ? '<span style="font-size:0.7rem;color:var(--muted);padding:0 1px;flex-shrink:0">OR</span>' : ''}
       <input type="text" list="fdl_${i}" placeholder="value" value="${h(v)}"
@@ -1343,7 +1412,9 @@ function renderFilters() {
       ${j > 0 ? `<button class="btn btn-danger" style="padding:2px 5px;font-size:0.75rem;flex-shrink:0" data-rmval="${j}" data-fi="${i}" title="Remove this OR value">✕</button>` : ''}
     `).join('');
     return `
-    <div class="filter-row">
+    <div class="filter-row${fBlocked ? ' pl-lookup-stage--invalid' : fUnresolved && !fEnabled ? ' pl-lookup-stage--disabled-issue' : ''} ${!fEnabled ? 'pl-stage-disabled' : ''}">
+      ${fIssueMsg ? `<div class="pl-lookup-error" style="width:100%;font-size:0.72rem;margin-bottom:3px">${fBlocked ? '⛔' : '⚠'} ${h(fIssueMsg)}</div>` : ''}
+      <label class="pl-enable-toggle" style="margin-left:auto;order:99" title="${fEnabled ? 'Disable filter' : 'Enable filter'}"><input type="checkbox" data-fi="${i}" data-fp="enabled" ${fEnabled ? 'checked' : ''}><span class="pl-enable-label">${fEnabled ? '' : 'Off'}</span></label>
       <select data-fi="${i}" data-fp="col">
         <option value="">Column…</option>
         ${cols.map(c => `<option value="${h(c)}" ${f.col === c ? 'selected' : ''}>${h(colDisplayLabel(c, colMap))}</option>`).join('')}
@@ -1366,9 +1437,15 @@ function renderFilters() {
 document.getElementById('filterItems').addEventListener('change', e => {
   const { fi, fp } = e.target.dataset;
   if (fi === undefined || !fp) return;
-  const i = +fi;
-  const f = db.filters[i];
+  const f = db.filters[+fi];
   if (!f) return;
+  if (fp === 'enabled') {
+    f.enabled = e.target.checked;
+    invalidateValidation();
+    renderFilters();
+    return;
+  }
+  const i = +fi;
   if (fp === 'col') {
     f.col = e.target.value;
     f.vals = [''];
@@ -1431,8 +1508,15 @@ function renderSorts() {
     wrap.innerHTML = '<span style="font-size:0.76rem;color:var(--muted)">No sort — rows returned in natural order</span>';
     return;
   }
-  wrap.innerHTML = db.sorts.map((s, i) => `
-    <div class="sort-row">
+  wrap.innerHTML = db.sorts.map((s, i) => {
+    const sEnabled = s.enabled !== false;
+    const sV = getValidation().items[`sort_${i}`];
+    const sBlocked = sV && sV.blocking;
+    const sUnresolved = sV && !sV.resolved;
+    const sIssueMsg = sUnresolved && sV.issues[0] ? sV.issues[0].message : null;
+    return `
+    <div class="sort-row${sBlocked ? ' pl-lookup-stage--invalid' : sUnresolved && !sEnabled ? ' pl-lookup-stage--disabled-issue' : ''} ${!sEnabled ? 'pl-stage-disabled' : ''}">
+      ${sIssueMsg ? `<div class="pl-lookup-error" style="width:100%;font-size:0.72rem;margin-bottom:3px">${sBlocked ? '⛔' : '⚠'} ${h(sIssueMsg)}</div>` : ''}
       <span class="sort-level">${i + 1}.</span>
       <select data-si="${i}" data-sp="col" style="flex:1;min-width:0">
         <option value="">— column —</option>
@@ -1442,13 +1526,14 @@ function renderSorts() {
         <option value="ASC"  ${s.dir === 'ASC'  ? 'selected' : ''}>↑ A → Z</option>
         <option value="DESC" ${s.dir === 'DESC' ? 'selected' : ''}>↓ Z → A</option>
       </select>
+      <label class="pl-enable-toggle" title="${sEnabled ? 'Disable sort' : 'Enable sort'}"><input type="checkbox" data-si="${i}" data-sp="enabled" ${sEnabled ? 'checked' : ''}><span class="pl-enable-label">${sEnabled ? '' : 'Off'}</span></label>
       <button class="btn btn-danger" data-rmsort="${i}">✕</button>
-    </div>`
-  ).join('');
+    </div>`;
+  }).join('');
 }
 
 function addSort() {
-  db.sorts.push({ col: '', dir: 'ASC' });
+  db.sorts.push({ col: '', dir: 'ASC', enabled: true });
   renderSorts();
 }
 
@@ -1459,6 +1544,12 @@ function removeSort(i) {
 
 document.getElementById('sortItems').addEventListener('change', e => {
   const { si, sp } = e.target.dataset;
+  if (si !== undefined && sp === 'enabled') {
+    db.sorts[+si].enabled = e.target.checked;
+    invalidateValidation();
+    renderSorts();
+    return;
+  }
   if (si !== undefined && sp) db.sorts[+si][sp] = e.target.value;
 });
 document.getElementById('sortItems').addEventListener('click', e => {
@@ -1473,6 +1564,15 @@ function runQuery() {
   // Re-evaluate lookup duplicate errors at run time so row exclusions immediately apply.
   _checkAllLookups();
   _checkAllCalcs();
+
+  // Block on source-applicability issues (missing tables or columns).
+  const v = getValidation();
+  if (v.reportStatus === 'blocked') {
+    const blockingItems = Object.values(v.items).filter(item => item.blocking);
+    const firstMsg = blockingItems[0]?.issues[0]?.message || 'missing source data';
+    toast(`Can't run — fix source issues first (${firstMsg}${blockingItems.length > 1 ? ` and ${blockingItems.length - 1} more` : ''}).`, 'err');
+    return;
+  }
 
   const invalidLookups = (db.lookups || []).filter(lk => lk._dupError);
   if (invalidLookups.length) {

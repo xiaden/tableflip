@@ -28,6 +28,7 @@ function saveState() {
       keyPairs: (l.keyPairs || []).map(p => ({ left: p.left, right: p.right })),
       cols:     [...(l.cols || [])],
       required: !!l.required,
+      enabled:  l.enabled !== false,
     })),
     calcStages:   (db.calcStages || []).map(c => ({
       alias: (c.alias || '').trim(),
@@ -44,15 +45,17 @@ function saveState() {
       explicitOrder: !!c.explicitOrder,
       orderCol: c.orderCol || '',
       orderDir: c.orderDir === 'DESC' ? 'DESC' : 'ASC',
+      enabled:  c.enabled !== false,
     })),
     selCols:      db.selCols ? [...db.selCols] : null,
     colOrder:     db.colOrder ? [...db.colOrder] : null,
     filters:      db.filters.map(f => ({
-      col:  f.col  || '',
-      op:   f.op   || 'contains',
-      vals: Array.isArray(f.vals) ? [...f.vals] : [''],
+      col:     f.col  || '',
+      op:      f.op   || 'contains',
+      vals:    Array.isArray(f.vals) ? [...f.vals] : [''],
+      enabled: f.enabled !== false,
     })),
-    sorts:        db.sorts.map(s => ({ ...s })),
+    sorts:        db.sorts.map(s => ({ col: s.col || '', dir: s.dir === 'DESC' ? 'DESC' : 'ASC', enabled: s.enabled !== false })),
     groupBy:      [...db.groupBy],
     aggregates:   db.aggregates.map(a => ({ ...a })),
     aggMode:            db.aggMode || 'none',
@@ -98,32 +101,17 @@ function loadState(file) {
       return;
     }
 
-    // Build validated state into `next` without touching db.
-    // db is only updated at the end once all validation passes.
+    // Build state into `next` without touching db.
+    // Missing source tables/columns are preserved as-authored.
+    // After load, a summary warning is shown if broken refs exist.
     const next = {};
+    const brokenRefs = []; // collect descriptions of unresolved refs
 
-    // Local helper: projected cols available to lookup[upTo] from the next state being built.
-    const nextProjectedUpToLookup = (upTo) => {
-      const baseId = next.base;
-      if (!baseId || !db.tables[baseId]) return [];
-      const cols   = [...db.tables[baseId].cols];
-      const colSet = new Set(cols);
-      for (let i = 0; i < upTo; i++) {
-        const lk = (next.lookups || [])[i];
-        if (!lk || !lk.rightId || !db.tables[lk.rightId]) continue;
-        const rt     = db.tables[lk.rightId];
-        const prefix = tablePrefix(rt.name);
-        rt.cols.forEach(c => {
-          const alias = colSet.has(c) ? prefix + c : c;
-          if (!colSet.has(alias)) { cols.push(alias); colSet.add(alias); }
-        });
-      }
-      return cols;
-    };
-
-    // Local helper: full projected col set from next state (base + lookups + calcs so far).
+    // Use engine helpers with next as context — avoids duplicating projection logic.
+    // Adds all calc aliases unconditionally so cross-calc broken-ref detection works
+    // even when a calc formula is invalid (a valid formula isn't required to be "available").
     const nextAvailableCols = () => {
-      const cols   = nextProjectedUpToLookup((next.lookups || []).length);
+      const cols   = projectedColsUpToLookup((next.lookups || []).length, next);
       const colSet = new Set(cols);
       for (const c of (next.calcStages || [])) {
         if (c.alias) colSet.add(c.alias);
@@ -133,16 +121,18 @@ function loadState(file) {
 
     // ── Base table ────────────────────────────────────────────────────────────
     const savedBase = payload.base || '';
-    if (!savedBase || !db.tables[savedBase]) {
-      toast(`Primary sheet "${savedBase}" is not loaded — load the original file first.`, 'err');
-      return;
-    }
     next.base = savedBase;
+    const baseLoaded = !!(savedBase && db.tables[savedBase]);
+    if (!baseLoaded) {
+      brokenRefs.push(`Primary sheet "${savedBase || '(none)'}" is not loaded`);
+    }
 
     // ── Base column selection ─────────────────────────────────────────────────
-    if (Array.isArray(payload.baseCols)) {
+    if (Array.isArray(payload.baseCols) && baseLoaded) {
       const valid = payload.baseCols.filter(c => db.tables[savedBase].cols.includes(c));
       next.baseCols = valid.length === db.tables[savedBase].cols.length ? null : (valid.length ? valid : null);
+    } else if (Array.isArray(payload.baseCols)) {
+      next.baseCols = [...payload.baseCols]; // preserve as-authored when base isn't loaded
     } else {
       next.baseCols = null;
     }
@@ -151,8 +141,9 @@ function loadState(file) {
     next.stacks = [];
     for (const id of (payload.stacks || [])) {
       if (!db.tables[id]) {
-        toast(`Stacked sheet "${id}" is not loaded — load the original file first.`, 'err');
-        return;
+        brokenRefs.push(`Stacked sheet "${id}" is not loaded`);
+        next.stacks.push(id); // preserve reference even if broken
+        continue;
       }
       if (!next.stacks.includes(id)) next.stacks.push(id);
     }
@@ -160,30 +151,29 @@ function loadState(file) {
     // ── Lookups ───────────────────────────────────────────────────────────────
     next.lookups = [];
     for (const lk of (payload.lookups || [])) {
-      if (!lk.rightId || !db.tables[lk.rightId]) {
-        toast(`Lookup sheet "${lk.rightId}" is not loaded — load the original file first.`, 'err');
-        return;
+      const rt = lk.rightId && db.tables[lk.rightId];
+      if (!lk.rightId || !rt) {
+        brokenRefs.push(`Lookup sheet "${lk.rightId || '(none)'}" is not loaded`);
+        // Preserve the lookup as-authored so user can see and fix it
+        next.lookups.push({
+          rightId:  lk.rightId || '',
+          keyPairs: Array.isArray(lk.keyPairs) ? lk.keyPairs.map(p => ({ left: p.left || '', right: p.right || '' })) : [{ left: '', right: '' }],
+          cols:     Array.isArray(lk.cols) ? [...lk.cols] : [],
+          required: !!lk.required,
+          enabled:  lk.enabled !== false,
+        });
+        continue;
       }
-      const rt       = db.tables[lk.rightId];
-      const leftAvail = nextProjectedUpToLookup(next.lookups.length);
-      if (!Array.isArray(lk.keyPairs) || !lk.keyPairs.length) {
-        toast(`Lookup from sheet "${rt.name}" has no key pairs. Load aborted.`, 'err');
-        return;
-      }
-      const keyPairs = [];
-      for (const p of lk.keyPairs) {
-        if (!leftAvail.includes(p.left)) {
-          toast(`Match column "${p.left}" not found — lookup from "${rt.name}". Load aborted.`, 'err');
-          return;
-        }
-        if (!rt.cols.includes(p.right)) {
-          toast(`Match column "${p.right}" not found in "${rt.name}". Load aborted.`, 'err');
-          return;
-        }
-        keyPairs.push({ left: p.left, right: p.right });
-      }
-      const cols = Array.isArray(lk.cols) ? lk.cols.filter(c => rt.cols.includes(c)) : [...rt.cols];
-      next.lookups.push({ rightId: lk.rightId, keyPairs, cols, required: !!lk.required });
+      const leftAvail = baseLoaded ? projectedColsUpToLookup(next.lookups.length, next) : [];
+      const keyPairs = (Array.isArray(lk.keyPairs) ? lk.keyPairs : []).map(p => {
+        const leftOk  = !baseLoaded || leftAvail.includes(p.left);
+        const rightOk = rt.cols.includes(p.right);
+        if (!leftOk && p.left) brokenRefs.push(`Match column "${p.left}" not found (left side of lookup from "${rt.name}")`);
+        if (!rightOk && p.right) brokenRefs.push(`Match column "${p.right}" not found in "${rt.name}"`);
+        return { left: p.left || '', right: p.right || '' };
+      });
+      const cols = Array.isArray(lk.cols) ? lk.cols : [...rt.cols];
+      next.lookups.push({ rightId: lk.rightId, keyPairs, cols, required: !!lk.required, enabled: lk.enabled !== false });
     }
 
     // ── Calculated stages ─────────────────────────────────────────────────────
@@ -197,19 +187,22 @@ function loadState(file) {
       const op = VALID_CALC_OPS.has(c.op) ? c.op : null;
 
       if (!alias) {
-        toast('A calculated column with no label was found. Load aborted.', 'err');
-        return;
+        // Skip nameless calc stages — no way to reference them
+        continue;
       }
       if (!op) {
-        toast(`Calculated column "${alias}" has an unsupported operator "${c.op}". Load aborted.`, 'err');
-        return;
+        brokenRefs.push(`Calculated column "${alias}" has an unsupported operator "${c.op}"`);
+        // Preserve with default op so user can see and fix it
+        next.calcStages.push({ alias, left, op: '-', right, conditions: [], compareMode: 'AND', customTF: false, trueVal: '', falseVal: '', window: 7, explicitOrder: false, orderCol: '', orderDir: 'ASC', enabled: c.enabled !== false });
+        continue;
       }
 
       const availNow = nextAvailableCols();
-      if (op !== 'COMPARE' && (!availNow.has(left) || (isArithmetic && !availNow.has(right)))) {
-        toast(`Calculated column "${alias}" references unavailable column(s). Load aborted.`, 'err');
-        return;
+      if (op !== 'COMPARE') {
+        if (left && baseLoaded && !availNow.has(left)) brokenRefs.push(`Calculated column "${alias}" references unavailable column "${left}"`);
+        if (isArithmetic && right && baseLoaded && !availNow.has(right)) brokenRefs.push(`Calculated column "${alias}" references unavailable column "${right}"`);
       }
+
       let conditions = [];
       if (op === 'COMPARE') {
         conditions = Array.isArray(c.conditions) ? c.conditions.map(cond => ({
@@ -217,20 +210,15 @@ function loadState(file) {
           op:  ['=', '!=', '>', '>=', '<', '<='].includes(cond.op) ? cond.op : '=',
           val: String(cond.val ?? ''),
         })) : [];
-        const validConds = conditions.filter(cond => cond.col && availNow.has(cond.col) && String(cond.val ?? '').trim());
-        if (!validConds.length) {
-          toast(`Calculated column "${alias}" has no valid comparison conditions. Load aborted.`, 'err');
-          return;
+        // Warn about broken condition columns but keep all conditions
+        for (const cond of conditions) {
+          if (cond.col && availNow.size && !availNow.has(cond.col)) {
+            brokenRefs.push(`Calculated column "${alias}" condition references unavailable column "${cond.col}"`);
+          }
         }
-        conditions = validConds;
       }
-      if (op === 'ROLLAVG' && c.explicitOrder && c.orderCol && !availNow.has(c.orderCol)) {
-        toast(`Calculated column "${alias}" explicit order column is unavailable. Load aborted.`, 'err');
-        return;
-      }
-      if (availNow.has(alias)) {
-        toast(`Calculated column "${alias}" conflicts with an existing column. Load aborted.`, 'err');
-        return;
+      if (op === 'ROLLAVG' && c.explicitOrder && c.orderCol && availNow.size && !availNow.has(c.orderCol)) {
+        brokenRefs.push(`Calculated column "${alias}" explicit order column "${c.orderCol}" is unavailable`);
       }
 
       const window = Math.max(1, parseInt(c.window, 10) || 7);
@@ -241,7 +229,7 @@ function loadState(file) {
       const customTF = !!c.customTF;
       const trueVal = c.trueVal ?? '';
       const falseVal = c.falseVal ?? '';
-      next.calcStages.push({ alias, left, op, right, conditions, compareMode, customTF, trueVal, falseVal, window, explicitOrder, orderCol, orderDir });
+      next.calcStages.push({ alias, left, op, right, conditions, compareMode, customTF, trueVal, falseVal, window, explicitOrder, orderCol, orderDir, enabled: c.enabled !== false });
     }
 
     // ── Available columns after stacks/lookups/calcs ──────────────────────────
@@ -251,49 +239,48 @@ function loadState(file) {
     if (payload.selCols === null) {
       next.selCols = null;
     } else if (Array.isArray(payload.selCols)) {
-      const kept    = payload.selCols.filter(c => available.has(c));
-      const dropped = payload.selCols.filter(c => !available.has(c));
-      if (dropped.length) {
-        toast(`Selected columns not found: ${dropped.join(', ')}. Load aborted.`, 'err');
-        return;
+      if (baseLoaded) {
+        const kept    = payload.selCols.filter(c => available.has(c));
+        const dropped = payload.selCols.filter(c => !available.has(c));
+        if (dropped.length) brokenRefs.push(`Selected columns not available: ${dropped.join(', ')}`);
+        next.selCols = kept.length ? new Set(kept) : null;
+      } else {
+        next.selCols = new Set(payload.selCols); // preserve as-authored
       }
-      next.selCols = kept.length ? new Set(kept) : null;
     } else {
       next.selCols = null;
     }
     next.colOrder = Array.isArray(payload.colOrder)
-      ? payload.colOrder.filter(c => available.has(c))
+      ? (baseLoaded ? payload.colOrder.filter(c => available.has(c)) : [...payload.colOrder])
       : null;
 
     // ── Filters ───────────────────────────────────────────────────────────────
     next.filters = [];
     for (const f of (payload.filters || [])) {
-      if (f.col && !available.has(f.col)) {
-        toast(`Filter on column "${f.col}" is not available. Load aborted.`, 'err');
-        return;
+      if (f.col && baseLoaded && !available.has(f.col)) {
+        brokenRefs.push(`Filter on column "${f.col}" is not available`);
       }
       if (!Array.isArray(f.vals)) {
-        toast(`Filter on column "${f.col || '(unknown)'}" has invalid values format (expected an array). Load aborted.`, 'err');
-        return;
+        continue; // skip structurally invalid filter
       }
       const vals = f.vals.filter(v => typeof v === 'string');
-      next.filters.push({ col: f.col || '', op: f.op || 'contains', vals: vals.length ? vals : [''] });
+      next.filters.push({ col: f.col || '', op: f.op || 'contains', vals: vals.length ? vals : [''], enabled: f.enabled !== false });
     }
 
     // ── Group By ──────────────────────────────────────────────────────────────
-    const gbDropped = (payload.groupBy || []).filter(c => !available.has(c));
-    if (gbDropped.length) {
-      toast(`Group By columns not found: ${gbDropped.join(', ')}. Load aborted.`, 'err');
-      return;
+    if (baseLoaded) {
+      const gbDropped = (payload.groupBy || []).filter(c => !available.has(c));
+      if (gbDropped.length) brokenRefs.push(`Group By columns not available: ${gbDropped.join(', ')}`);
+      next.groupBy = (payload.groupBy || []).filter(c => available.has(c));
+    } else {
+      next.groupBy = [...(payload.groupBy || [])];
     }
-    next.groupBy = (payload.groupBy || []).filter(c => available.has(c));
 
     // ── Aggregates ────────────────────────────────────────────────────────────
     next.aggregates = [];
     for (const a of (payload.aggregates || [])) {
-      if (a.col && a.col !== '*' && !available.has(a.col)) {
-        toast(`Aggregate "${a.alias || a.fn}" on column "${a.col}" is not available. Load aborted.`, 'err');
-        return;
+      if (a.col && a.col !== '*' && baseLoaded && !available.has(a.col)) {
+        brokenRefs.push(`Aggregate "${a.alias || a.fn}" on column "${a.col}" is not available`);
       }
       next.aggregates.push({ fn: a.fn || 'SUM', col: a.col || '*', alias: a.alias || '' });
     }
@@ -301,11 +288,10 @@ function loadState(file) {
     // ── Sorts ─────────────────────────────────────────────────────────────────
     next.sorts = [];
     for (const s of (payload.sorts || [])) {
-      if (s.col && !available.has(s.col)) {
-        toast(`Sort on column "${s.col}" is not available. Load aborted.`, 'err');
-        return;
+      if (s.col && baseLoaded && !available.has(s.col)) {
+        brokenRefs.push(`Sort on column "${s.col}" is not available`);
       }
-      next.sorts.push({ col: s.col || '', dir: s.dir === 'DESC' ? 'DESC' : 'ASC' });
+      next.sorts.push({ col: s.col || '', dir: s.dir === 'DESC' ? 'DESC' : 'ASC', enabled: s.enabled !== false });
     }
 
     // ── Agg mode ──────────────────────────────────────────────────────────────
@@ -318,7 +304,7 @@ function loadState(file) {
       'AVG', 'MIN', 'MAX', 'LIST',
     ]);
     for (const [col, fn] of Object.entries(payload.colTotals || {})) {
-      if (available.has(col) && VALID_TOTAL_FNS.has(fn)) next.colTotals[col] = fn;
+      if ((!baseLoaded || available.has(col)) && VALID_TOTAL_FNS.has(fn)) next.colTotals[col] = fn;
     }
 
     // ── Subtotals ─────────────────────────────────────────────────────────────
@@ -331,16 +317,22 @@ function loadState(file) {
       'NUMERIC RANGE', 'NUMERIC SPAN',
       'LIST',
     ]);
-    next.subtotalBy = (payload.subtotalBy || []).filter(c => available.has(c));
+    next.subtotalBy = baseLoaded
+      ? (payload.subtotalBy || []).filter(c => available.has(c))
+      : [...(payload.subtotalBy || [])];
     next.subtotalFns = {};
     for (const [col, fn] of Object.entries(payload.subtotalFns || {})) {
-      if (available.has(col) && VALID_SUBTOTAL_FNS.has(fn)) next.subtotalFns[col] = fn;
+      if ((!baseLoaded || available.has(col)) && VALID_SUBTOTAL_FNS.has(fn)) next.subtotalFns[col] = fn;
     }
     next.subtotalGrandTotal = payload.subtotalGrandTotal !== false;
     next.subtotalSpacer     = !!payload.subtotalSpacer;
     next.subtotalOnTop      = !!payload.subtotalOnTop;
 
     // ── Per-mode layout state ─────────────────────────────────────────────────
+    // When base is not loaded we can't sanitise by column availability — skip to null.
+    if (!baseLoaded) {
+      next.aggModeState = null;
+    } else {
     const sanitizeSelCols = (sel) => {
       if (!Array.isArray(sel)) return null;
       return sel.filter(c => available.has(c));
@@ -401,6 +393,7 @@ function loadState(file) {
           : !!next.subtotalOnTop,
       },
     };
+    } // end if (baseLoaded) for aggModeState
 
     // ── Merged cols ───────────────────────────────────────────────────────────
     next.mergedCols = (payload.mergedCols || []).filter(c => typeof c === 'string');
@@ -412,8 +405,8 @@ function loadState(file) {
     if (payload.excludedRows && typeof payload.excludedRows === 'object') {
       for (const [tid, arr] of Object.entries(payload.excludedRows)) {
         if (!db.tables[tid]) {
-          toast(`Excluded rows for sheet "${tid}" is not loaded — load the original file first.`, 'err');
-          return;
+          brokenRefs.push(`Excluded rows for sheet "${tid}" is not loaded`);
+          continue;
         }
         if (Array.isArray(arr) && arr.length) {
           nextExcludedRows[tid] = new Set(arr);
@@ -447,6 +440,8 @@ function loadState(file) {
     for (const [tid, set] of Object.entries(nextExcludedRows)) {
       db.excludedRows[tid] = set;
     }
+    // Clear validation cache so next render derives fresh state.
+    if (typeof invalidateValidation === 'function') invalidateValidation();
 
     // ── Re-render everything ──────────────────────────────────────────────────
     if (typeof loadAggModeState === 'function') loadAggModeState(db.aggMode || 'none');
@@ -456,7 +451,14 @@ function loadState(file) {
     if (db.base && typeof renderMergeToggles === 'function') {
       try { renderMergeToggles(projectedCols()); } catch (_) {}
     }
-    toast('Report setup loaded.', 'ok');
+    if (brokenRefs.length) {
+      const summary = brokenRefs.length === 1
+        ? `1 item needs attention: ${brokenRefs[0]}.`
+        : `${brokenRefs.length} items need attention — missing sheets or columns. Run the report to see full details.`;
+      toast(`Report setup loaded with issues — ${summary}`, 'warn');
+    } else {
+      toast('Report setup loaded.', 'ok');
+    }
   };
 
   reader.onerror = () => toast('Failed to read file.', 'err');
