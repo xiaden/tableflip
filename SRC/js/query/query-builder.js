@@ -1,5 +1,13 @@
 'use strict';
 
+// Error caches populated by _checkAllLookups() / _checkAllCalcs() before each validation pass.
+// validation.js reads these via getLookupDupErrors() / getCalcErrors() so that config objects
+// do NOT carry _dupError / _error as mutable authoritative state.
+const _lookupDupErrorCache = new Map(); // lookup-index → error string
+const _calcErrorCache       = new Map(); // calc-index   → error string
+function getLookupDupErrors() { return _lookupDupErrorCache; }
+function getCalcErrors()      { return _calcErrorCache; }
+
 // Tracks every column alias that has ever been part of the projection.
 let _seenCols = new Set();
 let _previewOpen = new Set(); // stage keys where preview is expanded
@@ -334,6 +342,9 @@ function renderPipeline(ids) {
         if (lk.rightId) _showLayoutAliasesForSource(lk.rightId);
       } else if (lp === 'required') {
         lk.required = e.target.value === '1';
+      } else if (lp === 'dupMode') {
+        if (!lk.duplicatePolicy) lk.duplicatePolicy = { mode: 'block' };
+        lk.duplicatePolicy.mode = e.target.value;
       } else if (lp === 'kpLeft' || lp === 'kpRight') {
         const pi = +e.target.dataset.lkp;
         if (!Array.isArray(lk.keyPairs)) lk.keyPairs = [{ left: '', right: '' }];
@@ -565,12 +576,11 @@ function _plLookupStage(lk, i, sortedIds, usedAsLookup, usedAsStack, layoutColMa
   const lkVUnresolved = lkV && !lkV.resolved;
   const lkVMsg = lkVUnresolved && lkV.issues[0] ? lkV.issues[0].message : null;
 
-  return `<div class="pl-lookup-stage${lk._dupError || lkVBlocked ? ' pl-lookup-stage--invalid' : lkVUnresolved && !lkEnabled ? ' pl-lookup-stage--disabled-issue' : ''} ${!lkEnabled ? 'pl-stage-disabled' : ''}">
+  return `<div class="pl-lookup-stage${lkVBlocked ? ' pl-lookup-stage--invalid' : lkVUnresolved && !lkEnabled ? ' pl-lookup-stage--disabled-issue' : ''} ${!lkEnabled ? 'pl-stage-disabled' : ''}">
     <div class="pl-stage-label">Look up columns from <span class="tip" data-tip="Pull columns from another sheet by matching a shared value — like VLOOKUP. Use '+ AND' to match on multiple columns at once.">?</span>
       <label class="pl-enable-toggle" title="${lkEnabled ? 'Disable this lookup (won\'t block report)' : 'Enable this lookup'}"><input type="checkbox" data-li="${i}" data-lp="enabled" ${lkEnabled ? 'checked' : ''}><span class="pl-enable-label">${lkEnabled ? 'Enabled' : 'Disabled'}</span></label>
     </div>
-    ${lk._dupError ? `<div class="pl-lookup-error">⛔ ${h(lk._dupError)}</div>` : ''}
-    ${lkVMsg && !lk._dupError ? `<div class="pl-lookup-error">${lkVBlocked ? '⛔' : '⚠'} ${h(lkVMsg)}</div>` : ''}
+    ${lkVMsg ? `<div class="pl-lookup-error">${lkVBlocked ? '⛔' : '⚠'} ${h(lkVMsg)}</div>` : ''}
     <div class="pl-lookup-header">
       <select data-li="${i}" data-lp="rightId">
         <option value="">— pick a sheet —</option>
@@ -588,6 +598,12 @@ function _plLookupStage(lk, i, sortedIds, usedAsLookup, usedAsStack, layoutColMa
       <label><input type="radio" name="lkreq_${i}" data-li="${i}" data-lp="required" value="0" ${!lk.required ? 'checked' : ''}> Leave blank</label>
       <label><input type="radio" name="lkreq_${i}" data-li="${i}" data-lp="required" value="1" ${lk.required ? 'checked' : ''}> Skip row</label>
       <span class="tip" data-tip="Leave blank: keep all rows even if no match.&#10;Skip row: only keep rows that match.">?</span>
+    </div>
+    <div class="pl-lookup-required">
+      <span style="flex-shrink:0">Duplicate keys:</span>
+      <label><input type="radio" name="lkdup_${i}" data-li="${i}" data-lp="dupMode" value="block" ${(lk.duplicatePolicy && lk.duplicatePolicy.mode) !== 'combine' ? 'checked' : ''}> Block (error)</label>
+      <label><input type="radio" name="lkdup_${i}" data-li="${i}" data-lp="dupMode" value="combine" ${(lk.duplicatePolicy && lk.duplicatePolicy.mode) === 'combine' ? 'checked' : ''}> Combine values</label>
+      <span class="tip" data-tip="Block: the report cannot run if the same key appears more than once in the lookup sheet.&#10;Combine: concatenate matching values into a single cell, e.g. 'Tag1; Tag2'.">?</span>
     </div>
     <div class="pl-lookup-cols">
       <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Bring in:</span>
@@ -623,7 +639,6 @@ function _plCalcStage(calc, i) {
   const windowVal = Math.max(1, parseInt(calc.window, 10) || 7);
   const explicitOrder = !!calc.explicitOrder;
   const orderDir = calc.orderDir === 'DESC' ? 'DESC' : 'ASC';
-  const err = calc._error || '';
 
   // Build comparison ops options for conditions
   const COND_OPS = ['=', '!=', '>', '>=', '<', '<='];
@@ -685,12 +700,11 @@ function _plCalcStage(calc, i) {
   const calcVUnresolved = calcV && !calcV.resolved;
   const calcVMsg = calcVUnresolved && calcV.issues[0] ? calcV.issues[0].message : null;
 
-  return `<div class="pl-lookup-stage${err || calcVBlocked ? ' pl-lookup-stage--invalid' : calcVUnresolved && !calcEnabled ? ' pl-lookup-stage--disabled-issue' : ''} ${!calcEnabled ? 'pl-stage-disabled' : ''}">
+  return `<div class="pl-lookup-stage${calcVBlocked ? ' pl-lookup-stage--invalid' : calcVUnresolved && !calcEnabled ? ' pl-lookup-stage--disabled-issue' : ''} ${!calcEnabled ? 'pl-stage-disabled' : ''}">
     <div class="pl-stage-label">Calculated column <span class="tip" data-tip="Create a virtual column from existing columns.&#10;Arithmetic: uses two columns (left op right).&#10;Rolling Avg: uses the left column + window size.&#10;% of Total: uses the left column within current filtered scope.&#10;Compare: tests one or more column conditions using one mode (AND or OR) and outputs 1 (true) or 0 (false). Custom true/false values can be set.">?</span>
       <label class="pl-enable-toggle" title="${calcEnabled ? 'Disable this calculated column (won\'t block report)' : 'Enable this calculated column'}"><input type="checkbox" data-ci="${i}" data-cp="enabled" ${calcEnabled ? 'checked' : ''}><span class="pl-enable-label">${calcEnabled ? 'Enabled' : 'Disabled'}</span></label>
     </div>
-    ${err ? `<div class="pl-lookup-error">⛔ ${h(err)}</div>` : ''}
-    ${calcVMsg && !err ? `<div class="pl-lookup-error">${calcVBlocked ? '⛔' : '⚠'} ${h(calcVMsg)}</div>` : ''}
+    ${calcVMsg ? `<div class="pl-lookup-error">${calcVBlocked ? '⛔' : '⚠'} ${h(calcVMsg)}</div>` : ''}
     <div class="pl-lookup-header" style="gap:8px;flex-wrap:wrap">
       <input type="text" data-ci="${i}" data-cp="alias" placeholder="Output column name (e.g. Remaining to Ship)" value="${h(calc.alias || '')}" style="flex:1;min-width:180px">
       <button class="btn btn-danger" style="flex-shrink:0" data-rmcalc="${i}">✕</button>
@@ -819,7 +833,7 @@ function removeStack(id) {
 function addLookup() {
   if (!db.base) return;
   if (!db.lookups) db.lookups = [];
-  db.lookups.push({ rightId: '', keyPairs: [{ left: '', right: '' }], cols: [], required: false, enabled: true, _dupError: null });
+  db.lookups.push({ rightId: '', keyPairs: [{ left: '', right: '' }], cols: [], required: false, enabled: true, duplicatePolicy: { mode: 'block' } });
   _afterCombineChange();
 }
 
@@ -1013,8 +1027,10 @@ function _calcStageError(calc, i) {
 
 function _checkAllCalcs() {
   if (!Array.isArray(db.calcStages)) db.calcStages = [];
+  _calcErrorCache.clear();
   for (let i = 0; i < db.calcStages.length; i++) {
-    db.calcStages[i]._error = _calcStageError(db.calcStages[i], i);
+    const err = _calcStageError(db.calcStages[i], i);
+    if (err) _calcErrorCache.set(i, err);
   }
 }
 
@@ -1031,6 +1047,8 @@ function _syncSubtotalByToLayout() {
 // Duplicate-key guard for lookups (compound key aware)
 function checkLookupDuplicates(lk) {
   if (!lk.rightId || !db.tables[lk.rightId]) return null;
+  // When policy is 'combine', duplicates are expected and handled at execution time.
+  if (lk.duplicatePolicy && lk.duplicatePolicy.mode === 'combine') return null;
   const pairs = _lkKeyPairs(lk);
   if (!pairs.length) return null;
   try {
@@ -1070,8 +1088,10 @@ function checkLookupDuplicates(lk) {
 }
 
 function _checkAllLookups() {
-  for (const lk of (db.lookups || [])) {
-    lk._dupError = checkLookupDuplicates(lk);
+  _lookupDupErrorCache.clear();
+  for (let i = 0; i < (db.lookups || []).length; i++) {
+    const err = checkLookupDuplicates(db.lookups[i]);
+    if (err) _lookupDupErrorCache.set(i, err);
   }
 }
 function removeLookup(i) {
@@ -1561,29 +1581,16 @@ document.getElementById('sortItems').addEventListener('click', e => {
 function runQuery() {
   if (!db.base || !db.tables[db.base]) return;
 
-  // Re-evaluate lookup duplicate errors at run time so row exclusions immediately apply.
+  // Populate error caches so validation.js can include duplicate and calc issues.
   _checkAllLookups();
   _checkAllCalcs();
 
-  // Block on source-applicability issues (missing tables or columns).
+  // Block on any validation issue (source refs, dup keys, calc errors, etc.).
   const v = getValidation();
   if (v.reportStatus === 'blocked') {
     const blockingItems = Object.values(v.items).filter(item => item.blocking);
     const firstMsg = blockingItems[0]?.issues[0]?.message || 'missing source data';
     toast(`Can't run — fix source issues first (${firstMsg}${blockingItems.length > 1 ? ` and ${blockingItems.length - 1} more` : ''}).`, 'err');
-    return;
-  }
-
-  const invalidLookups = (db.lookups || []).filter(lk => lk._dupError);
-  if (invalidLookups.length) {
-    const names = invalidLookups.map(lk => `"${db.tables[lk.rightId]?.name ?? lk.rightId}"`).join(', ');
-    toast(`Can't run — fix the lookup issue${invalidLookups.length > 1 ? 's' : ''} with ${names} first.`, 'err');
-    return;
-  }
-
-  const invalidCalcs = (db.calcStages || []).filter(c => c._error);
-  if (invalidCalcs.length) {
-    toast(`Can't run — fix ${invalidCalcs.length} calculated column issue${invalidCalcs.length > 1 ? 's' : ''} first.`, 'err');
     return;
   }
 
@@ -1609,63 +1616,28 @@ function runQuery() {
   // Defer so the "Running…" label paints before we block on the query.
   setTimeout(() => {
     try {
-      if (db.aggMode === 'totals') {
-        // ── Detail + Totals mode ─────────────────────────────────────────────
-        const { sql: dSql, params: dParams, cols: detailCols } = buildQuery({ mode: 'detail' });
-        const detailRows = execQuery(dSql, dParams);
+      // executeReport builds a QueryPlan via query-plan.js, renders SQL via sql-renderer.js,
+      // executes via execQuery, and returns a ResultSet.  This is the canonical execution path.
+      const resultSet = executeReport(db);
 
-        const totalsQ = buildTotalsQuery(detailCols);
-        if (!totalsQ) {
-          // No aggregates defined: just return sorted detail rows
-          db.result = { rows: detailRows, totalsRow: null, cols: detailCols };
-          status.textContent = detailRows.length.toLocaleString() + ' rows';
-          switchTab('results');
-          renderResults(db.result);
-          return;
-        }
+      const displayRows = resultSet.rows.filter(r => !r._row_type);
+      const hasTotals   = !!resultSet.metadata.totalsRow;
+      const hasSubs     = !!resultSet.metadata.hasSubtotals;
 
-        // Run grand-total aggregation (schema aligned to detailCols + new agg cols)
-        const totalsRows = execQuery(totalsQ.sql, totalsQ.params);
-        const newAggCols = totalsQ.cols.slice(detailCols.length);
-        const paddedRows = newAggCols.length
-          ? detailRows.map(r => { const row = { ...r }; newAggCols.forEach(c => { row[c] = null; }); return row; })
-          : detailRows;
+      db.result = {
+        rows:         resultSet.rows,
+        totalsRow:    resultSet.metadata.totalsRow || null,
+        cols:         resultSet.columns,
+        hasSubtotals: hasSubs,
+      };
 
-        db.result = {
-          rows:      paddedRows,
-          totalsRow: totalsRows[0] || null,
-          cols:      totalsQ.cols,
-        };
-        status.textContent = detailRows.length.toLocaleString() + ' rows + grand total';
-        switchTab('results');
-        renderResults(db.result);
+      let statusText = displayRows.length.toLocaleString() + ' rows';
+      if (hasTotals) statusText += ' + grand total';
+      if (hasSubs)   statusText += ' (subtotals)';
+      status.textContent = statusText;
 
-      } else if (db.aggMode === 'subtotals') {
-        const result = buildSubtotalsQuery();
-        if (!result) {
-          status.textContent = '';
-          toast('No output columns selected — pick at least one column.', 'err');
-          return;
-        }
-        const rows = execQuery(result.sql, result.params);
-        const detailCount   = rows.filter(r => r._row_type === 0).length;
-        const subtotalCount = rows.filter(r => r._row_type === 1).length;
-        db.result = { rows, totalsRow: null, cols: result.displayCols, hasSubtotals: true };
-        status.textContent  = detailCount.toLocaleString() + ' rows + ' + subtotalCount + ' subtotals'
-          + (db.subtotalGrandTotal !== false ? ' + grand total' : '');
-        switchTab('results');
-        renderResults(db.result);
-
-      } else {
-        // ── Summarize / plain mode (default) ─────────────────────────────────
-        const mode = db.aggMode === 'group' ? 'group' : 'detail';
-        const { sql, params, cols } = buildQuery({ mode });
-        const rows = execQuery(sql, params);
-        db.result = { rows, totalsRow: null, cols };
-        status.textContent = rows.length.toLocaleString() + ' rows';
-        switchTab('results');
-        renderResults(db.result);
-      }
+      switchTab('results');
+      renderResults(db.result);
     } catch (ex) {
       status.textContent = 'Error';
       toast('Query error: ' + ex.message, 'err');

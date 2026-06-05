@@ -79,8 +79,8 @@ function deriveValidation() {
     mkItem(`stack_${i}`, true, ok, issues);
   }
 
-  // ── Lookups ────────────────────────────────────────────────────────────────
-  for (let i = 0; i < (db.lookups || []).length; i++) {
+  // ── Lookups ────────────────────────────────────────────────────────────────  // Duplicate-key errors are runtime checks from query-builder’s cache.
+  const lookupDupErrors = typeof getLookupDupErrors === 'function' ? getLookupDupErrors() : new Map();  for (let i = 0; i < (db.lookups || []).length; i++) {
     const lk = db.lookups[i];
     const enabled = lk.enabled !== false;
     const issues = [];
@@ -119,13 +119,22 @@ function deriveValidation() {
       }
     }
 
+    // Check duplicate key error from runtime cache (query-builder._checkAllLookups)
+    const dupErr = lookupDupErrors.get(i);
+    if (dupErr) {
+      resolved = false;
+      issues.push(mkIssue(
+        `lookup_${i}_dup_keys`, 'duplicateKeys', 'pipeline', `lookup_${i}`,
+        dupErr, { lookupIndex: i }
+      ));
+    }
+
     mkItem(`lookup_${i}`, enabled, resolved, issues);
   }
 
-  // ── Calculated stages ──────────────────────────────────────────────────────
-  // A calc stage is resolved if its alias ends up in projectedCols().
-  // buildColSourceMap (used by projectedCols) skips calcs with missing column
-  // refs, so absence from projected means a source reference is broken.
+  // ── Calculated stages ────────────────────────────────────────────────────────
+  // Expression errors are from query-builder’s _checkAllCalcs cache.
+  const calcErrors = typeof getCalcErrors === 'function' ? getCalcErrors() : new Map();
   for (let i = 0; i < (db.calcStages || []).length; i++) {
     const c = db.calcStages[i];
     const enabled = c.enabled !== false;
@@ -137,6 +146,15 @@ function deriveValidation() {
       issues.push(mkIssue(
         `calc_${i}_unresolved`, 'calculatedColumn', `calc_${i}`, `calc_${i}`,
         `Calculated column "${alias}" — one or more source columns are not available`
+      ));
+    }
+    // Check expression error from runtime cache (query-builder._checkAllCalcs)
+    const calcErr = calcErrors.get(i);
+    if (calcErr) {
+      resolved = false;
+      issues.push(mkIssue(
+        `calc_${i}_expr_error`, 'calcError', 'pipeline', `calc_${i}`,
+        calcErr, { calcIndex: i }
       ));
     }
     mkItem(`calc_${i}`, enabled, resolved, issues);
@@ -176,11 +194,147 @@ function deriveValidation() {
     mkItem(`sort_${i}`, enabled, resolved, issues);
   }
 
+  // ── Group-by columns ───────────────────────────────────────────────────────
+  if (db.aggMode === 'group') {
+    for (let i = 0; i < (db.groupBy || []).length; i++) {
+      const col = db.groupBy[i];
+      const resolved = projected.has(col);
+      const issues = [];
+      if (!resolved) {
+        issues.push(mkIssue(
+          `groupby_${i}_missing_col`, 'groupBy', 'aggregation', `groupby_${i}`,
+          `Group-by column "${col}" is not available`,
+          { missingColumn: col }
+        ));
+      }
+      mkItem(`groupby_${i}`, true, resolved, issues);
+    }
+
+    // ── Aggregates ──────────────────────────────────────────────────────────
+    for (let i = 0; i < (db.aggregates || []).length; i++) {
+      const agg = db.aggregates[i];
+      const issues = [];
+      let resolved = true;
+      const needsCol = typeof aggregateNeedsColumn === 'function'
+        ? aggregateNeedsColumn(agg.fn)
+        : !['COUNT ROWS'].includes(agg.fn);
+      if (needsCol && agg.col && agg.col !== '*' && !projected.has(agg.col)) {
+        resolved = false;
+        issues.push(mkIssue(
+          `agg_${i}_missing_col`, 'aggregate', 'aggregation', `agg_${i}`,
+          `Aggregate column "${agg.col}" is not available`,
+          { missingColumn: agg.col }
+        ));
+      }
+      if (typeof isValidAggregateFn === 'function' && !isValidAggregateFn(agg.fn)) {
+        resolved = false;
+        issues.push(mkIssue(
+          `agg_${i}_invalid_fn`, 'aggregate', 'aggregation', `agg_${i}`,
+          `Unknown aggregate function "${agg.fn}"`
+        ));
+      }
+      mkItem(`agg_${i}`, true, resolved, issues);
+    }
+  }
+
+  // ── Totals ─────────────────────────────────────────────────────────────────
+  if (db.aggMode === 'totals') {
+    for (const [col, fn] of Object.entries(db.colTotals || {})) {
+      if (!fn || fn === 'skip') continue;
+      const resolved = projected.has(col);
+      const issues = [];
+      if (!resolved) {
+        issues.push(mkIssue(
+          `totals_${col}_missing_col`, 'totals', 'aggregation', `totals_${col}`,
+          `Totals column "${col}" is not available`,
+          { missingColumn: col }
+        ));
+      } else if (typeof isValidTotalFn === 'function' && !isValidTotalFn(fn)) {
+        issues.push(mkIssue(
+          `totals_${col}_invalid_fn`, 'totals', 'aggregation', `totals_${col}`,
+          `Unknown totals function "${fn}" for column "${col}"`
+        ));
+      }
+      mkItem(`totals_${col}`, true, resolved, issues);
+    }
+  }
+
+  // ── Subtotals ──────────────────────────────────────────────────────────────
+  if (db.aggMode === 'subtotals') {
+    for (let i = 0; i < (db.subtotalBy || []).length; i++) {
+      const col = db.subtotalBy[i];
+      const resolved = projected.has(col);
+      const issues = [];
+      if (!resolved) {
+        issues.push(mkIssue(
+          `subtotalby_${i}_missing_col`, 'subtotalBy', 'aggregation', `subtotalby_${i}`,
+          `Subtotal group column "${col}" is not available`,
+          { missingColumn: col }
+        ));
+      }
+      mkItem(`subtotalby_${i}`, true, resolved, issues);
+    }
+
+    for (const [col, fn] of Object.entries(db.subtotalFns || {})) {
+      if (!fn || fn === 'skip') continue;
+      const resolved = projected.has(col);
+      const issues = [];
+      if (!resolved) {
+        issues.push(mkIssue(
+          `subtotalfns_${col}_missing_col`, 'subtotalFns', 'aggregation', `subtotalfns_${col}`,
+          `Subtotal column "${col}" is not available`,
+          { missingColumn: col }
+        ));
+      } else if (typeof isValidSubtotalFn === 'function' && !isValidSubtotalFn(fn)) {
+        issues.push(mkIssue(
+          `subtotalfns_${col}_invalid_fn`, 'subtotalFns', 'aggregation', `subtotalfns_${col}`,
+          `Unknown subtotals function "${fn}" for column "${col}"`
+        ));
+      }
+      mkItem(`subtotalfns_${col}`, true, resolved, issues);
+    }
+  }
+
+  // ── Output columns ─────────────────────────────────────────────────────────
+  // colOrder defines which projected columns are in the output (and their order).
+  // selCols (Set) optionally further restricts visibility.
+  // Columns in colOrder that are no longer in projected are unresolved.
+  const colOrderItems = (db.colOrder || []).filter(a => !projected.has(a));
+  for (let i = 0; i < colOrderItems.length; i++) {
+    const col = colOrderItems[i];
+    const issues = [mkIssue(
+      `colorder_${i}_stale`, 'outputColumn', 'outputColumns', `colorder_${col}`,
+      `Output column "${col}" is no longer available`,
+      { missingColumn: col }
+    )];
+    // Stale output columns are unresolved but only blocking if selCols references them
+    const inSelCols = db.selCols instanceof Set ? db.selCols.has(col) : true;
+    mkItem(`colorder_${col}`, inSelCols, false, issues);
+  }
+
+  // ── Merge display ──────────────────────────────────────────────────────────
+  // mergedCols: string[] of aliases that have merge-style display enabled.
+  // Each must be in projected (and ideally in colOrder).
+  for (const col of (db.mergedCols || [])) {
+    if (!projected.has(col)) {
+      const issues = [mkIssue(
+        `merge_${col}_missing`, 'mergeDisplay', 'outputColumns', `merge_${col}`,
+        `Merge-display column "${col}" is not available`,
+        { missingColumn: col }
+      )];
+      mkItem(`merge_${col}`, true, false, issues);
+    }
+  }
+
   // ── Cards ──────────────────────────────────────────────────────────────────
   function cardFor(itemId) {
     if (itemId === 'base' || itemId.startsWith('stack_') ||
         itemId.startsWith('lookup_') || itemId.startsWith('calc_')) return 'pipeline';
     if (itemId.startsWith('filter_') || itemId.startsWith('sort_')) return 'filterSort';
+    if (itemId.startsWith('groupby_') || itemId.startsWith('agg_') ||
+        itemId.startsWith('totals_') || itemId.startsWith('subtotalby_') ||
+        itemId.startsWith('subtotalfns_')) return 'aggregation';
+    if (itemId.startsWith('colorder_') || itemId.startsWith('merge_')) return 'outputColumns';
     return 'other';
   }
 

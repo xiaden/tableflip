@@ -15,14 +15,14 @@ window.assetUrl = p => `${p}?v=${window.__ASSET_VER}`;
 </script>
 
 <!-- XLSX runtime (pinned, local bundle) -->
-<script>document.write('<script src="' + assetUrl('js/xlsx.bundle.js') + '"><\/script>');</script>
+<script>document.write('<script src="' + assetUrl('js/vendor/xlsx.bundle.js') + '"><\/script>');</script>
 <!-- AG Grid Community + sql.js runtimes (pinned, local bundles) -->
-<script>document.write('<link rel="stylesheet" href="' + assetUrl('js/ag-grid.min.css') + '">');</script>
-<script>document.write('<link rel="stylesheet" href="' + assetUrl('js/ag-theme-balham-dark.min.css') + '">');</script>
-<script>document.write('<script src="' + assetUrl('js/ag-grid-community.min.js') + '"><\/script>');</script>
-<script>document.write('<script src="' + assetUrl('js/sql-wasm.js') + '"><\/script>');</script>
+<script>document.write('<link rel="stylesheet" href="' + assetUrl('css/ag-grid.min.css') + '">');</script>
+<script>document.write('<link rel="stylesheet" href="' + assetUrl('css/ag-theme-balham-dark.min.css') + '">');</script>
+<script>document.write('<script src="' + assetUrl('js/vendor/ag-grid-community.min.js') + '"><\/script>');</script>
+<script>document.write('<script src="' + assetUrl('js/wasm/sql-wasm.js') + '"><\/script>');</script>
 
-<script>document.write('<link rel="stylesheet" href="' + assetUrl('style.css') + '">');</script>
+<script>document.write('<link rel="stylesheet" href="' + assetUrl('css/style.css') + '">');</script>
 </head>
 
 <body>
@@ -304,20 +304,28 @@ window.assetUrl = p => `${p}?v=${window.__ASSET_VER}`;
 <!-- ── Scripts (load order matters) ──────────────────────── -->
 <script>
 [
-  'js/utils.js',
-  'js/state.js',
-  'js/sqldb.js',
-  'js/source-catalog.js',
-  'js/engine.js',
-  'js/validation.js',
-  'js/tabs.js',
-  'js/grid.js',
-  'js/export.js',
-  'js/aggregation.js',
-  'js/state-io.js',
-  'js/query-builder.js',
-  'js/sidebar.js',
-  'js/loader.js',
+  'js/core/utils.js',
+  'js/core/state.js',
+  'js/core/sqldb.js',
+  'js/catalog/source-catalog.js',
+  'js/catalog/column-catalog.js',
+  'js/report/result-set.js',
+  'js/report/output-layout.js',
+  'js/query/sql-renderer.js',
+  'js/query/query-plan.js',
+  'js/query/lookup-resolver.js',
+  'js/report/report-graph.js',
+  'js/report/report-output.js',
+  'js/report/engine.js',
+  'js/report/validation.js',
+  'js/ui/tabs.js',
+  'js/ui/grid.js',
+  'js/ui/export.js',
+  'js/ui/aggregation.js',
+  'js/core/state-io.js',
+  'js/query/query-builder.js',
+  'js/ui/sidebar.js',
+  'js/ui/loader.js',
 ].forEach(src => {
   document.write('<script src="' + assetUrl(src) + '"><\/script>');
 });

@@ -1,112 +1,15 @@
 'use strict';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function tablePrefix(name) {
-  return name.split('—').pop().trim().replace(/[^A-Za-z0-9_]/g, '_') + '__';
-}
-
-// ── Column source map ─────────────────────────────────────────────────────────
-// Returns Map<alias → { tid, col }> — which physical table.column backs each alias.
-// Accepts an optional ctx object with { base, lookups, calcStages }; defaults to db.
-// db.tables is always the global table registry regardless of ctx.
-function buildColSourceMap(ctx) {
-  ctx = ctx || db;
-  const base       = ctx.base;
-  const lookups    = ctx.lookups;
-  const calcStages = ctx.calcStages;
-  const map = new Map();
-  if (!base || !db.tables[base]) return map;
-
-  // Keep all base columns in the source map so hidden columns remain usable
-  // for downstream lookups/calculations/filters/sorts.
-  db.tables[base].cols.forEach(c => map.set(c, { tid: base, col: c }));
-
-  for (const lk of (lookups || [])) {
-    if (lk.enabled === false) continue;
-    if (!lk.rightId || !db.tables[lk.rightId]) continue;
-    if (!_lkKeyPairs(lk).length) continue;  // no complete pairs — skip cols too
-    const rt     = db.tables[lk.rightId];
-    const prefix = tablePrefix(rt.name);
-    // Keep all lookup columns in the source map (output visibility is
-    // controlled separately via db.selCols).
-    rt.cols.forEach(c => {
-      const alias = map.has(c) ? prefix + c : c;
-      if (!map.has(alias)) map.set(alias, { tid: lk.rightId, col: c });
-    });
-  }
-
-  // Virtual calculated columns (pipeline stage)
-  for (const [i, calc] of (calcStages || []).entries()) {
-    if (calc?.enabled === false) continue;
-    const alias = (calc?.alias || '').trim();
-    const left  = calc?.left || '';
-    const right = calc?.right || '';
-    const op    = calc?.op || '';
-    const isArithmetic = ['+', '-', '*', '/'].includes(op);
-    const isRolling    = op === 'ROLLAVG';
-    const isPctTotal   = op === 'PCTTOTAL';
-    const isCompare    = op === 'COMPARE';
-    if (!alias) continue;
-    if (!isArithmetic && !isRolling && !isPctTotal && !isCompare) continue;
-    if (isCompare) {
-      const conditions = calc?.conditions || [];
-      const hasValid = conditions.some(cond => cond?.col && map.has(cond.col) && String(cond?.val ?? '').trim());
-      if (!hasValid) continue;
-    } else {
-      if (!left || !map.has(left)) continue;
-      if (isArithmetic && (!right || !map.has(right))) continue;
-    }
-    if (map.has(alias)) continue; // keep existing non-calc columns authoritative
-    map.set(alias, {
-      kind: 'calc', alias, left, op, right, idx: i,
-      window: Math.max(1, parseInt(calc?.window, 10) || 7),
-      explicitOrder: !!calc?.explicitOrder,
-      orderCol: calc?.orderCol || '',
-      orderDir: calc?.orderDir === 'DESC' ? 'DESC' : 'ASC',
-      compareMode: calc?.compareMode === 'OR' ? 'OR' : 'AND',
-      conditions: Array.isArray(calc?.conditions) ? calc.conditions : [],
-      customTF: !!calc?.customTF,
-      trueVal: calc?.trueVal ?? '',
-      falseVal: calc?.falseVal ?? '',
-    });
-  }
-
-  return map;
-}
-
-function projectedCols(ctx) { return [...buildColSourceMap(ctx).keys()]; }
+// ── engine.js — Query execution facade ───────────────────────────────────────
+// tablePrefix, buildColSourceMap, projectedCols, projectedColsUpToLookup
+//   → moved to column-catalog.js (still globally available; load order preserved).
+// buildWhere / renderWhereClause
+//   → moved to sql-renderer.js (still globally available as buildWhere).
 
 // ── Key-pair helpers ─────────────────────────────────────────────────────────
 // Returns the array of {left,right} pairs for a lookup.
 function _lkKeyPairs(lk) {
   return Array.isArray(lk.keyPairs) ? lk.keyPairs.filter(p => p.left && p.right) : [];
-}
-
-// New helper: projected cols available as left-key for lookup[upTo].
-// Returns cols projected by lookups[0..upTo-1] — used for 'Where' left-key dropdown.
-// Uses ALL right-table cols (rt.cols), not just lk.cols, so the user can join on
-// any col from a prior lookup's table even if they're not bringing it into the output.
-// Accepts an optional ctx object with { base, lookups }; defaults to db.
-function projectedColsUpToLookup(upTo, ctx) {
-  ctx = ctx || db;
-  const base    = ctx.base;
-  const lookups = ctx.lookups;
-  if (!base || !db.tables[base]) return [];
-  const cols   = [...db.tables[base].cols];
-  const colSet = new Set(cols);
-  for (let i = 0; i < upTo; i++) {
-    const lk = (lookups || [])[i];
-    if (!lk || lk.enabled === false || !lk.rightId || !db.tables[lk.rightId]) continue;
-    const rt     = db.tables[lk.rightId];
-    const prefix = tablePrefix(rt.name);
-    // Use rt.cols (all right-table cols) so user can join on cols not brought into output
-    rt.cols.forEach(c => {
-      const alias = colSet.has(c) ? prefix + c : c;
-      if (!colSet.has(alias)) { cols.push(alias); colSet.add(alias); }
-    });
-  }
-  return cols;
 }
 
 // ── Shared FROM/JOIN/WHERE builder ────────────────────────────────────────────
@@ -526,57 +429,86 @@ function buildSubtotalsQuery() {
 
   return { sql, params, cols: [...toShow, '_row_type', '_sort_row_type', ...sortGroupKeys], displayCols: toShow };
 }
-// Pushes bind values into `params` and returns the SQL fragment.
-function buildWhere(colRef, op, val, params, opts = {}) {
-  // Escape LIKE special chars in the user's value so they're treated literally.
-  const likeEsc = v => v.replace(/%/g, '\\%').replace(/_/g, '\\_');
-  const txt = `CAST(${colRef} AS TEXT)`;
-  const num = `CAST(${colRef} AS REAL)`;
-  const numericHint = !!opts.numericHint;
-  const normVal = String(val ?? '').trim();
-  const numVal = Number(normVal.replace(/,/g, ''));
-  const hasNumericVal = normVal !== '' && Number.isFinite(numVal);
+// buildWhere → moved to sql-renderer.js; available globally as buildWhere / renderWhereClause.
 
-  switch (op) {
-    case 'contains':
-      params.push('%' + likeEsc(val) + '%');
-      return `${txt} LIKE ? ESCAPE '\\'`;
-    case 'equals':
-      if (numericHint && hasNumericVal) {
-        params.push(numVal);
-        return `${num} = ?`;
+// ── Execution facade ──────────────────────────────────────────────────────────
+// executeReport: high-level entry point for running a report.
+// Pipeline: Validation → SourceCatalog → ColumnCatalog → QueryPlan → SQL → ResultSet.
+// Returns a ResultSet (see result-set.js: { columns, rows, metadata }).
+function executeReport(reportSpec) {
+  reportSpec = reportSpec || db;
+
+  // 1. Check validation — throws if blocked.
+  const validation = typeof getValidation === 'function' ? getValidation() : null;
+  if (validation && validation.reportStatus === 'blocked') {
+    const blockingIssues = [];
+    if (validation.items) {
+      for (const item of Object.values(validation.items)) {
+        if (item.blocking) blockingIssues.push(...item.issues);
       }
-      params.push(val);
-      return `${txt} = ?`;
-    case 'not equals':
-      if (numericHint && hasNumericVal) {
-        params.push(numVal);
-        return `${num} != ?`;
-      }
-      params.push(val);
-      return `${txt} != ?`;
-    case '>':
-      params.push(+val || 0);
-      return `${num} > ?`;
-    case '<':
-      params.push(+val || 0);
-      return `${num} < ?`;
-    case '>=':
-      params.push(+val || 0);
-      return `${num} >= ?`;
-    case '<=':
-      params.push(+val || 0);
-      return `${num} <= ?`;
-    case 'starts with':
-      params.push(likeEsc(val) + '%');
-      return `${txt} LIKE ? ESCAPE '\\'`;
-    case 'ends with':
-      params.push('%' + likeEsc(val));
-      return `${txt} LIKE ? ESCAPE '\\'`;
-    case 'is empty':
-      return `(${colRef} IS NULL OR ${txt} = '')`;
-    case 'not empty':
-      return `(${colRef} IS NOT NULL AND ${txt} != '')`;
-    default: return null;
+    }
+    const firstMsg = blockingIssues[0] ? blockingIssues[0].message : 'fix blocking issues';
+    throw new Error('Report is blocked: ' + firstMsg);
   }
+
+  // 2. Build source catalog — includes imported sheets and published upstream reports.
+  const sourceCatalog = typeof buildSourceCatalog === 'function'
+    ? buildSourceCatalog()
+    : null;
+
+  // 3. Build column catalog using the source catalog.
+  const columnCatalog = typeof buildColumnCatalog === 'function'
+    ? buildColumnCatalog(reportSpec, sourceCatalog)
+    : null;
+
+  // 4. Build query plan (intermediate representation between ReportSpec and SQL).
+  const plan = buildQueryPlan(reportSpec, columnCatalog, validation);
+
+  const mode = plan.aggMode;
+
+  // 5. Render SQL, execute, and return a ResultSet.
+  if (mode === 'totals') {
+    const detail     = renderDetailSql(plan);
+    const detailRows = execQuery(detail.sql, detail.params);
+    const totals     = renderTotalsSql(plan, detail.cols);
+
+    if (!totals) {
+      // No aggregates defined: just return sorted detail rows with no totals row.
+      return createResultSet(detail.cols, detailRows, { mode });
+    }
+
+    const totalsRows = execQuery(totals.sql, totals.params);
+    // Pad detail rows with null for new aggregate-only columns so schema matches totals row.
+    const newAggCols = totals.cols.slice(detail.cols.length);
+    const paddedRows = newAggCols.length
+      ? detailRows.map(r => {
+          const row = Object.assign({}, r);
+          newAggCols.forEach(c => { row[c] = null; });
+          return row;
+        })
+      : detailRows;
+    return createResultSet(totals.cols, paddedRows, { mode, totalsRow: totalsRows[0] || null });
+  }
+
+  if (mode === 'subtotals') {
+    const result = renderSubtotalsSql(plan);
+    if (!result) throw new Error('No output columns configured for subtotals view.');
+    const rows = execQuery(result.sql, result.params);
+    return createResultSet(result.displayCols, rows, {
+      mode,
+      hasSubtotals: true,
+      allCols: result.cols,
+    });
+  }
+
+  if (mode === 'group') {
+    const { sql, params, cols } = renderGroupedSql(plan);
+    const rows = execQuery(sql, params);
+    return createResultSet(cols, rows, { mode });
+  }
+
+  // Default: plain detail (mode === 'none' or unknown).
+  const { sql, params, cols } = renderDetailSql(plan);
+  const rows = execQuery(sql, params);
+  return createResultSet(cols, rows, { mode: 'none' });
 }

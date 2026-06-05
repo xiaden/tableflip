@@ -77,6 +77,45 @@ const SUBTOTAL_LABELS = {
 
 const _AGG_MODES = ['none', 'group', 'totals', 'subtotals'];
 
+// ── Catalog query functions ───────────────────────────────────────────────────
+// Pure functions over the catalog constants above.
+// No window.db reads — safe to call from validation.js, export.js, etc.
+
+function getAggregateLabel(fn) {
+  return AGG_LABELS[fn] || fn;
+}
+
+function getTotalLabel(fn) {
+  return TOTAL_LABELS[fn] || fn;
+}
+
+function getSubtotalLabel(fn) {
+  return SUBTOTAL_LABELS[fn] || fn;
+}
+
+function isValidAggregateFn(fn) {
+  return AGG_FNS.includes(fn);
+}
+
+function isValidTotalFn(fn) {
+  return TOTAL_FNS.includes(fn);
+}
+
+function isValidSubtotalFn(fn) {
+  return SUBTOTAL_FNS.includes(fn);
+}
+
+function aggregateNeedsColumn(fn) {
+  return AGG_NEEDS_COL(fn);
+}
+
+// Returns a short human-readable expression string for display (not SQL).
+// e.g. renderAggregateExpression('SUM', 'Revenue') → 'Sum of Revenue'
+function renderAggregateExpression(fn, colLabel) {
+  const label = getAggregateLabel(fn);
+  if (!aggregateNeedsColumn(fn)) return label;
+  return `${label} of ${colLabel}`;
+}
 function _selColsToArray(selCols) {
   return selCols instanceof Set ? [...selCols] : null;
 }

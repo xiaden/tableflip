@@ -29,6 +29,7 @@ function saveState() {
       cols:     [...(l.cols || [])],
       required: !!l.required,
       enabled:  l.enabled !== false,
+      duplicatePolicy: l.duplicatePolicy ? { ...l.duplicatePolicy } : { mode: 'block' },
     })),
     calcStages:   (db.calcStages || []).map(c => ({
       alias: (c.alias || '').trim(),
@@ -161,6 +162,7 @@ function loadState(file) {
           cols:     Array.isArray(lk.cols) ? [...lk.cols] : [],
           required: !!lk.required,
           enabled:  lk.enabled !== false,
+          duplicatePolicy: lk.duplicatePolicy && lk.duplicatePolicy.mode ? { ...lk.duplicatePolicy } : { mode: 'block' },
         });
         continue;
       }
@@ -173,7 +175,7 @@ function loadState(file) {
         return { left: p.left || '', right: p.right || '' };
       });
       const cols = Array.isArray(lk.cols) ? lk.cols : [...rt.cols];
-      next.lookups.push({ rightId: lk.rightId, keyPairs, cols, required: !!lk.required, enabled: lk.enabled !== false });
+      next.lookups.push({ rightId: lk.rightId, keyPairs, cols, required: !!lk.required, enabled: lk.enabled !== false, duplicatePolicy: lk.duplicatePolicy && lk.duplicatePolicy.mode ? { ...lk.duplicatePolicy } : { mode: 'block' } });
     }
 
     // ── Calculated stages ─────────────────────────────────────────────────────
@@ -239,20 +241,15 @@ function loadState(file) {
     if (payload.selCols === null) {
       next.selCols = null;
     } else if (Array.isArray(payload.selCols)) {
-      if (baseLoaded) {
-        const kept    = payload.selCols.filter(c => available.has(c));
-        const dropped = payload.selCols.filter(c => !available.has(c));
-        if (dropped.length) brokenRefs.push(`Selected columns not available: ${dropped.join(', ')}`);
-        next.selCols = kept.length ? new Set(kept) : null;
-      } else {
-        next.selCols = new Set(payload.selCols); // preserve as-authored
-      }
+      // Preserve all authored refs — broken refs will surface in validation as unresolved items.
+      const dropped = baseLoaded ? payload.selCols.filter(c => !available.has(c)) : [];
+      if (dropped.length) brokenRefs.push(`Selected columns not available: ${dropped.join(', ')}`);
+      next.selCols = new Set(payload.selCols);
     } else {
       next.selCols = null;
     }
-    next.colOrder = Array.isArray(payload.colOrder)
-      ? (baseLoaded ? payload.colOrder.filter(c => available.has(c)) : [...payload.colOrder])
-      : null;
+    // Preserve authored col order — validation marks stale entries as unresolved.
+    next.colOrder = Array.isArray(payload.colOrder) ? [...payload.colOrder] : null;
 
     // ── Filters ───────────────────────────────────────────────────────────────
     next.filters = [];
@@ -268,13 +265,10 @@ function loadState(file) {
     }
 
     // ── Group By ──────────────────────────────────────────────────────────────
-    if (baseLoaded) {
-      const gbDropped = (payload.groupBy || []).filter(c => !available.has(c));
-      if (gbDropped.length) brokenRefs.push(`Group By columns not available: ${gbDropped.join(', ')}`);
-      next.groupBy = (payload.groupBy || []).filter(c => available.has(c));
-    } else {
-      next.groupBy = [...(payload.groupBy || [])];
-    }
+    // Preserve all authored refs — validation marks unavailable ones as unresolved.
+    const gbDropped = baseLoaded ? (payload.groupBy || []).filter(c => !available.has(c)) : [];
+    if (gbDropped.length) brokenRefs.push(`Group By columns not available: ${gbDropped.join(', ')}`);
+    next.groupBy = [...(payload.groupBy || [])];
 
     // ── Aggregates ────────────────────────────────────────────────────────────
     next.aggregates = [];
@@ -303,8 +297,10 @@ function loadState(file) {
       'SUM', 'COUNT ROWS', 'COUNT NON-EMPTY', 'COUNT DISTINCT',
       'AVG', 'MIN', 'MAX', 'LIST',
     ]);
+    // Preserve all authored refs — validation marks unavailable/invalid ones as unresolved.
     for (const [col, fn] of Object.entries(payload.colTotals || {})) {
-      if ((!baseLoaded || available.has(col)) && VALID_TOTAL_FNS.has(fn)) next.colTotals[col] = fn;
+      if (baseLoaded && !available.has(col)) brokenRefs.push(`Totals column "${col}" not available`);
+      next.colTotals[col] = fn;
     }
 
     // ── Subtotals ─────────────────────────────────────────────────────────────
@@ -317,83 +313,55 @@ function loadState(file) {
       'NUMERIC RANGE', 'NUMERIC SPAN',
       'LIST',
     ]);
-    next.subtotalBy = baseLoaded
-      ? (payload.subtotalBy || []).filter(c => available.has(c))
-      : [...(payload.subtotalBy || [])];
+    // Preserve all authored refs — validation marks unavailable/invalid ones as unresolved.
+    const sbDropped = baseLoaded ? (payload.subtotalBy || []).filter(c => !available.has(c)) : [];
+    if (sbDropped.length) brokenRefs.push(`Subtotal By columns not available: ${sbDropped.join(', ')}`);
+    next.subtotalBy = [...(payload.subtotalBy || [])];
     next.subtotalFns = {};
     for (const [col, fn] of Object.entries(payload.subtotalFns || {})) {
-      if ((!baseLoaded || available.has(col)) && VALID_SUBTOTAL_FNS.has(fn)) next.subtotalFns[col] = fn;
+      if (baseLoaded && !available.has(col)) brokenRefs.push(`Subtotal function column "${col}" not available`);
+      next.subtotalFns[col] = fn;
     }
     next.subtotalGrandTotal = payload.subtotalGrandTotal !== false;
     next.subtotalSpacer     = !!payload.subtotalSpacer;
     next.subtotalOnTop      = !!payload.subtotalOnTop;
 
     // ── Per-mode layout state ─────────────────────────────────────────────────
-    // When base is not loaded we can't sanitise by column availability — skip to null.
-    if (!baseLoaded) {
+    // Preserve as-authored without filtering by column availability.
+    // Stale column refs in per-mode state are ignored at render time;
+    // validation derives unresolved items for user-facing feedback.
+    if (!payload.aggModeState || typeof payload.aggModeState !== 'object') {
       next.aggModeState = null;
     } else {
-    const sanitizeSelCols = (sel) => {
-      if (!Array.isArray(sel)) return null;
-      return sel.filter(c => available.has(c));
-    };
-    const sanitizeAggregates = (list) => {
-      if (!Array.isArray(list)) return [];
-      return list
-        .filter(a => a && typeof a === 'object' && (!a.col || a.col === '*' || available.has(a.col)))
-        .map(a => ({ fn: a.fn || 'SUM', col: a.col || '*', alias: a.alias || '', auto: !!a.auto }));
-    };
-    const sanitizeColFns = (obj, validFns) => {
-      const out = {};
-      for (const [col, fn] of Object.entries(obj || {})) {
-        if (available.has(col) && validFns.has(fn)) out[col] = fn;
-      }
-      return out;
-    };
-    const sanitizeModeState = payload.aggModeState && typeof payload.aggModeState === 'object'
-      ? payload.aggModeState
-      : {};
-    const modeSubtotals = sanitizeModeState.subtotals && typeof sanitizeModeState.subtotals === 'object'
-      ? sanitizeModeState.subtotals
-      : null;
-    const totalsSel = sanitizeSelCols(sanitizeModeState.totals?.selCols ?? payload.selCols);
-    const noneSel = sanitizeSelCols(sanitizeModeState.none?.selCols ?? payload.selCols);
-    const subtotalsSel = sanitizeSelCols(sanitizeModeState.subtotals?.selCols ?? payload.selCols);
-    const groupByState = Array.isArray(sanitizeModeState.group?.groupBy)
-      ? sanitizeModeState.group.groupBy.filter(c => available.has(c))
-      : [...next.groupBy];
-    const subtotalByState = Array.isArray(sanitizeModeState.subtotals?.subtotalBy)
-      ? sanitizeModeState.subtotals.subtotalBy.filter(c => available.has(c))
-      : [...next.subtotalBy];
-
-    next.aggModeState = {
-      none: {
-        selCols: noneSel,
-      },
-      group: {
-        groupBy: groupByState,
-        aggregates: sanitizeAggregates(sanitizeModeState.group?.aggregates ?? next.aggregates),
-      },
-      totals: {
-        selCols: totalsSel,
-        colTotals: sanitizeColFns(sanitizeModeState.totals?.colTotals ?? next.colTotals, VALID_TOTAL_FNS),
-      },
-      subtotals: {
-        selCols: subtotalsSel,
-        subtotalBy: subtotalByState,
-        subtotalFns: sanitizeColFns(modeSubtotals?.subtotalFns ?? next.subtotalFns, VALID_SUBTOTAL_FNS),
-        subtotalGrandTotal: modeSubtotals && Object.prototype.hasOwnProperty.call(modeSubtotals, 'subtotalGrandTotal')
-          ? modeSubtotals.subtotalGrandTotal !== false
-          : next.subtotalGrandTotal !== false,
-        subtotalSpacer: modeSubtotals && Object.prototype.hasOwnProperty.call(modeSubtotals, 'subtotalSpacer')
-          ? !!modeSubtotals.subtotalSpacer
-          : !!next.subtotalSpacer,
-        subtotalOnTop: modeSubtotals && Object.prototype.hasOwnProperty.call(modeSubtotals, 'subtotalOnTop')
-          ? !!modeSubtotals.subtotalOnTop
-          : !!next.subtotalOnTop,
-      },
-    };
-    } // end if (baseLoaded) for aggModeState
+      const raw = payload.aggModeState;
+      const rawNone      = raw.none      && typeof raw.none      === 'object' ? raw.none      : null;
+      const rawGroup     = raw.group     && typeof raw.group     === 'object' ? raw.group     : null;
+      const rawTotals    = raw.totals    && typeof raw.totals    === 'object' ? raw.totals    : null;
+      const rawSubtotals = raw.subtotals && typeof raw.subtotals === 'object' ? raw.subtotals : null;
+      next.aggModeState = {
+        none: rawNone ? {
+          selCols: Array.isArray(rawNone.selCols) ? [...rawNone.selCols] : null,
+        } : null,
+        group: rawGroup ? {
+          groupBy:    Array.isArray(rawGroup.groupBy) ? [...rawGroup.groupBy] : [],
+          aggregates: Array.isArray(rawGroup.aggregates)
+            ? rawGroup.aggregates.map(a => ({ fn: a.fn || 'SUM', col: a.col || '*', alias: a.alias || '', auto: !!a.auto }))
+            : [],
+        } : null,
+        totals: rawTotals ? {
+          selCols:   Array.isArray(rawTotals.selCols) ? [...rawTotals.selCols] : null,
+          colTotals: rawTotals.colTotals && typeof rawTotals.colTotals === 'object' ? { ...rawTotals.colTotals } : {},
+        } : null,
+        subtotals: rawSubtotals ? {
+          selCols:          Array.isArray(rawSubtotals.selCols) ? [...rawSubtotals.selCols] : null,
+          subtotalBy:       Array.isArray(rawSubtotals.subtotalBy) ? [...rawSubtotals.subtotalBy] : [],
+          subtotalFns:      rawSubtotals.subtotalFns && typeof rawSubtotals.subtotalFns === 'object' ? { ...rawSubtotals.subtotalFns } : {},
+          subtotalGrandTotal: rawSubtotals.subtotalGrandTotal !== false,
+          subtotalSpacer:     !!rawSubtotals.subtotalSpacer,
+          subtotalOnTop:      !!rawSubtotals.subtotalOnTop,
+        } : null,
+      };
+    }
 
     // ── Merged cols ───────────────────────────────────────────────────────────
     next.mergedCols = (payload.mergedCols || []).filter(c => typeof c === 'string');
@@ -401,13 +369,11 @@ function loadState(file) {
     next.colState   = Array.isArray(payload.colState) ? payload.colState : null;
 
     // ── Excluded rows ─────────────────────────────────────────────────────────
+    // Preserve for unloaded tables too — if the same file is uploaded again the
+    // exclusions will apply correctly (same file → same _rowno values).
     const nextExcludedRows = {};
     if (payload.excludedRows && typeof payload.excludedRows === 'object') {
       for (const [tid, arr] of Object.entries(payload.excludedRows)) {
-        if (!db.tables[tid]) {
-          brokenRefs.push(`Excluded rows for sheet "${tid}" is not loaded`);
-          continue;
-        }
         if (Array.isArray(arr) && arr.length) {
           nextExcludedRows[tid] = new Set(arr);
         }
@@ -415,21 +381,22 @@ function loadState(file) {
     }
 
     // ── Table colors ──────────────────────────────────────────────────────────
+    // Preserve colors for unloaded tables so they restore when the sheet is re-uploaded.
     next.tableColors = {};
     for (const [tid, color] of Object.entries(payload.tableColors || {})) {
-      if (db.tables[tid] && typeof color === 'string' && color.startsWith('#')) {
+      if (typeof color === 'string' && color.startsWith('#')) {
         next.tableColors[tid] = color;
       }
     }
 
     // ── Column labels ─────────────────────────────────────────────────────────
+    // Preserve labels for unloaded tables so they restore when the sheet is re-uploaded.
     next.columnLabels = {};
     for (const [tid, labels] of Object.entries(payload.columnLabels || {})) {
-      if (!db.tables[tid]) continue;
-      const validCols = new Set(db.tables[tid].cols);
+      if (!labels || typeof labels !== 'object') continue;
       const kept = {};
       for (const [col, label] of Object.entries(labels)) {
-        if (validCols.has(col) && label && label !== col) kept[col] = label;
+        if (label && label !== col) kept[col] = label;
       }
       if (Object.keys(kept).length) next.columnLabels[tid] = kept;
     }
