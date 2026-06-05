@@ -16,4 +16,4 @@ node_modules/
 
 # artifacts dir and test fixtures
 /artifacts
-/SRC/testfixtures
+/SRC/tests/testfixtures/
