@@ -28,7 +28,7 @@
 
 function buildQueryPlan(reportSpec, columnCatalog, validation) {
   reportSpec    = reportSpec    || db;
-  columnCatalog = columnCatalog || buildColumnCatalog(reportSpec);
+  columnCatalog = columnCatalog || buildColumnCatalog(reportSpec, typeof buildSourceCatalog === 'function' ? buildSourceCatalog() : null);
   validation    = validation    || (typeof getValidation === 'function' ? getValidation() : null);
 
   const colMap = columnCatalog.colMap;
@@ -48,6 +48,7 @@ function buildQueryPlan(reportSpec, columnCatalog, validation) {
       rightId:     lk.rightId,
       keyPairs:    (lk.keyPairs || []).filter(p => p.left && p.right),
       required:    !!lk.required,
+      duplicatePolicy: lk.duplicatePolicy || { mode: 'block' },
       excludedRows: (reportSpec.excludedRows || {})[lk.rightId] || null,
     }))
     .filter(j => j.keyPairs.length > 0);

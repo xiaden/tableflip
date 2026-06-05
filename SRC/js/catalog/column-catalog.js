@@ -118,32 +118,28 @@ function projectedColsUpToLookup(upTo, ctx) {
 // buildColumnCatalog builds from explicit reportSpec (no window.db config reads).
 // sourceCatalog is a SourceCatalog Map<tid, { id, name, cols, kind, source }>
 // produced by buildSourceCatalog() in source-catalog.js.
-// If sourceCatalog is null/undefined, falls back to db.tables for backward compat.
+// When sourceCatalog is not provided, buildSourceCatalog() is called internally.
 function buildColumnCatalog(reportSpec, sourceCatalog) {
   reportSpec   = reportSpec   || db;
-  const useSC  = sourceCatalog instanceof Map;
+  if (!(sourceCatalog instanceof Map)) {
+    sourceCatalog = typeof buildSourceCatalog === 'function'
+      ? buildSourceCatalog()
+      : new Map();
+  }
 
   const base       = reportSpec.base;
   const lookups    = reportSpec.lookups    || [];
   const calcStages = reportSpec.calcStages || [];
 
-  // Table columns resolver — SourceCatalog first, then db.tables fallback
+  // Table columns resolver — SourceCatalog only
   function tableColumns(tid) {
-    if (useSC) {
-      const entry = sourceCatalog.get(tid);
-      return entry ? entry.cols : null;
-    }
-    if (tid && db.tables && db.tables[tid]) return db.tables[tid].cols;
-    return null;
+    const entry = sourceCatalog.get(tid);
+    return entry ? entry.cols : null;
   }
 
   function tableName(tid) {
-    if (useSC) {
-      const entry = sourceCatalog.get(tid);
-      return entry ? entry.name : tid;
-    }
-    if (tid && db.tables && db.tables[tid]) return db.tables[tid].name;
-    return tid;
+    const entry = sourceCatalog.get(tid);
+    return entry ? entry.name : tid;
   }
 
   // colMap: alias → entry

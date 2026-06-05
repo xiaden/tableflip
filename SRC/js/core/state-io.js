@@ -129,11 +129,11 @@ function loadState(file) {
     }
 
     // ── Base column selection ─────────────────────────────────────────────────
-    if (Array.isArray(payload.baseCols) && baseLoaded) {
-      const valid = payload.baseCols.filter(c => db.tables[savedBase].cols.includes(c));
-      next.baseCols = valid.length === db.tables[savedBase].cols.length ? null : (valid.length ? valid : null);
-    } else if (Array.isArray(payload.baseCols)) {
-      next.baseCols = [...payload.baseCols]; // preserve as-authored when base isn't loaded
+    // Preserve authored refs — validation marks unavailable ones as unresolved.
+    if (Array.isArray(payload.baseCols)) {
+      const dropped = baseLoaded ? payload.baseCols.filter(c => !db.tables[savedBase].cols.includes(c)) : [];
+      if (dropped.length) brokenRefs.push(`Base columns not available: ${dropped.join(', ')}`);
+      next.baseCols = [...payload.baseCols];
     } else {
       next.baseCols = null;
     }

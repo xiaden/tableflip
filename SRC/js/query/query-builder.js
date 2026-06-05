@@ -759,13 +759,53 @@ function togglePreview(key) {
   renderPipeline(ids);
 }
 
+function _buildPreviewSQL(key) {
+  // Build a truncated report spec for the preview depth, then use the new
+  // query-plan + sql-renderer path (no old buildQuery dependency).
+  const spec = {
+    base:        db.base,
+    baseCols:    db.baseCols,
+    stacks:      db.stacks,
+    excludedRows: db.excludedRows,
+    lookups:     db.lookups,
+    calcStages:  db.calcStages,
+    selCols:     db.selCols,
+    colOrder:    db.colOrder,
+    filters:     [],
+    sorts:       [],
+    groupBy:     [],
+    aggregates:  [],
+    aggMode:     'none',
+    colTotals:   {},
+    subtotalBy:  [],
+    subtotalFns: {},
+  };
+
+  if (key !== 'base') {
+    const lkMatch   = key.match(/^lk(\d+)$/);
+    const calcMatch = key.match(/^calc(\d+)$/);
+    if (!lkMatch && !calcMatch) return null;
+    if (lkMatch) {
+      const depth = +lkMatch[1];
+      spec.lookups    = (db.lookups || []).slice(0, depth + 1);
+      spec.calcStages = [];
+    } else {
+      const depth = +calcMatch[1];
+      spec.calcStages = (db.calcStages || []).slice(0, depth + 1);
+    }
+  }
+
+  const colCatalog = buildColumnCatalog(spec);
+  const plan = buildQueryPlan(spec, colCatalog);
+  const result = renderDetailSql(plan);
+  if (!result) return null;
+  result.sql = result.sql.replace(/\s*(?:ORDER BY[^;]+)?$/, ' LIMIT 5');
+  return result;
+}
+
 function _buildPreviewHTML(key) {
   try {
-    // Determine depth:
-    // - 'base'      = after base + stacks only
-    // - 'lk0'..     = after that lookup stage (no calc stages yet)
-    // - 'calc0'..   = after that calculated-column stage
-    let sql, params = [];
+    let sql, params;
     if (key === 'base') {
       // UNION ALL of base + stacks, no lookups
       const ids = [db.base, ...(db.stacks || []).filter(id => db.tables[id])];
@@ -777,33 +817,12 @@ function _buildPreviewHTML(key) {
         return `SELECT ${sel} FROM ${quoteId(id)}`;
       }).join(' UNION ALL ');
       sql = `SELECT * FROM (${sql}) LIMIT 5`;
+      params = [];
     } else {
-      // Stage-limited preview via temporary truncation.
-      const lkMatch   = key.match(/^lk(\d+)$/);
-      const calcMatch = key.match(/^calc(\d+)$/);
-      if (!lkMatch && !calcMatch) return '<em>Unknown stage</em>';
-
-      const savedLookups = db.lookups;
-      const savedCalcs   = db.calcStages;
-
-      if (lkMatch) {
-        const depth = +lkMatch[1];
-        db.lookups    = (db.lookups || []).slice(0, depth + 1);
-        db.calcStages = []; // calc stages appear later in the pipeline
-      } else {
-        const depth = +calcMatch[1];
-        db.lookups    = db.lookups || []; // all lookups already happened before calc stages
-        db.calcStages = (db.calcStages || []).slice(0, depth + 1);
-      }
-
-      try {
-        const { sql: s, params: p } = buildQuery({ mode: 'detail' });
-        sql    = s.replace(/\s*(?:ORDER BY[^;]+)?$/, ' LIMIT 5');
-        params = p;
-      } finally {
-        db.lookups    = savedLookups;
-        db.calcStages = savedCalcs;
-      }
+      const result = _buildPreviewSQL(key);
+      if (!result) return '<em>Unknown stage</em>';
+      sql    = result.sql;
+      params = result.params;
     }
     const rows = execQuery(sql, params);
     if (!rows.length) return '<em style="font-size:0.72rem;color:var(--muted)">No rows</em>';
@@ -855,7 +874,6 @@ function addCalcStage() {
     orderCol: '',
     orderDir: 'ASC',
     enabled: true,
-    _error: null,
   });
   _afterCombineChange();
 }

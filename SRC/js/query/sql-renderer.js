@@ -236,11 +236,37 @@ function renderFromJoinWhere(plan) {
   const joinClauses = [];
   for (const join of (plan.joins || [])) {
     const jType    = join.required ? 'INNER' : 'LEFT';
+    const dupPolicy = join.duplicatePolicy || { mode: 'block' };
+    const rightCols = db.tables && db.tables[join.rightId] ? db.tables[join.rightId].cols : [];
+    const keyRightCols = new Set(join.keyPairs.map(p => p.right));
+
+    let rightSource;
+    if (dupPolicy.mode === 'combine' && rightCols.length > 0) {
+      // Combine mode: pre-aggregate value columns with GROUP_CONCAT
+      const combine = Object.assign({ separator: '; ', unique: true }, dupPolicy.combine || {});
+      const aggSeparator = combine.separator === '; ' ? '\"; \"' : `'${combine.separator.replace(/'/g, "''")}'`;
+      const aggFn = combine.unique
+        ? `GROUP_CONCAT(DISTINCT %col%, ${aggSeparator})`
+        : `GROUP_CONCAT(%col%, ${aggSeparator})`;
+      const valCols = rightCols.filter(c => !keyRightCols.has(c));
+      const selectParts = [
+        ...join.keyPairs.map(p => `${quoteId(p.right)} AS ${quoteId(p.right)}`),
+        ...valCols.map(c => `${aggFn.replace('%col%', quoteId(c))} AS ${quoteId(c)}`),
+      ];
+      const whereParts = join.keyPairs
+        .map(p => `${quoteId(p.right)} IS NOT NULL AND TRIM(${quoteId(p.right)}) != ''`);
+      const groupParts = join.keyPairs.map(p => quoteId(p.right));
+      const subSql = `SELECT ${selectParts.join(', ')} FROM ${quoteId(join.rightId)} WHERE ${whereParts.join(' AND ')} GROUP BY ${groupParts.join(', ')}`;
+      rightSource = `(${subSql}) AS ${quoteId(join.rightId)}`;
+    } else {
+      rightSource = quoteId(join.rightId);
+    }
+
     const onParts  = join.keyPairs.map(p => `${ref(p.left)} = ${quoteId(join.rightId)}.${quoteId(p.right)}`);
     if (join.excludedRows && join.excludedRows.size) {
       onParts.push(`${quoteId(join.rightId)}."_rowno" NOT IN (${[...join.excludedRows].join(',')})`);
     }
-    joinClauses.push(`${jType} JOIN ${quoteId(join.rightId)} ON ${onParts.join(' AND ')}`);
+    joinClauses.push(`${jType} JOIN ${rightSource} ON ${onParts.join(' AND ')}`);
   }
 
   // WHERE clause parts
