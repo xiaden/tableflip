@@ -79,6 +79,8 @@ function hydrateState(payload) {
     const op = VALID_CALC_OPS.has(c.op) ? c.op : null;
 
     if (!alias) {
+      brokenRefs.push(`Calculated stage has no alias`);
+      next.calcStages.push({ alias, left, op, right, conditions: [], compareMode: 'AND', customTF: false, trueVal: '', falseVal: '', window: 7, explicitOrder: false, orderCol: '', orderDir: 'ASC', enabled: c.enabled !== false });
       continue;
     }
     if (!op) {
@@ -139,11 +141,8 @@ function hydrateState(payload) {
     if (f.col && baseLoaded && !available.has(f.col)) {
       brokenRefs.push(`Filter on column "${f.col}" is not available`);
     }
-    if (!Array.isArray(f.vals)) {
-      continue;
-    }
-    const vals = f.vals.filter(v => typeof v === 'string');
-    next.filters.push({ col: f.col || '', op: f.op || 'contains', vals: vals.length ? vals : [''], enabled: f.enabled !== false });
+    const vals = Array.isArray(f.vals) ? f.vals.filter(v => typeof v === 'string') : f.vals;
+    next.filters.push({ col: f.col || '', op: f.op || 'contains', vals, enabled: f.enabled !== false });
   }
 
   const gbDropped = baseLoaded ? (payload.groupBy || []).filter(c => !available.has(c)) : [];
@@ -169,24 +168,11 @@ function hydrateState(payload) {
   next.aggMode = ['group', 'totals', 'subtotals', 'none'].includes(payload.aggMode) ? payload.aggMode : 'none';
 
   next.colTotals = {};
-  const VALID_TOTAL_FNS = new Set([
-    'SUM', 'COUNT ROWS', 'COUNT NON-EMPTY', 'COUNT DISTINCT',
-    'AVG', 'MIN', 'MAX', 'LIST',
-  ]);
   for (const [col, fn] of Object.entries(payload.colTotals || {})) {
     if (baseLoaded && !available.has(col)) brokenRefs.push(`Totals column "${col}" not available`);
     next.colTotals[col] = fn;
   }
 
-  const VALID_SUBTOTAL_FNS = new Set([
-    'skip',
-    'SUM', 'AVG', 'MIN', 'MAX',
-    'COUNT ROWS', 'COUNT NON-EMPTY', 'COUNT DISTINCT',
-    'FIRST', 'LAST',
-    'DATE RANGE', 'DATE SPAN',
-    'NUMERIC RANGE', 'NUMERIC SPAN',
-    'LIST',
-  ]);
   const sbDropped = baseLoaded ? (payload.subtotalBy || []).filter(c => !available.has(c)) : [];
   if (sbDropped.length) brokenRefs.push(`Subtotal By columns not available: ${sbDropped.join(', ')}`);
   next.subtotalBy = [...(payload.subtotalBy || [])];

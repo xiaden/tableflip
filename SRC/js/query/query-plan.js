@@ -34,15 +34,11 @@ function buildQueryPlan(reportSpec, columnCatalog, validation, sourceCatalog) {
 
   const colMap = columnCatalog.colMap;
 
-  // Build tablesById from sourceCatalog (or db.tables fallback)
+  // Build tablesById from sourceCatalog
   const tablesById = new Map();
   if (sourceCatalog instanceof Map) {
     for (const [tid, entry] of sourceCatalog) {
       tablesById.set(tid, { cols: entry.cols, name: entry.name });
-    }
-  } else {
-    for (const [tid, tbl] of Object.entries(db.tables || {})) {
-      tablesById.set(tid, { cols: tbl.cols, name: tbl.name });
     }
   }
 

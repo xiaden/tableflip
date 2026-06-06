@@ -90,8 +90,7 @@ function _syncSubtotalByToLayout() {
 }
 
 function _afterCombineChange() {
-  _checkAllLookups();
-  _checkAllCalcs();
+  invalidateValidation();
   const nowCols = projectedCols();
   if (db.selCols) {
     nowCols.forEach(c => { if (!_seenCols.has(c)) { db.selCols.add(c); _seenCols.add(c); } });

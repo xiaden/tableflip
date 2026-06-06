@@ -137,10 +137,16 @@ function deriveValidation() {
     const c = db.calcStages[i];
     const enabled = c.enabled !== false;
     const alias = (c.alias || '').trim();
-    // Unset alias is an incomplete-config issue, not a source-applicability issue
-    let resolved = !alias || projected.has(alias);
+    let resolved = true;
     const issues = [];
-    if (alias && !resolved) {
+    if (!alias) {
+      resolved = false;
+      issues.push(mkIssue(
+        `calc_${i}_no_alias`, 'calculatedColumn', `calc_${i}`, `calc_${i}`,
+        `Calculated column has no alias`
+      ));
+    } else if (!projected.has(alias)) {
+      resolved = false;
       issues.push(mkIssue(
         `calc_${i}_unresolved`, 'calculatedColumn', `calc_${i}`, `calc_${i}`,
         `Calculated column "${alias}" — one or more source columns are not available`
@@ -170,6 +176,13 @@ function deriveValidation() {
         `filter_${i}_missing_col`, 'filter', 'filterSort', `filter_${i}`,
         `Filter column "${f.col}" is not available`,
         { missingColumn: f.col }
+      ));
+    }
+    if (!Array.isArray(f.vals)) {
+      resolved = false;
+      issues.push(mkIssue(
+        `filter_${i}_bad_vals`, 'filter', 'filterSort', `filter_${i}`,
+        `Filter "${f.col || '(no column)'}" has malformed values`
       ));
     }
     mkItem(`filter_${i}`, enabled, resolved, issues);
@@ -239,7 +252,7 @@ function deriveValidation() {
   if (db.aggMode === 'totals') {
     for (const [col, fn] of Object.entries(db.colTotals || {})) {
       if (!fn || fn === 'skip') continue;
-      const resolved = projected.has(col);
+      let resolved = projected.has(col);
       const issues = [];
       if (!resolved) {
         issues.push(mkIssue(
@@ -247,7 +260,9 @@ function deriveValidation() {
           `Totals column "${col}" is not available`,
           { missingColumn: col }
         ));
-      } else if (typeof isValidTotalFn === 'function' && !isValidTotalFn(fn)) {
+      }
+      if (typeof isValidTotalFn === 'function' && !isValidTotalFn(fn)) {
+        resolved = false;
         issues.push(mkIssue(
           `totals_${col}_invalid_fn`, 'totals', 'aggregation', `totals_${col}`,
           `Unknown totals function "${fn}" for column "${col}"`
@@ -275,7 +290,7 @@ function deriveValidation() {
 
     for (const [col, fn] of Object.entries(db.subtotalFns || {})) {
       if (!fn || fn === 'skip') continue;
-      const resolved = projected.has(col);
+      let resolved = projected.has(col);
       const issues = [];
       if (!resolved) {
         issues.push(mkIssue(
@@ -283,7 +298,9 @@ function deriveValidation() {
           `Subtotal column "${col}" is not available`,
           { missingColumn: col }
         ));
-      } else if (typeof isValidSubtotalFn === 'function' && !isValidSubtotalFn(fn)) {
+      }
+      if (typeof isValidSubtotalFn === 'function' && !isValidSubtotalFn(fn)) {
+        resolved = false;
         issues.push(mkIssue(
           `subtotalfns_${col}_invalid_fn`, 'subtotalFns', 'aggregation', `subtotalfns_${col}`,
           `Unknown subtotals function "${fn}" for column "${col}"`
@@ -354,37 +371,4 @@ function deriveValidation() {
   };
 }
 
-// ── Validation Caches (moved from query-builder.js) ──────────────────────────
-// Cached duplicate-key and calc-expression errors populated by the UI on each
-// render/run cycle so the report runner always has the latest snapshot.
 
-const _lookupDupErrorCache = new Map();
-const _calcErrorCache       = new Map();
-
-function getLookupDupErrors() { return _lookupDupErrorCache; }
-function getCalcErrors()      { return _calcErrorCache; }
-
-function _calcStageError(calc, i) {
-  return typeof window.checkCalcError === 'function'
-    ? window.checkCalcError(calc, i)
-    : null;
-}
-
-function _checkAllCalcs() {
-  if (!Array.isArray(db.calcStages)) db.calcStages = [];
-  _calcErrorCache.clear();
-  for (let i = 0; i < db.calcStages.length; i++) {
-    const err = _calcStageError(db.calcStages[i], i);
-    if (err) _calcErrorCache.set(i, err);
-  }
-}
-
-function _checkAllLookups() {
-  _lookupDupErrorCache.clear();
-  for (let i = 0; i < (db.lookups || []).length; i++) {
-    const err = typeof window.checkLookupDuplicates === 'function'
-      ? window.checkLookupDuplicates(db.lookups[i])
-      : null;
-    if (err) _lookupDupErrorCache.set(i, err);
-  }
-}

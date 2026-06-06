@@ -12,9 +12,6 @@ function renderQueryBuilder() {
 
   if (!ids.length) return;
 
-  _checkAllLookups();
-  _checkAllCalcs();
-
   const hasBase = !!db.base && !!db.tables[db.base];
   const hasBaseConfigured = !!db.base;
 
@@ -236,8 +233,7 @@ function selectNoneLookupCols(i) {
 function runQuery() {
   if (!db.base || !db.tables[db.base]) return;
 
-  _checkAllLookups();
-  _checkAllCalcs();
+  invalidateValidation();
 
   const v = getValidation();
   if (v.reportStatus === 'blocked') {

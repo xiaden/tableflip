@@ -6,7 +6,7 @@ const vm   = require('vm');
 
 const SRC = path.resolve(__dirname, '..');
 
-// ── Browser global shims ────────────────────────────────────────────────────
+// ── Browser global test doubles ──────────────────────────────────────────────
 global.window                = global;
 global.self                  = global;
 function makeStubElement() {

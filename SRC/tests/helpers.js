@@ -25,7 +25,8 @@ function runReportPipeline(config) {
   applyConfig(config);
   if (typeof invalidateValidation === 'function') invalidateValidation();
   const validation = typeof getValidation === 'function' ? getValidation() : null;
-  const plan = typeof buildQueryPlan === 'function' ? buildQueryPlan() : null;
+  const sourceCatalog = typeof buildSourceCatalog === 'function' ? buildSourceCatalog() : null;
+  const plan = typeof buildQueryPlan === 'function' ? buildQueryPlan(null, null, validation, sourceCatalog) : null;
 
   // Render SQL separately so we can inspect it regardless of execution
   let sql = null;
