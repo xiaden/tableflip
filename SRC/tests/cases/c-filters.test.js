@@ -1,9 +1,8 @@
-'use strict';
 
-const { describe, it } = require('node:test');
-const assert = require('node:assert/strict');
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 
-const { runReportPipeline, expectReportHealthy, expectResultColumns, expectResultRowCount, sqlContains } = require('../helpers.js');
+import { runReportPipeline, expectReportHealthy, expectResultColumns, expectResultRowCount, sqlContains } from '../helpers.js';
 
 describe('C. Filter add/remove', () => {
   it('should add WHERE clause and return only Open rows when Status filter is active', () => {

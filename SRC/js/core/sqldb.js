@@ -1,24 +1,24 @@
-'use strict';
-
 // ── sql.js wrapper ────────────────────────────────────────────────────────────
 // All table data lives in the SQLite WASM heap, not V8.
 // After ingestion the raw JS arrays are released so the GC can reclaim them.
 
 const _SQLJS_VERSION = '1.12.0';
 
-window.sqlDb = null;
+// Guard against non-browser environments (test env sets global.window later).
+if (typeof window !== 'undefined') window.sqlDb = null;
 
-async function initDb() {
-  // Always fetch the WASM binary from the CDN so it works under file:// and
-  // any other origin without CORS issues.
+// Reference the global/window.sqlDb so both the app and test env see the same DB.
+export async function initDb() {
   const SQL = await initSqlJs({
     locateFile: file => `https://cdn.jsdelivr.net/npm/sql.js@${_SQLJS_VERSION}/dist/${file}`,
   });
   window.sqlDb = new SQL.Database();
 }
 
+function _sqlDb() { return window.sqlDb; }
+
 // Quote an identifier so any character (spaces, Chinese, slashes) is safe.
-function quoteId(name) {
+export function quoteId(name) {
   return '"' + String(name).replace(/"/g, '""') + '"';
 }
 
@@ -29,41 +29,40 @@ function coerceForSQL(v) {
   if (typeof v === 'boolean') return v ? 1 : 0;
   if (typeof v === 'number') return v;
   const s = String(v).trim();
-  // Store numeric-looking strings as REAL so SUM/AVG work correctly.
   const n = Number(s);
   if (s !== '' && !isNaN(n)) return n;
   return s || null;
 }
 
-function createTable(sqlName, cols) {
+export function createTable(sqlName, cols) {
   const defs = cols.map(c => quoteId(c)).join(', ');
-  sqlDb.run(`CREATE TABLE IF NOT EXISTS ${quoteId(sqlName)} (${defs})`);
+  _sqlDb().run(`CREATE TABLE IF NOT EXISTS ${quoteId(sqlName)} (${defs})`);
 }
 
 // Insert all rows in a single transaction — fastest for bulk loads.
-function insertRows(sqlName, cols, data) {
+export function insertRows(sqlName, cols, data) {
   if (!data.length) return;
   const ph  = cols.map(() => '?').join(', ');
   const sql = `INSERT INTO ${quoteId(sqlName)} VALUES (${ph})`;
-  sqlDb.run('BEGIN');
+  _sqlDb().run('BEGIN');
   try {
-    const stmt = sqlDb.prepare(sql);
+    const stmt = _sqlDb().prepare(sql);
     for (const row of data) {
       stmt.run(cols.map(c => coerceForSQL(row[c])));
     }
     stmt.free();
-    sqlDb.run('COMMIT');
+    _sqlDb().run('COMMIT');
   } catch (e) {
-    try { sqlDb.run('ROLLBACK'); } catch (_) {}
+    try { _sqlDb().run('ROLLBACK'); } catch (_) {}
     throw e;
   }
 }
 
 // Run a SELECT and return an array of plain objects.
 // `params` is an optional array of positional ? values.
-function execQuery(sql, params) {
+export function execQuery(sql, params) {
   try {
-    const stmt = sqlDb.prepare(sql);
+    const stmt = _sqlDb().prepare(sql);
     if (params && params.length) stmt.bind(params);
     const rows = [];
     while (stmt.step()) rows.push(stmt.getAsObject());
@@ -74,13 +73,13 @@ function execQuery(sql, params) {
   }
 }
 
-function dropTable(sqlName) {
-  try { sqlDb.run(`DROP TABLE IF EXISTS ${quoteId(sqlName)}`); } catch (_) {}
+export function dropTable(sqlName) {
+  try { _sqlDb().run(`DROP TABLE IF EXISTS ${quoteId(sqlName)}`); } catch (_) {}
 }
 
-function tableRowCount(sqlName) {
+export function tableRowCount(sqlName) {
   try {
-    const r = sqlDb.exec(`SELECT COUNT(*) FROM ${quoteId(sqlName)}`);
+    const r = _sqlDb().exec(`SELECT COUNT(*) FROM ${quoteId(sqlName)}`);
     return r[0]?.values[0]?.[0] ?? 0;
   } catch (_) { return 0; }
 }

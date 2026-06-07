@@ -1,6 +1,8 @@
-'use strict';
+import { quoteId } from '../core/sqldb.js';
+import { renderFromJoinWhere } from './sql-joins.js';
+import { renderAggregateExpr } from './sql-aggregates.js';
 
-function renderTotalsSql(plan, detailCols) {
+export function renderTotalsSql(plan, detailCols) {
   if (!plan.source.base) throw new Error('No base table in plan');
   const { fromClause, joinClauses, whereParts, params, ref } = renderFromJoinWhere(plan);
   const colTotals = plan.colTotals || {};

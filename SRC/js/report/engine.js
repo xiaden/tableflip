@@ -1,4 +1,14 @@
-'use strict';
+import { db } from '../core/state.js';
+import { execQuery } from '../core/sqldb.js';
+import { buildSourceCatalog } from '../catalog/source-catalog.js';
+import { buildColumnCatalog } from '../catalog/column-catalog.js';
+import { buildQueryPlan } from '../query/query-plan.js';
+import { renderDetailSql } from '../query/sql-detail.js';
+import { renderTotalsSql } from '../query/sql-totals.js';
+import { renderSubtotalsSql } from '../query/sql-subtotals.js';
+import { renderGroupedSql } from '../query/sql-grouped.js';
+import { getValidation } from './validation.js';
+import { buildResultSet } from './result-set.js';
 
 // ── engine.js — Query execution facade ───────────────────────────────────────
 // All SQL generation moved to query-plan.js + sql-renderer.js.
@@ -11,14 +21,14 @@ function _lkKeyPairs(lk) {
 }
 
 // ── Execution facade ──────────────────────────────────────────────────────────
-// executeReport: high-level entry point for running a report.
+// runReport: high-level entry point for running a report.
 // Pipeline: Validation → SourceCatalog → ColumnCatalog → QueryPlan → SQL → ResultSet.
 // Returns a ResultSet (see result-set.js: { columns, rows, metadata }).
-function executeReport(reportSpec) {
+function runReport(reportSpec) {
   reportSpec = reportSpec || db;
 
   // 1. Check validation — throws if blocked.
-  const validation = typeof getValidation === 'function' ? getValidation() : null;
+  const validation = getValidation();
   if (validation && validation.reportStatus === 'blocked') {
     const blockingIssues = [];
     if (validation.items) {
@@ -31,14 +41,10 @@ function executeReport(reportSpec) {
   }
 
   // 2. Build source catalog — includes imported sheets and published upstream reports.
-  const sourceCatalog = typeof buildSourceCatalog === 'function'
-    ? buildSourceCatalog()
-    : null;
+  const sourceCatalog = buildSourceCatalog();
 
   // 3. Build column catalog using the source catalog.
-  const columnCatalog = typeof buildColumnCatalog === 'function'
-    ? buildColumnCatalog(reportSpec, sourceCatalog)
-    : null;
+  const columnCatalog = buildColumnCatalog(reportSpec, sourceCatalog);
 
   // 4. Build query plan (intermediate representation between ReportSpec and SQL).
   const plan = buildQueryPlan(reportSpec, columnCatalog, validation, sourceCatalog);
@@ -52,12 +58,10 @@ function executeReport(reportSpec) {
     const totals     = renderTotalsSql(plan, detail.cols);
 
     if (!totals) {
-      // No aggregates defined: just return sorted detail rows with no totals row.
-      return createResultSet(detail.cols, detailRows, { mode });
+      return buildResultSet(detail.cols, detailRows, { mode });
     }
 
     const totalsRows = execQuery(totals.sql, totals.params);
-    // Pad detail rows with null for new aggregate-only columns so schema matches totals row.
     const newAggCols = totals.cols.slice(detail.cols.length);
     const paddedRows = newAggCols.length
       ? detailRows.map(r => {
@@ -66,14 +70,14 @@ function executeReport(reportSpec) {
           return row;
         })
       : detailRows;
-    return createResultSet(totals.cols, paddedRows, { mode, totalsRow: totalsRows[0] || null });
+    return buildResultSet(totals.cols, paddedRows, { mode, totalsRow: totalsRows[0] || null });
   }
 
   if (mode === 'subtotals') {
     const result = renderSubtotalsSql(plan);
     if (!result) throw new Error('No output columns configured for subtotals view.');
     const rows = execQuery(result.sql, result.params);
-    return createResultSet(result.displayCols, rows, {
+    return buildResultSet(result.displayCols, rows, {
       mode,
       hasSubtotals: true,
       allCols: result.cols,
@@ -83,11 +87,15 @@ function executeReport(reportSpec) {
   if (mode === 'group') {
     const { sql, params, cols } = renderGroupedSql(plan);
     const rows = execQuery(sql, params);
-    return createResultSet(cols, rows, { mode });
+    return buildResultSet(cols, rows, { mode });
   }
 
   // Default: plain detail (mode === 'none' or unknown).
   const { sql, params, cols } = renderDetailSql(plan);
   const rows = execQuery(sql, params);
-  return createResultSet(cols, rows, { mode: 'none' });
+  return buildResultSet(cols, rows, { mode: 'none' });
 }
+
+export { runReport, _lkKeyPairs };
+window.runReport = runReport;
+window.executeReport = runReport;

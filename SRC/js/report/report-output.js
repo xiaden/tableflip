@@ -1,5 +1,3 @@
-'use strict';
-
 // ── Report Output ─────────────────────────────────────────────────────────────
 // Defines what a published report produces and how it becomes a source table
 // for downstream reports in a multi-report workspace.
@@ -26,7 +24,7 @@ function createResultTable(resultSet) {
 }
 
 // Build a published output entry from a report spec + ResultSet.
-function publishReportOutput(reportSpec, resultSet) {
+export function publishReportOutput(reportSpec, resultSet) {
   const table = createResultTable(resultSet);
   return {
     reportId:    reportSpec.id   || 'default',
@@ -43,7 +41,7 @@ function publishReportOutput(reportSpec, resultSet) {
 // and have publish.enabled === true.
 // workspaceState: { reports: [...] }
 // resultCache:    Map<reportId, ResultSet>
-function buildPublishedOutputCatalog(workspaceState, resultCache) {
+export function buildPublishedOutputCatalog(workspaceState, resultCache) {
   const catalog = new Map();
   const reports = (workspaceState && workspaceState.reports) || [];
   for (const report of reports) {

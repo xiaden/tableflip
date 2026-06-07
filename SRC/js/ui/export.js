@@ -1,9 +1,11 @@
-'use strict';
+import { db } from '../core/state.js';
+import { buildExportHeaderMap, toast, dl } from '../core/utils.js';
+import { buildColSourceMap } from '../catalog/column-catalog.js';
+import { getValidation } from '../report/validation.js';
 
-function exportAs(fmt) {
+export function exportAs(fmt) {
   if (!db.result || !db.result.rows) return;
 
-  // Block export when source applicability issues exist (same gate as runQuery).
   const v = getValidation();
   if (v.reportStatus === 'blocked') {
     const blockingItems = Object.values(v.items).filter(item => item.blocking);
@@ -53,7 +55,6 @@ function exportAs(fmt) {
   if (fmt === 'csv') {
     const ws   = XLSX.utils.json_to_sheet(clean, { header: exportHeaders, skipHeader: false });
     const csv  = XLSX.utils.sheet_to_csv(ws);
-    // BOM so Excel opens UTF-8 correctly without mangling multi-byte characters
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
     dl(blob, fn + '.csv');
   } else {
@@ -66,6 +67,7 @@ function exportAs(fmt) {
   }
   toast('Exported ' + clean.length.toLocaleString() + ' rows as ' + fmt.toUpperCase(), 'ok');
 }
+window.exportAs = exportAs;
 
 function applyExportMerges(ws, cleanRows, rowKinds, headers, mergeHeaderSet) {
   if (!ws || !Array.isArray(cleanRows) || !cleanRows.length) return;
@@ -81,7 +83,6 @@ function applyExportMerges(ws, cleanRows, rowKinds, headers, mergeHeaderSet) {
 
     let i = 0;
     while (i < cleanRows.length) {
-      // Only merge contiguous detail rows; never merge through subtotal/spacer/grand rows.
       if ((rowKinds[i] ?? 0) !== 0) { i++; continue; }
 
       const v = cleanRows[i]?.[h];
@@ -93,8 +94,6 @@ function applyExportMerges(ws, cleanRows, rowKinds, headers, mergeHeaderSet) {
         (rowKinds[j] ?? 0) === 0 &&
         cleanRows[j]?.[h] === v
       ) {
-        // Do not allow this column's merge run to cross boundaries in any
-        // merge-enabled column to the left.
         if (gateByLeft && leftGateHeaders.some(lh => cleanRows[j]?.[lh] !== cleanRows[j - 1]?.[lh])) {
           break;
         }
@@ -103,12 +102,10 @@ function applyExportMerges(ws, cleanRows, rowKinds, headers, mergeHeaderSet) {
 
       const span = j - i;
       if (span > 1) {
-        // +1 row offset because row 0 is the header row.
         const s = { r: i + 1, c: cIdx };
         const e = { r: j, c: cIdx };
         merges.push({ s, e });
 
-        // Ensure covered cells are stubs so the merge contract is explicit.
         for (let rr = s.r + 1; rr <= e.r; rr++) {
           const addr = XLSX.utils.encode_cell({ r: rr, c: cIdx });
           ws[addr] = { t: 'z', v: undefined };
@@ -138,11 +135,11 @@ function styleExportSheet(ws, cleanRows, rowKinds, mergeHeaderSet = new Set()) {
   const headers = cleanRows[0] ? Object.keys(cleanRows[0]) : [];
   const mergeStartSet = new Set((ws['!merges'] || []).map(m => `${m.s.r}:${m.s.c}`));
   const underlineMergedGroups = !!db?.mergeGroupUnderline;
-  const mergeUnderlineStartByRow = new Map(); // row -> leftmost underline-start column
+  const mergeUnderlineStartByRow = new Map();
   if (underlineMergedGroups) {
-    const mergeParticipation = new Map(); // header -> Set(bodyRowIdx) where span>1
+    const mergeParticipation = new Map();
     const addUnderline = (bodyRowIdx, colIdx) => {
-      const sheetRow = bodyRowIdx + 1; // +1 for header row
+      const sheetRow = bodyRowIdx + 1;
       if (sheetRow < 1) return;
       const prev = mergeUnderlineStartByRow.get(sheetRow);
       mergeUnderlineStartByRow.set(sheetRow, prev == null ? colIdx : Math.min(prev, colIdx));
@@ -176,8 +173,6 @@ function styleExportSheet(ws, cleanRows, rowKinds, mergeHeaderSet = new Set()) {
           for (let r = i; r < j; r++) p.add(r);
           addUnderline(j - 1, cIdx);
         } else {
-          // Singleton: underline only if any left merge-enabled header has
-          // an active multi-row merge context on this row.
           const hasLeftMergeContext = leftGateHeaders.some(lh => mergeParticipation.get(lh)?.has(i));
           if (hasLeftMergeContext) addUnderline(i, cIdx);
         }
@@ -194,7 +189,6 @@ function styleExportSheet(ws, cleanRows, rowKinds, mergeHeaderSet = new Set()) {
     }
   }
 
-  // Header row formatting + workbook readability baseline.
   for (let c = range.s.c; c <= range.e.c; c++) {
     const addr = XLSX.utils.encode_cell({ r: 0, c });
     const cell = ws[addr];
@@ -210,9 +204,8 @@ function styleExportSheet(ws, cleanRows, rowKinds, mergeHeaderSet = new Set()) {
     };
   }
 
-  // Body rows, including subtotal / grand total styling and border placement.
   for (let r = 1; r <= range.e.r; r++) {
-    const rowType = rowKinds[r - 1] ?? 0; // 0=detail, 1=subtotal, 2=spacer, 3=grand/total
+    const rowType = rowKinds[r - 1] ?? 0;
     const isSubtotal = rowType === 1;
     const isGrand = rowType === 3;
     const isSpacer = rowType === 2;
@@ -225,9 +218,6 @@ function styleExportSheet(ws, cleanRows, rowKinds, mergeHeaderSet = new Set()) {
 
     const rowObj = cleanRows[r - 1] || {};
     let lastDataColIdx = range.s.c;
-    // Summary rows (subtotal / grand total) should box the full exported width;
-    // their per-row data may be sparse (only group keys or aggregates), so
-    // always use the rightmost export column for the right border.
     if (isSummary) {
       lastDataColIdx = range.e.c;
     } else {
@@ -243,8 +233,6 @@ function styleExportSheet(ws, cleanRows, rowKinds, mergeHeaderSet = new Set()) {
       const addr = XLSX.utils.encode_cell({ r, c });
       let cell = ws[addr];
 
-      // For summary rows only, convert missing/stub cells into real cells so
-      // edge-border styles persist through serialization.
       const shouldPersistBlank = isSummary || (!isSummary && ensureRowUnderlineSet.has(`${r}:${c}`));
       const isStubOrUndefined = !!cell && (cell.t === 'z' || cell.v === undefined);
       if (shouldPersistBlank && (!cell || isStubOrUndefined)) {
@@ -294,7 +282,6 @@ function styleExportSheet(ws, cleanRows, rowKinds, mergeHeaderSet = new Set()) {
     }
   }
 
-  // Readability extras: autofilter, frozen header row, tuned column widths.
   ws['!autofilter'] = { ref };
   ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' };
 
@@ -306,8 +293,6 @@ function styleExportSheet(ws, cleanRows, rowKinds, mergeHeaderSet = new Set()) {
       if (v == null) continue;
       maxLen = Math.max(maxLen, String(v).length);
     }
-    // `wch` is Excel "characters" width (roughly number of 0-glyph widths), not px.
-    // We clamp to a sane range to avoid huge columns from long text fields.
     return { wch: Math.min(MAX_COL_WCH, Math.max(MIN_COL_WCH, maxLen + 2)), MDW: 6, customWidth: 1 };
   });
 

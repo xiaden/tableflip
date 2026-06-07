@@ -1,4 +1,4 @@
-'use strict';
+import { db } from '../core/state.js';
 // ── Source Catalog ─────────────────────────────────────────────────────────────
 // Single source of truth for table/column existence checks.
 //
@@ -22,7 +22,7 @@
 // upstreamOutputs: optional Map<outputId, PublishedOutput> from report-output.js.
 // Returns a catalog Map<tid, CatalogEntry> where CatalogEntry is:
 //   { id, name, cols, kind: 'imported'|'report', source: object }
-function buildSourceCatalog(workspaceState, upstreamOutputs) {
+export function buildSourceCatalog(workspaceState, upstreamOutputs) {
   const catalog = new Map();
 
   // Imported tables from db.tables (or workspaceState.tables)

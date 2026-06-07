@@ -1,4 +1,4 @@
-'use strict';
+import { db } from '../core/state.js';
 
 // ── Result Set ────────────────────────────────────────────────────────────────
 // Stable abstraction for query results.  export.js, grid.js, and report-output.js
@@ -22,7 +22,7 @@
 //   2           → spacer
 //   3           → grand-total
 
-function createResultSet(columns, rows, metadata) {
+export function buildResultSet(columns, rows, metadata) {
   const r = Array.isArray(rows) ? rows : [];
   return {
     columns:  Array.isArray(columns) ? columns : [],
@@ -61,8 +61,8 @@ function getResultSchema(resultSet) {
 
 // Convenience: build a ResultSet from the current db.result shape.
 function resultSetFromDb() {
-  if (!db || !db.result) return createResultSet([], [], {});
-  return createResultSet(
+  if (!db || !db.result) return buildResultSet([], [], {});
+  return buildResultSet(
     db.result.cols || [],
     db.result.rows || [],
     {

@@ -1,4 +1,5 @@
-'use strict';
+import { db } from '../js/core/state.js';
+import { quoteId } from '../js/core/sqldb.js';
 
 // ── Fixture data for Orders and Contacts tables ─────────────────────────────
 // These match the table structure described in the test plan.
@@ -78,7 +79,7 @@ function registerContactsTable() {
   registerTable('Contacts', 'Contacts', CONTACTS_COLS);
 }
 
-function setupTwoTableFixture() {
+export function setupTwoTableFixture() {
   makeOrdersTable(sqlDb);
   makeContactsTable(sqlDb);
   registerOrdersTable();
@@ -86,16 +87,14 @@ function setupTwoTableFixture() {
   db.base = 'Orders';
 }
 
-// ── Exports ─────────────────────────────────────────────────────────────────
-module.exports = {
-  ORDERS_COLS:    [...ORDERS_COLS],
-  ORDERS_ROWS:    [...ORDERS_ROWS],
-  CONTACTS_COLS:  [...CONTACTS_COLS],
-  CONTACTS_ROWS:  [...CONTACTS_ROWS],
+export {
+  ORDERS_COLS,
+  ORDERS_ROWS,
+  CONTACTS_COLS,
+  CONTACTS_ROWS,
   makeOrdersTable,
   makeContactsTable,
   registerTable,
   registerOrdersTable,
   registerContactsTable,
-  setupTwoTableFixture,
 };

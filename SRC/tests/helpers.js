@@ -1,9 +1,22 @@
-'use strict';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { db } from '../js/core/state.js';
+import { invalidateValidation, getValidation } from '../js/report/validation.js';
+import { buildSourceCatalog } from '../js/catalog/source-catalog.js';
+import { buildQueryPlan } from '../js/query/query-plan.js';
+import { runReport as executeReport } from '../js/report/engine.js';
+import { renderGroupedSql } from '../js/query/sql-grouped.js';
+import { renderDetailSql } from '../js/query/sql-detail.js';
+import { renderTotalsSql } from '../js/query/sql-totals.js';
+import { renderSubtotalsSql } from '../js/query/sql-subtotals.js';
+import { quoteId } from '../js/core/sqldb.js';
 
-const assert = require('node:assert/strict');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ── SQL normalisation ───────────────────────────────────────────────────────
-function normalizeSql(sql) {
+export function normalizeSql(sql) {
   if (!sql) return '';
   return sql
     .replace(/\s+/g, ' ')
@@ -16,17 +29,17 @@ function normalizeSql(sql) {
     .toLowerCase();
 }
 
-function sqlContains(sql, fragment) {
+export function sqlContains(sql, fragment) {
   return normalizeSql(sql).includes(normalizeSql(fragment));
 }
 
 // ── Pipeline runner ─────────────────────────────────────────────────────────
-function runReportPipeline(config) {
+export function runReportPipeline(config) {
   applyConfig(config);
-  if (typeof invalidateValidation === 'function') invalidateValidation();
-  const validation = typeof getValidation === 'function' ? getValidation() : null;
-  const sourceCatalog = typeof buildSourceCatalog === 'function' ? buildSourceCatalog() : null;
-  const plan = typeof buildQueryPlan === 'function' ? buildQueryPlan(null, null, validation, sourceCatalog) : null;
+  invalidateValidation();
+  const validation = getValidation();
+  const sourceCatalog = buildSourceCatalog();
+  const plan = sourceCatalog ? buildQueryPlan(null, null, validation, sourceCatalog) : null;
 
   // Render SQL separately so we can inspect it regardless of execution
   let sql = null;
@@ -41,7 +54,7 @@ function runReportPipeline(config) {
   let error = null;
   if (plan && validation && validation.reportStatus !== 'blocked') {
     try {
-      result = typeof executeReport === 'function' ? executeReport() : null;
+      result = executeReport();
     } catch (e) {
       error = e.message;
     }
@@ -54,20 +67,20 @@ function renderPlanSql(plan) {
   if (!plan) return null;
   const mode = plan.aggMode || 'none';
   if (mode === 'group') {
-    return typeof renderGroupedSql === 'function' ? renderGroupedSql(plan) : null;
+    return renderGroupedSql(plan);
   }
   if (mode === 'totals') {
-    const detail = typeof renderDetailSql === 'function' ? renderDetailSql(plan) : null;
-    const totals = typeof renderTotalsSql === 'function' ? renderTotalsSql(plan, detail ? detail.cols : []) : null;
+    const detail = renderDetailSql(plan);
+    const totals = renderTotalsSql(plan, detail ? detail.cols : []);
     return { sql: detail ? detail.sql : null, params: detail ? detail.params : [], cols: totals ? totals.cols : (detail ? detail.cols : []), detail, totals };
   }
   if (mode === 'subtotals') {
-    return typeof renderSubtotalsSql === 'function' ? renderSubtotalsSql(plan) : null;
+    return renderSubtotalsSql(plan);
   }
-  return typeof renderDetailSql === 'function' ? renderDetailSql(plan) : null;
+  return renderDetailSql(plan);
 }
 
-function applyConfig(config) {
+export function applyConfig(config) {
   if (!config) return;
   for (const [key, value] of Object.entries(config)) {
     if (key === 'excludedRows') {
@@ -97,19 +110,19 @@ function applyConfig(config) {
 }
 
 // ── Assertion helpers ───────────────────────────────────────────────────────
-function expectReportHealthy(validation) {
+export function expectReportHealthy(validation) {
   assert.ok(validation, 'validation result should exist');
   assert.equal(validation.reportStatus, 'healthy',
     `Expected healthy report, got "${validation.reportStatus}". Issues: ${JSON.stringify(getBlockingIssues(validation))}`);
 }
 
-function expectReportBlocked(validation) {
+export function expectReportBlocked(validation) {
   assert.ok(validation, 'validation result should exist');
   assert.equal(validation.reportStatus, 'blocked',
     `Expected blocked report, got "${validation.reportStatus}"`);
 }
 
-function getBlockingIssues(validation) {
+export function getBlockingIssues(validation) {
   const out = [];
   if (validation && validation.items) {
     for (const [id, item] of Object.entries(validation.items)) {
@@ -119,19 +132,19 @@ function getBlockingIssues(validation) {
   return out;
 }
 
-function expectItemBlocked(validation, itemId) {
+export function expectItemBlocked(validation, itemId) {
   const item = validation && validation.items && validation.items[itemId];
   assert.ok(item, `Item "${itemId}" should exist in validation result`);
   assert.ok(item.blocking, `Item "${itemId}" should be blocking`);
 }
 
-function expectItemHealthy(validation, itemId) {
+export function expectItemHealthy(validation, itemId) {
   const item = validation && validation.items && validation.items[itemId];
   assert.ok(item, `Item "${itemId}" should exist in validation result`);
   assert.ok(!item.blocking, `Item "${itemId}" should not be blocking`);
 }
 
-function expectRowsEqual(actual, expected) {
+export function expectRowsEqual(actual, expected) {
   assert.equal(actual.length, expected.length,
     `Row count mismatch: got ${actual.length}, expected ${expected.length}`);
   for (let i = 0; i < expected.length; i++) {
@@ -144,7 +157,7 @@ function expectRowsEqual(actual, expected) {
   }
 }
 
-function expectResultColumns(result, expectedCols) {
+export function expectResultColumns(result, expectedCols) {
   assert.ok(result, 'Result should exist');
   if (!result) return;
   const actual = result.columns || [];
@@ -156,13 +169,13 @@ function expectResultColumns(result, expectedCols) {
   }
 }
 
-function expectResultRowCount(result, n) {
+export function expectResultRowCount(result, n) {
   assert.ok(result, 'Result should exist');
   assert.equal(result.rows.length, n,
     `Row count: expected ${n}, got ${result.rows.length}`);
 }
 
-function findRow(rows, matcher) {
+export function findRow(rows, matcher) {
   for (const row of rows) {
     let allMatch = true;
     for (const [k, v] of Object.entries(matcher)) {
@@ -174,16 +187,14 @@ function findRow(rows, matcher) {
 }
 
 // ── Excel fixture loader ─────────────────────────────────────────────────────
-const fs   = require('fs');
-const path = require('path');
 
 const FIXTURE_DIR = path.resolve(__dirname, 'testfixtures');
 
-function getFixtureFiles() {
+export function getFixtureFiles() {
   return fs.readdirSync(FIXTURE_DIR).filter(f => /\.xlsx?$/i.test(f));
 }
 
-function loadExcelSheet(filePath, sheetName) {
+export function loadExcelSheet(filePath, sheetName) {
   const buf = fs.readFileSync(filePath);
   const wb = XLSX.read(buf, { type: 'array', cellDates: true, dense: true });
   const target = sheetName || wb.SheetNames[0];
@@ -193,12 +204,12 @@ function loadExcelSheet(filePath, sheetName) {
   return { workbook: wb, sheetName: target, worksheet: ws, rows: json };
 }
 
-function createTableFromSheet(db, tableName, rows) {
+export function createTableFromSheet(db_, tableName, rows) {
   if (!rows || rows.length === 0) throw new Error('No data rows to create table');
   const cols = Object.keys(rows[0]);
   const quoted = cols.map(c => `"${c}"`);
   const colDefs = quoted.map((c, i) => `${c} TEXT`);
-  db.run(`CREATE TABLE IF NOT EXISTS "${tableName}" (${colDefs.join(', ')})`);
+  db_.run(`CREATE TABLE IF NOT EXISTS "${tableName}" (${colDefs.join(', ')})`);
   for (const row of rows) {
     const vals = cols.map(c => {
       const v = row[c];
@@ -207,39 +218,17 @@ function createTableFromSheet(db, tableName, rows) {
       if (v instanceof Date) return `'${v.toISOString().slice(0, 10)}'`;
       return `'${String(v).replace(/'/g, "''")}'`;
     });
-    db.run(`INSERT INTO "${tableName}" (${quoted.join(', ')}) VALUES (${vals.join(', ')})`);
+    db_.run(`INSERT INTO "${tableName}" (${quoted.join(', ')}) VALUES (${vals.join(', ')})`);
   }
   return cols;
 }
 
-function snapshotTable(db, tableName) {
-  const rows = db.exec(`SELECT * FROM "${tableName}" ORDER BY rowid`);
-  const cols = db.exec(`PRAGMA table_info("${tableName}")`);
+export function snapshotTable(db_, tableName) {
+  const rows = db_.exec(`SELECT * FROM "${tableName}" ORDER BY rowid`);
+  const cols = db_.exec(`PRAGMA table_info("${tableName}")`);
   return {
     rowCount: rows[0] ? rows[0].values.length : 0,
     columns: cols[0] ? cols[0].values.map(r => r[1]) : [],
     rows: rows[0] ? rows[0].values : [],
   };
 }
-
-// ── Exports ─────────────────────────────────────────────────────────────────
-module.exports = {
-  normalizeSql,
-  sqlContains,
-  runReportPipeline,
-  applyConfig,
-  renderPlanSql,
-  expectReportHealthy,
-  expectReportBlocked,
-  expectItemBlocked,
-  expectItemHealthy,
-  expectRowsEqual,
-  expectResultColumns,
-  expectResultRowCount,
-  getBlockingIssues,
-  findRow,
-  getFixtureFiles,
-  loadExcelSheet,
-  createTableFromSheet,
-  snapshotTable,
-};

@@ -1,11 +1,12 @@
-'use strict';
+import { readdirSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { before, beforeEach } from 'node:test';
 
-const { describe, it, before, beforeEach } = require('node:test');
-const { readdirSync } = require('node:fs');
-const path = require('node:path');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const { setupEnv, resetTestState } = require('./env.js');
-const { setupTwoTableFixture } = require('./fixtures.js');
+const { setupEnv, resetTestState } = await import('./env.js');
+const { setupTwoTableFixture } = await import('./fixtures.js');
 
 // ── Bootstrap ───────────────────────────────────────────────────────────────
 before(async () => { await setupEnv(); });
@@ -18,5 +19,5 @@ beforeEach(() => {
 // ── Auto-discover case files ────────────────────────────────────────────────
 const casesDir = path.join(__dirname, 'cases');
 for (const f of readdirSync(casesDir).sort()) {
-  if (f.endsWith('.test.js')) require(path.join(casesDir, f));
+  if (f.endsWith('.test.js')) await import(path.join(casesDir, f));
 }

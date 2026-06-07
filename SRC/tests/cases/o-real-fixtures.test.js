@@ -1,9 +1,12 @@
-'use strict';
 
-const { describe, it } = require('node:test');
-const assert = require('node:assert/strict');
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const { runReportPipeline, expectReportHealthy, expectResultRowCount, expectResultColumns, getFixtureFiles, loadExcelSheet, createTableFromSheet, snapshotTable, expectRowsEqual } = require('../helpers.js');
+import { runReportPipeline, expectReportHealthy, expectResultRowCount, expectResultColumns, getFixtureFiles, loadExcelSheet, createTableFromSheet, snapshotTable, expectRowsEqual } from '../helpers.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 describe('O. Real-world fixture files', () => {
   it('should load every Excel fixture file without error', () => {
@@ -11,7 +14,7 @@ describe('O. Real-world fixture files', () => {
     assert.ok(fixtureFiles.length > 0, `No fixture files found`);
     const results = [];
     for (const f of fixtureFiles) {
-      const fpath = require('path').resolve(__dirname, '../testfixtures', f);
+      const fpath = path.resolve(__dirname, '../testfixtures', f);
       const loaded = loadExcelSheet(fpath);
       assert.ok(loaded.rows.length > 0, `"${f}" should have at least 1 data row`);
       results.push({ file: f, sheets: loaded.workbook.SheetNames.length, rows: loaded.rows.length, cols: Object.keys(loaded.rows[0]).length });
@@ -19,7 +22,7 @@ describe('O. Real-world fixture files', () => {
   });
 
   it('should not mutate source table data through report config changes', () => {
-    const fpath = require('path').resolve(__dirname, '../testfixtures', 'world_cup_2018_squads.xlsx');
+    const fpath = path.resolve(__dirname, '../testfixtures', 'world_cup_2018_squads.xlsx');
     const loaded = loadExcelSheet(fpath);
     const tableName = 'WCSquads';
 

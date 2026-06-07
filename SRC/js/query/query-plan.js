@@ -1,4 +1,6 @@
-'use strict';
+import { db } from '../core/state.js';
+import { buildColumnCatalog } from '../catalog/column-catalog.js';
+import { getValidation } from '../report/validation.js';
 
 // ── Query Plan ─────────────────────────────────────────────────────────────────
 // Intermediate representation between a ReportSpec (window.db config) and SQL.
@@ -21,14 +23,15 @@
 //     subtotalGrandTotal: boolean,
 //     subtotalSpacer:     boolean,
 //     subtotalOnTop:      boolean,
+//     subtotalStrategy:   string,
 //     aggMode:           string,
 //     colMap:            Map,
 //     validation:        object | null,
 //   }
 
-function buildQueryPlan(reportSpec, columnCatalog, validation, sourceCatalog) {
+export function buildQueryPlan(reportSpec, columnCatalog, validation, sourceCatalog) {
+  if (!(sourceCatalog instanceof Map)) throw new Error('buildQueryPlan: sourceCatalog (Map) is required');
   reportSpec    = reportSpec    || db;
-  sourceCatalog = sourceCatalog || (typeof buildSourceCatalog === 'function' ? buildSourceCatalog() : null);
   columnCatalog = columnCatalog || buildColumnCatalog(reportSpec, sourceCatalog);
   validation    = validation    || (typeof getValidation === 'function' ? getValidation() : null);
 
@@ -101,6 +104,7 @@ function buildQueryPlan(reportSpec, columnCatalog, validation, sourceCatalog) {
     subtotalGrandTotal: reportSpec.subtotalGrandTotal !== false,
     subtotalSpacer:     !!reportSpec.subtotalSpacer,
     subtotalOnTop:      !!reportSpec.subtotalOnTop,
+    subtotalStrategy:   reportSpec.subtotalStrategy || 'combined',
     aggMode:            reportSpec.aggMode           || 'none',
     colMap,
     validation,

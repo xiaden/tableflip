@@ -1,6 +1,11 @@
-'use strict';
+import { db } from '../core/state.js';
+import { h, getTableColor } from '../core/utils.js';
+import { dropTable } from '../core/sqldb.js';
+import { renderQueryBuilder } from '../query/query-builder.js';
+import { renderPreviewDropdown, loadPreview } from './grid.js';
+import { switchTab } from './tabs.js';
 
-function renderSidebar() {
+export function renderSidebar() {
   const ids = Object.keys(db.tables).sort((a, b) => db.tables[a].name.localeCompare(db.tables[b].name));
   document.getElementById('tableCount').textContent = ids.length;
   const list = document.getElementById('tablesList');
@@ -27,8 +32,8 @@ document.getElementById('tablesList').addEventListener('click', e => {
   else if (card) previewTable(card.dataset.tid);
 });
 
-function removeTable(id) {
-  dropTable(id); // release from SQLite WASM heap
+export function removeTable(id) {
+  dropTable(id);
   delete db.tables[id];
 
   if (db.base === id) {
@@ -40,7 +45,7 @@ function removeTable(id) {
   renderPreviewDropdown();
 }
 
-function previewTable(id) {
+export function previewTable(id) {
   document.getElementById('previewSel').value = id;
   switchTab('preview');
   loadPreview();

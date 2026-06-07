@@ -1,6 +1,4 @@
-'use strict';
-
-window.db = {
+const db = {
   tables:       {},    // id → { id, name, cols, rowCount }
   excludedRows: {},    // id → Set<rowno>
   tableColors:  {},    // id → hex color from palette
@@ -23,6 +21,7 @@ window.db = {
   subtotalGrandTotal: true,
   subtotalSpacer:     false,
   subtotalOnTop:      false,
+  subtotalStrategy:   'combined',
   mergedCols:         [],
   mergeGroupUnderline:false,
   colState:           null,
@@ -30,13 +29,18 @@ window.db = {
   result:             null,
 };
 
+// Backward compat for HTML onclick handlers and test env.js
+window.db = db;
+
+export { db };
+
 // ── Constructor functions ─────────────────────────────────────────────────────
 // These produce clean default-state objects.  They do NOT read from window.db.
 // Use them when building new workspace states, report specs, or config items.
 
 // Produces a clean workspace state (multi-report shell).
 // sourceTables mirrors the current db.tables schema.
-function createWorkspaceState(overrides) {
+export function createWorkspaceState(overrides) {
   return Object.assign({
     version:       1,
     sourceTables:  {},
@@ -51,7 +55,7 @@ function createWorkspaceState(overrides) {
 }
 
 // Produces a clean single-report spec.
-function createReportSpec(overrides) {
+export function createReportSpec(overrides) {
   return Object.assign({
     id:          null,
     name:        'New Report',
@@ -76,6 +80,7 @@ function createReportSpec(overrides) {
       subtotalGrandTotal: true,
       subtotalSpacer:     false,
       subtotalOnTop:      false,
+      subtotalStrategy:   'combined',
     },
     mergeDisplay: {
       mergedCols:          [],
@@ -90,7 +95,7 @@ function createReportSpec(overrides) {
 }
 
 // Produces a clean lookup spec.
-function createLookupSpec(overrides) {
+export function createLookupSpec(overrides) {
   return Object.assign({
     rightId:         '',
     keyPairs:        [],   // [{ left, right }]
@@ -102,7 +107,7 @@ function createLookupSpec(overrides) {
 }
 
 // Produces a clean filter spec.
-function createFilterSpec(overrides) {
+export function createFilterSpec(overrides) {
   return Object.assign({
     col:     '',
     op:      'contains',
@@ -113,7 +118,7 @@ function createFilterSpec(overrides) {
 }
 
 // Produces a clean sort spec.
-function createSortSpec(overrides) {
+export function createSortSpec(overrides) {
   return Object.assign({
     col:     '',
     dir:     'ASC',
@@ -122,7 +127,7 @@ function createSortSpec(overrides) {
 }
 
 // Produces a clean output-column spec.
-function createOutputColumnSpec(overrides) {
+export function createOutputColumnSpec(overrides) {
   return Object.assign({
     alias:       '',      // projected column alias
     label:       '',      // custom display label (empty = use alias)

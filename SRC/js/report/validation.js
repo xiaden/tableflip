@@ -1,4 +1,14 @@
-'use strict';
+import { db } from '../core/state.js';
+import { projectedCols, projectedColsUpToLookup } from '../catalog/column-catalog.js';
+import { checkLookupDuplicates } from '../query/lookup-resolver.js';
+import { checkCalcError } from './calc-validator.js';
+import {
+  aggregateNeedsColumn,
+  isValidAggregateFn,
+  isValidTotalFn,
+  isValidSubtotalFn,
+} from '../ui/aggregation.js';
+
 // ── Validation / Applicability Layer ─────────────────────────────────────────
 // Derives whether each config item is currently resolved — i.e., its source
 // tables and columns are loaded and available. This is SOURCE APPLICABILITY
@@ -64,6 +74,16 @@ function deriveValidation() {
     mkItem('base', true, baseOk, issues);
   }
 
+  // ── Report mode ────────────────────────────────────────────────────────────
+  if (!['none', 'group', 'totals', 'subtotals'].includes(db.aggMode)) {
+    mkItem('aggMode', true, false, [
+      mkIssue(
+        'aggMode_invalid', 'reportMode', 'pipeline', 'aggMode',
+        `Unknown report mode "${db.aggMode}"`
+      ),
+    ]);
+  }
+
   // ── Stacks ─────────────────────────────────────────────────────────────────
   for (let i = 0; i < (db.stacks || []).length; i++) {
     const id = db.stacks[i];
@@ -119,8 +139,18 @@ function deriveValidation() {
       }
     }
 
+    // No complete key pair → unresolved/blocking (enabled lookups only block)
+    const hasCompleteKeyPair = (lk.keyPairs || []).some(p => p && p.left && p.right);
+    if (rt && !hasCompleteKeyPair) {
+      resolved = false;
+      issues.push(mkIssue(
+        `lookup_${i}_no_key_pairs`, 'lookup', `lookup_${i}`, `lookup_${i}`,
+        `Lookup "${rt.name}" has no complete match column pair`
+      ));
+    }
+
     // Check duplicate keys directly via lookup-resolver
-    const dupErr = typeof checkLookupDuplicates === 'function' ? checkLookupDuplicates(lk) : null;
+    const dupErr = checkLookupDuplicates(lk);
     if (dupErr) {
       resolved = false;
       issues.push(mkIssue(
@@ -153,7 +183,7 @@ function deriveValidation() {
       ));
     }
     // Check expression error directly via calc-validator
-    const calcErr = typeof checkCalcError === 'function' ? checkCalcError(c, i) : null;
+    const calcErr = checkCalcError(c, i);
     if (calcErr) {
       resolved = false;
       issues.push(mkIssue(
@@ -179,6 +209,12 @@ function deriveValidation() {
       ));
     }
     if (!Array.isArray(f.vals)) {
+      resolved = false;
+      issues.push(mkIssue(
+        `filter_${i}_bad_vals`, 'filter', 'filterSort', `filter_${i}`,
+        `Filter "${f.col || '(no column)'}" has malformed values`
+      ));
+    } else if (f.vals.some(v => typeof v !== 'string')) {
       resolved = false;
       issues.push(mkIssue(
         `filter_${i}_bad_vals`, 'filter', 'filterSort', `filter_${i}`,
@@ -226,9 +262,7 @@ function deriveValidation() {
       const agg = db.aggregates[i];
       const issues = [];
       let resolved = true;
-      const needsCol = typeof aggregateNeedsColumn === 'function'
-        ? aggregateNeedsColumn(agg.fn)
-        : !['COUNT ROWS'].includes(agg.fn);
+      const needsCol = aggregateNeedsColumn(agg.fn);
       if (needsCol && agg.col && agg.col !== '*' && !projected.has(agg.col)) {
         resolved = false;
         issues.push(mkIssue(
@@ -237,7 +271,7 @@ function deriveValidation() {
           { missingColumn: agg.col }
         ));
       }
-      if (typeof isValidAggregateFn === 'function' && !isValidAggregateFn(agg.fn)) {
+      if (!isValidAggregateFn(agg.fn)) {
         resolved = false;
         issues.push(mkIssue(
           `agg_${i}_invalid_fn`, 'aggregate', 'aggregation', `agg_${i}`,
@@ -261,7 +295,7 @@ function deriveValidation() {
           { missingColumn: col }
         ));
       }
-      if (typeof isValidTotalFn === 'function' && !isValidTotalFn(fn)) {
+      if (!isValidTotalFn(fn)) {
         resolved = false;
         issues.push(mkIssue(
           `totals_${col}_invalid_fn`, 'totals', 'aggregation', `totals_${col}`,
@@ -274,6 +308,16 @@ function deriveValidation() {
 
   // ── Subtotals ──────────────────────────────────────────────────────────────
   if (db.aggMode === 'subtotals') {
+    const strat = db.subtotalStrategy;
+    if (strat !== undefined && strat !== 'combined' && strat !== 'nested') {
+      mkItem('subtotalStrategy', true, false, [
+        mkIssue(
+          'subtotalStrategy_invalid', 'subtotalStrategy', 'aggregation', 'subtotalStrategy',
+          `Unknown subtotal strategy "${strat}"`
+        ),
+      ]);
+    }
+
     for (let i = 0; i < (db.subtotalBy || []).length; i++) {
       const col = db.subtotalBy[i];
       const resolved = projected.has(col);
@@ -299,7 +343,7 @@ function deriveValidation() {
           { missingColumn: col }
         ));
       }
-      if (typeof isValidSubtotalFn === 'function' && !isValidSubtotalFn(fn)) {
+      if (!isValidSubtotalFn(fn)) {
         resolved = false;
         issues.push(mkIssue(
           `subtotalfns_${col}_invalid_fn`, 'subtotalFns', 'aggregation', `subtotalfns_${col}`,
@@ -343,7 +387,7 @@ function deriveValidation() {
 
   // ── Cards ──────────────────────────────────────────────────────────────────
   function cardFor(itemId) {
-    if (itemId === 'base' || itemId.startsWith('stack_') ||
+    if (itemId === 'base' || itemId === 'aggMode' || itemId.startsWith('stack_') ||
         itemId.startsWith('lookup_') || itemId.startsWith('calc_')) return 'pipeline';
     if (itemId.startsWith('filter_') || itemId.startsWith('sort_')) return 'filterSort';
     if (itemId.startsWith('groupby_') || itemId.startsWith('agg_') ||
@@ -371,4 +415,6 @@ function deriveValidation() {
   };
 }
 
-
+export { getValidation, invalidateValidation };
+window.getValidation = getValidation;
+window.invalidateValidation = invalidateValidation;

@@ -11,6 +11,7 @@ Thumbs.db
 # Build/cache artifacts
 dist/
 build/
+pkg/
 coverage/
 node_modules/
 

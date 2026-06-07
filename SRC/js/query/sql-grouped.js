@@ -1,6 +1,9 @@
-'use strict';
+import { quoteId } from '../core/sqldb.js';
+import { renderFromJoinWhere } from './sql-joins.js';
+import { renderAggregateExpr } from './sql-aggregates.js';
+import { defaultAggAlias } from '../core/utils.js';
 
-function renderGroupedSql(plan) {
+export function renderGroupedSql(plan) {
   if (!plan.source.base) throw new Error('No base table in plan');
   const { fromClause, joinClauses, whereParts, params, ref } = renderFromJoinWhere(plan);
   const hasAgg    = (plan.groupBy || []).length > 0 || (plan.aggregates || []).length > 0;

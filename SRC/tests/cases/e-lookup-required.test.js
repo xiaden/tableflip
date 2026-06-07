@@ -1,9 +1,8 @@
-'use strict';
 
-const { describe, it } = require('node:test');
-const assert = require('node:assert/strict');
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 
-const { runReportPipeline, expectReportHealthy, expectReportBlocked, expectResultRowCount, findRow, sqlContains } = require('../helpers.js');
+import { runReportPipeline, expectReportHealthy, expectReportBlocked, expectResultRowCount, findRow, sqlContains } from '../helpers.js';
 
 describe('E. Lookup required vs optional', () => {
   it('optional lookup uses LEFT JOIN, keeps base rows without match', () => {

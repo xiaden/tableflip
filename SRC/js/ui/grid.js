@@ -1,24 +1,29 @@
-'use strict';
+import { db } from '../core/state.js';
+import { h, colDisplayLabel, getTableColor, setColLabel, renameProjectedColumn } from '../core/utils.js';
+import { buildColSourceMap } from '../catalog/column-catalog.js';
+import { execQuery, quoteId } from '../core/sqldb.js';
+import { renderQueryBuilder } from '../query/query-builder.js';
+import { renderMergeToggles } from '../query/output-card.js';
+import { getValidation } from '../report/validation.js';
 
-let gridResult  = null;  // AG Grid API for results
-let gridPreview = null;  // AG Grid API for preview
+let gridResult  = null;
+let gridPreview = null;
 
-function refreshResultGridLayout() {
+export function refreshResultGridLayout() {
   if (!gridResult) return;
   try { gridResult.resetRowHeights?.(); } catch (_) {}
   try { gridResult.refreshCells?.({ force: true }); } catch (_) {}
   try { gridResult.redrawRows?.(); } catch (_) {}
 }
 
-function refreshPreviewGridLayout() {
+export function refreshPreviewGridLayout() {
   if (!gridPreview) return;
   try { gridPreview.resetRowHeights?.(); } catch (_) {}
   try { gridPreview.refreshCells?.({ force: true }); } catch (_) {}
   try { gridPreview.redrawRows?.(); } catch (_) {}
 }
 
-// ── Results grid ──────────────────────────────────────────────────────────────
-function renderResults(result) {
+export function renderResults(result) {
   const wrap    = document.getElementById('resultsWrap');
   const meta    = document.getElementById('resultsMeta');
   const btnXlsx = document.getElementById('btnExpXlsx');
@@ -46,7 +51,6 @@ function renderResults(result) {
 
   wrap.innerHTML = '<div id="resGrid" class="ag-theme-balham-dark" style="height:100%;width:100%"></div>';
 
-  // Append totals row with a local sentinel for row styling — never stored in db.result
   const tableData = totalsRow ? [...rows, { ...totalsRow, _isTotalsRow: true }] : rows;
 
   const colDefs = makeResultCols(cols);
@@ -77,24 +81,21 @@ function renderResults(result) {
   const el = document.getElementById('resGrid');
   gridResult = agGrid.createGrid(el, options);
 
-  // Let layout settle, then force a render pass (helps after tab switches).
   requestAnimationFrame(() => requestAnimationFrame(() => refreshResultGridLayout()));
 
-  // Restore saved column state (order + widths) if available
   if (db.colState) {
     gridResult.applyColumnState({ state: db.colState, applyOrder: true });
   }
 
-  // Populate merge duplicates toggles in Sort & Filter card
   renderMergeToggles(cols);
 }
+window.renderResults = renderResults;
 
 function _saveResultColState() {
   if (gridResult) db.colState = gridResult.getColumnState();
 }
 
-// ── Preview grid ──────────────────────────────────────────────────────────────
-function renderPreviewDropdown() {
+export function renderPreviewDropdown() {
   const sel  = document.getElementById('previewSel');
   const prev = sel.value;
   const ids  = Object.keys(db.tables);
@@ -103,7 +104,7 @@ function renderPreviewDropdown() {
   if (db.tables[prev]) sel.value = prev;
 }
 
-function loadPreview() {
+export function loadPreview() {
   const id   = document.getElementById('previewSel').value;
   const wrap = document.getElementById('previewWrap');
   const meta = document.getElementById('previewMeta');
@@ -129,7 +130,6 @@ function loadPreview() {
     return;
   }
 
-  // Build the banner showing excluded count + "Clear all" link.
   const excCount = excluded.size;
   meta.textContent = t.rowCount.toLocaleString() + ' rows · ' + t.cols.length + ' cols' +
     (excCount ? ' · ' + excCount + ' excluded' : '') +
@@ -205,26 +205,24 @@ function loadPreview() {
     },
   });
 
-  // Let layout settle, then force a render pass (helps after tab switches).
   requestAnimationFrame(() => requestAnimationFrame(() => refreshPreviewGridLayout()));
 }
+window.loadPreview = loadPreview;
 
 function toggleRowExclusion(tableId, rowno) {
   if (!db.excludedRows[tableId]) db.excludedRows[tableId] = new Set();
   const set = db.excludedRows[tableId];
   if (set.has(rowno)) set.delete(rowno); else set.add(rowno);
-  // Re-render to refresh styling/banner and any lookup duplicate warnings.
   renderQueryBuilder();
   loadPreview();
 }
 
-function clearExclusions(tableId) {
+export function clearExclusions(tableId) {
   db.excludedRows[tableId] = new Set();
   renderQueryBuilder();
   loadPreview();
 }
-
-// ── Column def builders ───────────────────────────────────────────────────────
+window.clearExclusions = clearExclusions;
 
 function makeResultCols(cols) {
   const colMap = buildColSourceMap();
@@ -301,8 +299,6 @@ function makePreviewCols(tid, physCols) {
   });
 }
 
-// ── Custom header component factory ──────────────────────────────────────────
-// Returns a plain object satisfying AG Grid's IHeaderComponent interface.
 function _makeHeaderComponent(label, color, renamed, origCol, onRename, onClear) {
   return class {
     init(params) {
@@ -320,7 +316,6 @@ function _makeHeaderComponent(label, color, renamed, origCol, onRename, onClear)
       txt.style.cssText = 'flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer';
       txt.textContent = label;
       if (origCol) txt.title = renamed ? `Original: ${origCol}` : origCol;
-      // Allow clicking text area to trigger column sort (AG Grid default behaviour is blocked by custom component)
       txt.addEventListener('click', e => params.progressSort(e.shiftKey));
       this._gui.appendChild(txt);
 

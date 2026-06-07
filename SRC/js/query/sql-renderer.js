@@ -1,5 +1,3 @@
-'use strict';
-
 // ── SQL Renderer Facade ─────────────────────────────────────────────────────────
 // SQL rendering has been split into concern-specific modules loaded in this order:
 //

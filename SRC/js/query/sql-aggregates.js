@@ -1,6 +1,4 @@
-'use strict';
-
-function renderAggregateExpr(fn, colRef) {
+export function renderAggregateExpr(fn, colRef) {
   switch (fn) {
     case 'SUM':             return `SUM(${colRef})`;
     case 'AVG':             return `AVG(${colRef})`;

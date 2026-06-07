@@ -1,6 +1,24 @@
-'use strict';
+import { db } from '../core/state.js';
+import { h, toast, colDisplayLabel } from '../core/utils.js';
+import { quoteId, execQuery } from '../core/sqldb.js';
+import { buildColSourceMap, buildColumnCatalog, projectedCols } from '../catalog/column-catalog.js';
+import { buildSourceCatalog } from '../catalog/source-catalog.js';
+import { buildQueryPlan } from './query-plan.js';
+import { renderDetailSql } from './sql-detail.js';
+import { renderPipeline } from './pipeline-card.js';
+import { renderAggregation } from '../ui/aggregation.js';
+import { renderMergeToggles, renderColChips } from './output-card.js';
+import { renderFilters, renderSorts } from './filter-sort-card.js';
+import {
+  _afterCombineChange, _showLayoutAliasesForSource,
+  _hideLookupLayoutAliasesSafely, _seenCols, _previewOpen,
+} from './layout-selection.js';
+import { invalidateValidation, getValidation } from '../report/validation.js';
+import { runReport as executeReport } from '../report/engine.js';
+import { switchTab } from '../ui/tabs.js';
+import { renderResults } from '../ui/grid.js';
 
-function renderQueryBuilder() {
+export function renderQueryBuilder() {
   invalidateValidation();
 
   const ids = Object.keys(db.tables).sort((a, b) => db.tables[a].name.localeCompare(db.tables[b].name));
@@ -61,7 +79,7 @@ function renderQueryBuilder() {
   } catch (_) {}
 }
 
-function onBaseChange(val) {
+export function onBaseChange(val) {
   db.base       = val;
   db.baseCols   = null;
   db.stacks     = [];
@@ -76,12 +94,12 @@ function onBaseChange(val) {
   db.colTotals  = {};
   db.sorts      = [];
   db.filters    = [];
-  _seenCols     = new Set();
-  _previewOpen  = new Set();
+  _seenCols.clear();
+  _previewOpen.clear();
   renderQueryBuilder();
 }
 
-function togglePreview(key) {
+export function togglePreview(key) {
   if (_previewOpen.has(key)) {
     _previewOpen.delete(key);
   } else {
@@ -125,15 +143,17 @@ function _buildPreviewSQL(key) {
     }
   }
 
-  const colCatalog = buildColumnCatalog(spec);
-  const plan = buildQueryPlan(spec, colCatalog);
+  const srcCatalog = typeof buildSourceCatalog === 'function' ? buildSourceCatalog() : null;
+  if (!srcCatalog) return null;
+  const colCatalog = buildColumnCatalog(spec, srcCatalog);
+  const plan = buildQueryPlan(spec, colCatalog, null, srcCatalog);
   const result = renderDetailSql(plan);
   if (!result) return null;
   result.sql = result.sql.replace(/\s*(?:ORDER BY[^;]+)?$/, ' LIMIT 5');
   return result;
 }
 
-function _buildPreviewHTML(key) {
+export function _buildPreviewHTML(key) {
   try {
     let sql, params;
     if (key === 'base') {
@@ -168,23 +188,23 @@ function _buildPreviewHTML(key) {
   }
 }
 
-function addStack(id) {
+export function addStack(id) {
   if (!id || !db.tables[id] || id === db.base) return;
   if (!db.stacks.includes(id)) db.stacks.push(id);
   _afterCombineChange();
 }
-function removeStack(id) {
+export function removeStack(id) {
   db.stacks = db.stacks.filter(s => s !== id);
   _afterCombineChange();
 }
-function addLookup() {
+export function addLookup() {
   if (!db.base) return;
   if (!db.lookups) db.lookups = [];
   db.lookups.push({ rightId: '', keyPairs: [{ left: '', right: '' }], cols: [], required: false, enabled: true, duplicatePolicy: { mode: 'block' } });
   _afterCombineChange();
 }
 
-function addCalcStage() {
+export function addCalcStage() {
   if (!db.base) return;
   if (!db.calcStages) db.calcStages = [];
   db.calcStages.push({
@@ -206,17 +226,17 @@ function addCalcStage() {
   _afterCombineChange();
 }
 
-function removeCalcStage(i) {
+export function removeCalcStage(i) {
   if (!Array.isArray(db.calcStages)) db.calcStages = [];
   db.calcStages.splice(i, 1);
   _afterCombineChange();
 }
 
-function removeLookup(i) {
+export function removeLookup(i) {
   db.lookups.splice(i, 1);
   _afterCombineChange();
 }
-function selectAllLookupCols(i) {
+export function selectAllLookupCols(i) {
   const lk = db.lookups[i];
   const rt = lk.rightId && db.tables[lk.rightId];
   if (rt) {
@@ -224,13 +244,13 @@ function selectAllLookupCols(i) {
     _afterCombineChange();
   }
 }
-function selectNoneLookupCols(i) {
+export function selectNoneLookupCols(i) {
   const lk = db.lookups[i];
   _hideLookupLayoutAliasesSafely(lk.rightId, null, i);
   _afterCombineChange();
 }
 
-function runQuery() {
+export function runQuery() {
   if (!db.base || !db.tables[db.base]) return;
 
   invalidateValidation();
@@ -241,14 +261,6 @@ function runQuery() {
     const firstMsg = blockingItems[0]?.issues[0]?.message || 'missing source data';
     toast(`Can't run \u2014 fix source issues first (${firstMsg}${blockingItems.length > 1 ? ` and ${blockingItems.length - 1} more` : ''}).`, 'err');
     return;
-  }
-
-  const skippedLookups = (db.lookups || []).filter(
-    lk => lk.rightId && db.tables[lk.rightId] && !_lkKeyPairs(lk).length
-  );
-  if (skippedLookups.length) {
-    const names = skippedLookups.map(lk => `"${db.tables[lk.rightId].name}"`).join(', ');
-    toast(`Lookup${skippedLookups.length > 1 ? 's' : ''} skipped (match columns not set): ${names}`, 'warn');
   }
 
   const _hasAgg = db.aggMode === 'group' && (db.groupBy.length > 0 || db.aggregates.length > 0);
@@ -289,3 +301,10 @@ function runQuery() {
     }
   }, 20);
 }
+
+// HTML onclick / onchange compatibility
+window.onBaseChange = onBaseChange;
+window.addStack = addStack;
+window.addLookup = addLookup;
+window.addCalcStage = addCalcStage;
+window.runQuery = runQuery;

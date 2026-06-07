@@ -1,9 +1,9 @@
-'use strict';
 
-const { describe, it } = require('node:test');
-const assert = require('node:assert/strict');
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 
-const { runReportPipeline, expectReportHealthy, expectResultRowCount, getBlockingIssues } = require('../helpers.js');
+import { runReportPipeline, expectReportHealthy, expectResultRowCount, getBlockingIssues } from '../helpers.js';
+import { loadAggModeState, saveActiveAggModeState } from '../../js/ui/aggregation.js';
 
 describe('P. Report type switch — config integrity', () => {
   const ALL_COLS = ['OrderId', 'Company', 'Contact', 'Status', 'Amount', 'OrderDate', 'Region'];

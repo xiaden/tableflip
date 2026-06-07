@@ -1,6 +1,12 @@
-'use strict';
+import { db } from '../core/state.js';
+import { h, toast, stickyToast, stripExt, getTableColor } from '../core/utils.js';
+import { loadState } from '../core/state-loader.js';
+import { dropTable, createTable, insertRows, tableRowCount } from '../core/sqldb.js';
+import { renderSidebar } from './sidebar.js';
+import { renderQueryBuilder } from '../query/query-builder.js';
+import { renderPreviewDropdown, loadPreview } from './grid.js';
+import { switchTab } from './tabs.js';
 
-// ── Full-window loading overlay ───────────────────────────────────────────────
 let _pendingLoads  = 0;
 let _sheetsLoaded  = 0;
 
@@ -23,7 +29,6 @@ function _endLoad() {
 
 function _countSheet() { _sheetsLoaded++; }
 
-// ── Modal queue — prevents multiple multi-sheet files clobbering each other ───
 const _modalQueue = [];
 let   _modalOpen  = false;
 
@@ -67,7 +72,7 @@ function _showNextModal() {
   document.getElementById('sheetModal').style.display = 'flex';
 }
 
-function confirmModal() {
+export function confirmModal() {
   if (!_modalQueue.length) return;
   const { wb, filename, sheets } = _modalQueue.shift();
   const checked = [...document.querySelectorAll('#modalSheets input[type=checkbox]:checked')]
@@ -87,15 +92,16 @@ function confirmModal() {
 
   _showNextModal();
 }
+window.confirmModal = confirmModal;
 
-function closeModal() {
+export function closeModal() {
   if (!_modalQueue.length) return;
-  _modalQueue.shift(); // skip this file
+  _modalQueue.shift();
   document.getElementById('sheetModal').style.display = 'none';
   _showNextModal();
 }
+window.closeModal = closeModal;
 
-// ── Full-window drop overlay ──────────────────────────────────────────────────
 (function () {
   const overlay = document.getElementById('dropOverlay');
   let dragDepth = 0;
@@ -122,7 +128,6 @@ function closeModal() {
   });
 })();
 
-// ── Drop zone & file input ────────────────────────────────────────────────────
 const fileInput = document.getElementById('fileInput');
 
 fileInput.addEventListener('change', e => {
@@ -130,9 +135,8 @@ fileInput.addEventListener('change', e => {
   fileInput.value = '';
 });
 
-// ── File reading ──────────────────────────────────────────────────────────────
 function loadFile(file) {
-  if (!sqlDb) { toast('Database not ready yet', 'err'); return; }
+  if (!window.sqlDb) { toast('Database not ready yet', 'err'); return; }
   const ext = file.name.split('.').pop().toLowerCase();
 
   if (ext === 'rcjson') {
@@ -181,17 +185,10 @@ function loadFile(file) {
   }
 }
 
-// ── ingestSheet ───────────────────────────────────────────────────────────────
-
-// ── Merge expansion ───────────────────────────────────────────────────────────
-// Uses ws['!merges'] metadata — lossless, no guessing.
 function expandMerges(ws) {
   const merges = ws['!merges'];
   if (!merges || !merges.length) return;
 
-  // SheetJS may expose dense worksheets either as ws['!data'] OR as the
-  // worksheet object itself (array rows). Handle both, then fall back to
-  // sparse A1-address mode.
   const dense = Array.isArray(ws['!data']) ? ws['!data'] : (Array.isArray(ws) ? ws : null);
   if (dense) {
     merges.forEach(({ s, e }) => {
@@ -211,7 +208,6 @@ function expandMerges(ws) {
     return;
   }
 
-  // Sparse worksheet fallback (A1 cell map).
   merges.forEach(({ s, e }) => {
     const srcAddr = XLSX.utils.encode_cell({ r: s.r, c: s.c });
     const srcCell = ws[srcAddr];
@@ -229,7 +225,6 @@ function expandMerges(ws) {
   });
 }
 
-// ── Sheet ingestion → SQLite ──────────────────────────────────────────────────
 function ingestSheet(wb, sheetName, label) {
   const ws = wb.Sheets[sheetName];
   if (!ws || !ws['!ref']) { toast('Empty sheet: ' + sheetName, 'err'); return; }
@@ -243,20 +238,14 @@ function ingestSheet(wb, sheetName, label) {
 
   if (!rawData.length) { toast('No rows found in ' + sheetName, 'err'); return; }
 
-  // Stamp each row with a stable 1-based row number BEFORE creating the table.
   const _ROWNO = '_rowno';
   rawData.forEach((row, i) => { row[_ROWNO] = i + 1; });
 
   const cols    = Object.keys(rawData[0]).filter(c => c !== _ROWNO);
   const allCols = [_ROWNO, ...cols];
 
-  // Stable, deterministic ID derived from the label so saved queries survive
-  // across sessions (same file → same label → same ID).
   const id = 't_' + label.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
 
-  // If a table with this ID already exists (re-import / updated file), drop it first.
-  // Keep db.base / stacks / lookups references as-is — column mapping warnings will
-  // fire naturally if the schema changed.
   if (db.tables[id]) {
     dropTable(id);
     delete db.excludedRows[id];
@@ -271,17 +260,15 @@ function ingestSheet(wb, sheetName, label) {
     return;
   }
 
-  // Detect suggested exclusions — rows whose first non-null value looks like a total.
   const TOTAL_RE = /^\s*(grand\s+)?total[s]?\s*[:：]?|subtotal[s]?\s*[:：]?/i;
   const suggested = new Set();
-  const suggestedPreviews = new Map(); // rowno → short value string for toast
+  const suggestedPreviews = new Map();
   for (const row of rawData) {
     for (const c of cols) {
       const v = row[c];
       if (v == null) continue;
       if (TOTAL_RE.test(String(v))) {
         suggested.add(row[_ROWNO]);
-        // Grab up to 5 non-null, non-empty cell values for the toast preview.
         const snippets = cols
           .map(col => row[col])
           .filter(val => val != null && String(val).trim() !== '')
@@ -293,7 +280,6 @@ function ingestSheet(wb, sheetName, label) {
     }
   }
 
-  // Build sample values.
   const samples = {};
   for (const col of cols) {
     const seen = new Set();
@@ -315,7 +301,7 @@ function ingestSheet(wb, sheetName, label) {
   db.excludedRows[id] = new Set();
   const rowCount = tableRowCount(id);
   db.tables[id] = { id, name: label, cols, rowCount, samples };
-  getTableColor(id); // pre-assign a palette color
+  getTableColor(id);
 
   if (!db.base) db.base = id;
 
@@ -323,7 +309,6 @@ function ingestSheet(wb, sheetName, label) {
   renderQueryBuilder();
   renderPreviewDropdown();
 
-  // Offer suggested exclusions as a dismissible sticky toast.
   if (suggested.size) {
     const previews = [...suggestedPreviews.values()];
     const previewStr = previews.length === 1

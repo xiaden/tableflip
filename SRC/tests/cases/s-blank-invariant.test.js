@@ -1,9 +1,8 @@
-'use strict';
 
-const { describe, it } = require('node:test');
-const assert = require('node:assert/strict');
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 
-const { runReportPipeline, expectReportHealthy } = require('../helpers.js');
+import { runReportPipeline, expectReportHealthy } from '../helpers.js';
 
 describe('S. End-of-report blank-row invariant', () => {
   function trailingBlankCount(rows, dataCols) {

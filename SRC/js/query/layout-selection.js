@@ -1,13 +1,17 @@
-'use strict';
+import { db } from '../core/state.js';
+import { h } from '../core/utils.js';
+import { projectedCols, buildColSourceMap } from '../catalog/column-catalog.js';
+import { invalidateValidation } from '../report/validation.js';
+import { renderQueryBuilder } from './query-builder.js';
 
 // ── Column Layout / Selection ────────────────────────────────────────────────
 // Controls which columns are visible in the output (selCols) and manages
 // visibility toggles from source-table add/remove and lookup add/remove.
 
-let _seenCols = new Set();
-let _previewOpen = new Set();
+export let _seenCols = new Set();
+export let _previewOpen = new Set();
 
-function _sampleTipFor(tid, col, extra = []) {
+export function _sampleTipFor(tid, col, extra = []) {
   const tbl  = db.tables?.[tid];
   const vals = (tbl?.samples?.[col] || []).slice(0, 3).map(v => String(v));
   const lines = [
@@ -18,7 +22,7 @@ function _sampleTipFor(tid, col, extra = []) {
   return `data-tip="${lines.map(line => h(line)).join('&#10;')}"`;
 }
 
-function _isSourceVisibleInLayout(tid, col, colMap, mode) {
+export function _isSourceVisibleInLayout(tid, col, colMap, mode) {
   if (!(db.selCols instanceof Set)) return true;
   let seen = false;
   for (const [alias, src] of colMap.entries()) {
@@ -44,11 +48,11 @@ function _setLayoutAliasesForSourceVisibility(tid, col = null, isVisible = true)
   }
 }
 
-function _showLayoutAliasesForSource(tid, col = null) {
+export function _showLayoutAliasesForSource(tid, col = null) {
   _setLayoutAliasesForSourceVisibility(tid, col, true);
 }
 
-function _hideLayoutAliasesForSource(tid, col = null) {
+export function _hideLayoutAliasesForSource(tid, col = null) {
   _setLayoutAliasesForSourceVisibility(tid, col, false);
 }
 
@@ -63,7 +67,7 @@ function _lookupColumnUsedElsewhere(tid, col, excludeLookupIndex = -1) {
   return false;
 }
 
-function _hideLookupLayoutAliasesSafely(tid, col = null, excludeLookupIndex = -1) {
+export function _hideLookupLayoutAliasesSafely(tid, col = null, excludeLookupIndex = -1) {
   const rt = tid ? db.tables?.[tid] : null;
   if (!rt || !Array.isArray(rt.cols)) return;
   const cols = col === null ? rt.cols : [col];
@@ -73,13 +77,13 @@ function _hideLookupLayoutAliasesSafely(tid, col = null, excludeLookupIndex = -1
   }
 }
 
-function _isAliasVisibleInLayout(alias, mode) {
+export function _isAliasVisibleInLayout(alias, mode) {
   if (!alias) return true;
   if (!(db.selCols instanceof Set)) return true;
   return db.selCols.has(alias);
 }
 
-function _syncSubtotalByToLayout() {
+export function _syncSubtotalByToLayout() {
   if (!Array.isArray(db.subtotalBy) || !db.subtotalBy.length) return;
   const order = Array.isArray(db.colOrder) ? db.colOrder : projectedCols();
   const orderIdx = new Map(order.map((c, i) => [c, i]));
@@ -89,7 +93,7 @@ function _syncSubtotalByToLayout() {
     .sort((a, b) => (orderIdx.get(a) ?? Number.MAX_SAFE_INTEGER) - (orderIdx.get(b) ?? Number.MAX_SAFE_INTEGER));
 }
 
-function _afterCombineChange() {
+export function _afterCombineChange() {
   invalidateValidation();
   const nowCols = projectedCols();
   if (db.selCols) {

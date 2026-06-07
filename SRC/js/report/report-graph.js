@@ -1,5 +1,3 @@
-'use strict';
-
 // ── Report Graph ──────────────────────────────────────────────────────────────
 // Multi-report workspace dependency tracking.
 //
@@ -15,7 +13,7 @@
 //   const order = getWorkspaceRunOrder(graph);   // ['reportA', 'reportB', ...]
 //   const cycles = detectReportCycles(graph);     // [] if no cycles
 
-function buildReportGraph(workspaceState) {
+export function buildReportGraph(workspaceState) {
   const reports = (workspaceState && workspaceState.reports) || [];
   const nodes   = new Map();
 
@@ -79,20 +77,20 @@ function buildReportGraph(workspaceState) {
   return { nodes, cycles };
 }
 
-function getReportDependencies(graph, reportId) {
+export function getReportDependencies(graph, reportId) {
   return graph.nodes.get(reportId)?.dependencies || [];
 }
 
-function getReportDependents(graph, reportId) {
+export function getReportDependents(graph, reportId) {
   return graph.nodes.get(reportId)?.dependents || [];
 }
 
-function detectReportCycles(graph) {
+export function detectReportCycles(graph) {
   return graph.cycles;
 }
 
 // Run order for a single report: dependencies first, then the report itself.
-function getRunOrder(graph, reportId) {
+export function getRunOrder(graph, reportId) {
   const order = [];
   const seen  = new Set();
   function visit(id) {
@@ -106,7 +104,7 @@ function getRunOrder(graph, reportId) {
 }
 
 // Topological run order for the whole workspace.  Reports in cycles are excluded.
-function getWorkspaceRunOrder(graph) {
+export function getWorkspaceRunOrder(graph) {
   const cycleIds = new Set(graph.cycles.flat());
   const order    = [];
   const seen     = new Set();

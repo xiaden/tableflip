@@ -1,6 +1,8 @@
-'use strict';
+import { db } from '../core/state.js';
+import { h, colDisplayLabel, defaultAggAlias } from '../core/utils.js';
+import { buildColSourceMap, projectedCols } from '../catalog/column-catalog.js';
+import { renderColChips } from '../query/output-card.js';
 
-// ── Aggregate function catalogue ──────────────────────────────────────────────
 const AGG_FNS = [
   'SUM', 'AVG', 'MIN', 'MAX',
   'COUNT ROWS', 'COUNT NON-EMPTY', 'COUNT DISTINCT',
@@ -29,7 +31,6 @@ const AGG_LABELS = {
 
 const AGG_NEEDS_COL = fn => fn !== 'COUNT ROWS';
 
-// Totals-row function catalogue (Detail + Totals mode)
 const TOTAL_FNS = [
   'skip', 'SUM', 'AVG', 'MIN', 'MAX',
   'COUNT ROWS', 'COUNT NON-EMPTY', 'COUNT DISTINCT', 'LIST',
@@ -46,8 +47,6 @@ const TOTAL_LABELS = {
   LIST:              'List (all values)',
 };
 
-// Subtotals function catalogue (Group rows + subtotals mode)
-// Mirrors summarize functions (+ skip).
 const SUBTOTAL_FNS = [
   'skip',
   'SUM', 'AVG', 'MIN', 'MAX',
@@ -77,10 +76,6 @@ const SUBTOTAL_LABELS = {
 
 const _AGG_MODES = ['none', 'group', 'totals', 'subtotals'];
 
-// ── Catalog query functions ───────────────────────────────────────────────────
-// Pure functions over the catalog constants above.
-// No window.db reads — safe to call from validation.js, export.js, etc.
-
 function getAggregateLabel(fn) {
   return AGG_LABELS[fn] || fn;
 }
@@ -93,29 +88,28 @@ function getSubtotalLabel(fn) {
   return SUBTOTAL_LABELS[fn] || fn;
 }
 
-function isValidAggregateFn(fn) {
+export function isValidAggregateFn(fn) {
   return AGG_FNS.includes(fn);
 }
 
-function isValidTotalFn(fn) {
+export function isValidTotalFn(fn) {
   return TOTAL_FNS.includes(fn);
 }
 
-function isValidSubtotalFn(fn) {
+export function isValidSubtotalFn(fn) {
   return SUBTOTAL_FNS.includes(fn);
 }
 
-function aggregateNeedsColumn(fn) {
+export function aggregateNeedsColumn(fn) {
   return AGG_NEEDS_COL(fn);
 }
 
-// Returns a short human-readable expression string for display (not SQL).
-// e.g. renderAggregateExpression('SUM', 'Revenue') → 'Sum of Revenue'
 function renderAggregateExpression(fn, colLabel) {
   const label = getAggregateLabel(fn);
   if (!aggregateNeedsColumn(fn)) return label;
   return `${label} of ${colLabel}`;
 }
+
 function _selColsToArray(selCols) {
   return selCols instanceof Set ? [...selCols] : null;
 }
@@ -142,6 +136,7 @@ function _readAggModeState(mode) {
       subtotalGrandTotal: db.subtotalGrandTotal !== false,
       subtotalSpacer:     !!db.subtotalSpacer,
       subtotalOnTop:      !!db.subtotalOnTop,
+      subtotalStrategy:   db.subtotalStrategy || 'combined',
     };
   }
   return {
@@ -163,12 +158,13 @@ function _defaultAggModeState(mode) {
       subtotalGrandTotal: true,
       subtotalSpacer:     false,
       subtotalOnTop:      false,
+      subtotalStrategy:   'combined',
     };
   }
   return {};
 }
 
-function ensureAggModeState() {
+export function ensureAggModeState() {
   if (!db.aggModeState || typeof db.aggModeState !== 'object') db.aggModeState = {};
   for (const mode of _AGG_MODES) {
     if (!db.aggModeState[mode] || typeof db.aggModeState[mode] !== 'object') {
@@ -176,18 +172,18 @@ function ensureAggModeState() {
     }
   }
 }
+window.ensureAggModeState = ensureAggModeState;
 
-function saveActiveAggModeState() {
+export function saveActiveAggModeState() {
   ensureAggModeState();
   db.aggModeState[db.aggMode || 'none'] = _readAggModeState(db.aggMode || 'none');
 }
+window.saveActiveAggModeState = saveActiveAggModeState;
 
-function loadAggModeState(mode) {
+export function loadAggModeState(mode) {
   ensureAggModeState();
   const state = db.aggModeState[mode] || _defaultAggModeState(mode);
 
-  // Clear fields that are not relevant for this mode so old config
-  // from a different mode never bleeds through.
   db.groupBy    = [];
   db.aggregates = [];
   db.colTotals  = {};
@@ -218,26 +214,21 @@ function loadAggModeState(mode) {
     db.subtotalGrandTotal = state.subtotalGrandTotal !== false;
     db.subtotalSpacer = !!state.subtotalSpacer;
     db.subtotalOnTop = !!state.subtotalOnTop;
+    db.subtotalStrategy = state.subtotalStrategy === 'nested' ? 'nested' : 'combined';
     return;
   }
-  // 'none' mode
   if ('selCols' in state) {
     db.selCols = Array.isArray(state.selCols) ? new Set(state.selCols) : null;
   }
 }
 
-// ── Top-level render ──────────────────────────────────────────────────────────
-// Called after any mode/group/aggregate change. Drives the sections inside
-// the merged Output Columns card (aggSection, totalsSection, aggHint).
-// Does NOT manage colChips — that's renderColChips() in query-builder.js.
-function renderAggregation() {
+export function renderAggregation() {
   if (!db.base || !db.tables[db.base]) return;
 
   const projected  = projectedCols();
   const allCols    = db.colOrder
     ? db.colOrder.filter(c => projected.includes(c))
     : projected;
-  // Only work with columns visible in the report layout
   const cols = (db.selCols instanceof Set) ? allCols.filter(c => db.selCols.has(c)) : allCols;
   const mode       = db.aggMode || 'none';
   const aggSection = document.getElementById('aggSection');
@@ -246,7 +237,6 @@ function renderAggregation() {
   const aggAddRow  = document.getElementById('aggAddRow');
   const hint       = document.getElementById('aggHint');
 
-  // Sync radio buttons
   document.querySelectorAll('input[name="aggMode"]').forEach(r => {
     r.checked = r.value === mode;
   });
@@ -280,34 +270,37 @@ function renderAggregation() {
     if (aggSection) aggSection.style.display = 'none';
     if (totSec)     totSec.style.display     = 'none';
     if (subSec)     subSec.style.display     = '';
-    // Sync grand-total checkbox
     const chk = document.getElementById('chkGrandTotal');
     if (chk) chk.checked = db.subtotalGrandTotal !== false;
     const chkSpacer = document.getElementById('chkSubtotalSpacer');
     if (chkSpacer) chkSpacer.checked = !!db.subtotalSpacer;
     const chkOnTop = document.getElementById('chkSubtotalOnTop');
     if (chkOnTop) chkOnTop.checked = !!db.subtotalOnTop;
+    const strat = db.subtotalStrategy || 'combined';
+    document.querySelectorAll('input[name="subtotalStrategy"]').forEach(r => {
+      r.checked = r.value === strat;
+    });
     renderSubtotalsSection(cols);
     const hasGroups = (db.subtotalBy || []).length > 0;
     if (hint) {
       hint.style.display = '';
+      const strategyName = db.subtotalStrategy === 'nested' ? 'nested' : 'combined';
       hint.textContent   = hasGroups
-        ? 'ⓘ All rows shown, grouped by the highlighted columns. A subtotal row appears after each group.'
+        ? `ⓘ All rows shown, grouped by the highlighted columns (${strategyName} grouping).`
         : 'ⓘ Click columns above to choose which ones to group rows by.';
     }
   } else {
-    // none
     if (aggSection) aggSection.style.display = 'none';
     if (totSec)     totSec.style.display     = 'none';
     if (subSec)     subSec.style.display     = 'none';
     if (hint)       hint.style.display       = 'none';
   }
 
-  // Always re-render chips to reflect any badge/orphan changes
   renderColChips();
 }
+window.renderAggregation = renderAggregation;
 
-function setAggMode(mode) {
+export function setAggMode(mode) {
   if (!_AGG_MODES.includes(mode)) mode = 'none';
   const prev = db.aggMode || 'none';
   if (prev === mode) {
@@ -319,14 +312,13 @@ function setAggMode(mode) {
   loadAggModeState(mode);
   renderAggregation();
 }
+window.setAggMode = setAggMode;
 
-// ── Inline totals section (Detail + Totals mode) ──────────────────────────────
 function renderTotalsSection(cols) {
   const wrap   = document.getElementById('totalsItems');
   const colMap = buildColSourceMap();
   if (!wrap) return;
 
-  // Only show cols currently selected for output
   const visibleCols = cols.filter(c => !db.selCols || db.selCols.has(c));
 
   wrap.innerHTML = visibleCols.map(col => {
@@ -352,8 +344,7 @@ document.getElementById('totalsItems').addEventListener('change', e => {
   else db.colTotals[col] = sel.value;
 });
 
-// ── Subtotals section (Group rows + subtotals mode) ───────────────────────────
-function renderSubtotalsSection(cols) {
+export function renderSubtotalsSection(cols) {
   const wrap       = document.getElementById('subtotalsItems');
   const colMap     = buildColSourceMap();
   const subtotalBy = db.subtotalBy || [];
@@ -364,7 +355,6 @@ function renderSubtotalsSection(cols) {
     return;
   }
 
-  // Show only visible, non-group-key cols
   const visibleCols = cols
     .filter(c => (!db.selCols || db.selCols.has(c)) && !subtotalBy.includes(c));
 
@@ -392,6 +382,7 @@ function renderSubtotalsSection(cols) {
     </div>`;
   }).join('');
 }
+window.renderSubtotalsSection = renderSubtotalsSection;
 
 document.getElementById('subtotalsItems').addEventListener('change', e => {
   const sel = e.target.closest('[data-stcol]');
@@ -401,23 +392,29 @@ document.getElementById('subtotalsItems').addEventListener('change', e => {
   else db.subtotalFns[col] = sel.value;
 });
 
-function setSubtotalGrandTotal(checked) {
+export function setSubtotalGrandTotal(checked) {
   db.subtotalGrandTotal = !!checked;
 }
+window.setSubtotalGrandTotal = setSubtotalGrandTotal;
 
-function setSubtotalSpacer(checked) {
+export function setSubtotalSpacer(checked) {
   db.subtotalSpacer = !!checked;
 }
+window.setSubtotalSpacer = setSubtotalSpacer;
 
-function setSubtotalOnTop(checked) {
+export function setSubtotalOnTop(checked) {
   db.subtotalOnTop = !!checked;
 }
+window.setSubtotalOnTop = setSubtotalOnTop;
 
-// ── Aggregate rows (Summarize mode) ──────────────────────────────────────────
-function renderAggregateItems(cols) {
+export function setSubtotalStrategy(value) {
+  db.subtotalStrategy = value === 'nested' ? 'nested' : 'combined';
+}
+window.setSubtotalStrategy = setSubtotalStrategy;
+
+export function renderAggregateItems(cols) {
   const wrap   = document.getElementById('aggItems');
   const colMap = buildColSourceMap();
-  // Only offer visible columns in the aggregate column pickers
   cols = (db.selCols instanceof Set) ? cols.filter(c => db.selCols.has(c)) : cols;
 
   if (!db.aggregates.length) {
@@ -462,13 +459,15 @@ function renderAggregateItems(cols) {
     </div>`;
   }).join('');
 }
+window.renderAggregateItems = renderAggregateItems;
 
-function addAggregate() {
+export function addAggregate() {
   const cols = projectedCols();
   const col  = cols.find(c => !db.groupBy.includes(c)) || cols[0] || '';
   db.aggregates.push({ fn: 'SUM', col, alias: '', auto: false });
   renderAggregateItems(cols);
 }
+window.addAggregate = addAggregate;
 
 function removeAggregate(i) {
   db.aggregates.splice(i, 1);
@@ -479,7 +478,6 @@ function touchAggregate(i) {
   if (db.aggregates[i]) db.aggregates[i].auto = false;
 }
 
-// ── Delegated events on aggregate list ───────────────────────────────────────
 document.getElementById('aggItems').addEventListener('change', e => {
   const { ai, ap } = e.target.dataset;
   if (ai === undefined || !ap) return;

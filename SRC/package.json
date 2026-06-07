@@ -4,6 +4,10 @@
   "private": true,
   "description": "Browser-based spreadsheet reporting tool",
   "scripts": {
+    "build": "node scripts/build.mjs",
     "test": "node --test tests/run.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
   }
 }

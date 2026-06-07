@@ -1,10 +1,15 @@
-'use strict';
+import { db } from './state.js';
+import { STATE_VERSION, RECOGNIZABLE_KEYS } from './state-schema.js';
+import { colUserLabel } from './utils.js';
+import { buildSourceCatalog } from '../catalog/source-catalog.js';
+import { applyState } from './state-applier.js';
+import { projectedColsUpToLookup } from '../catalog/column-catalog.js';
 
 // ── State Hydrator ───────────────────────────────────────────────────────────
 // Takes a raw JSON payload from a saved .rcjson file and produces a hydrated
 // `next` state object plus a list of broken references (missing tables/columns).
 
-function hydrateState(payload) {
+export function hydrateState(payload) {
   const next = {};
   const brokenRefs = [];
 
@@ -70,9 +75,83 @@ function hydrateState(payload) {
   }
 
   const VALID_CALC_OPS = new Set(['+', '-', '*', '/', 'ROLLAVG', 'PCTTOTAL', 'COMPARE']);
+  const VALID_CALC_MODES = new Set(['math', 'compare', 'text']);
+
+  function _collectTypedColRefs(val) {
+    if (val && typeof val === 'object' && val.type === 'column') return [val.value];
+    return [];
+  }
+  function _collectTypedArrayColRefs(arr) {
+    if (!Array.isArray(arr)) return [];
+    const out = [];
+    for (const item of arr) {
+      if (item && typeof item.type === 'string') out.push(..._collectTypedColRefs(item));
+    }
+    return out;
+  }
+  function _checkColRef(colName, baseLoaded, availNow, alias, brokenRefs) {
+    if (colName && baseLoaded && availNow.size && !availNow.has(colName)) {
+      brokenRefs.push(`Calculated column "${alias}" references unavailable column "${colName}"`);
+    }
+  }
+
   next.calcStages = [];
   for (const c of (payload.calcStages || [])) {
     const alias = (c.alias || '').trim();
+    const enabled = c.enabled !== false;
+
+    // ── New mode-based format ──────────────────────────────────────────────
+    if (c.mode && VALID_CALC_MODES.has(c.mode)) {
+      if (!alias) {
+        brokenRefs.push('Calculated stage has no alias');
+        next.calcStages.push({ ...c, alias, enabled });
+        continue;
+      }
+      const availNow = nextAvailableCols();
+
+      if (c.mode === 'math') {
+        const math = c.math;
+        if (math && Array.isArray(math.steps)) {
+          for (const step of math.steps) {
+            _checkColRef(step.type === 'column' ? step.value : null, baseLoaded, availNow, alias, brokenRefs);
+          }
+        }
+      }
+
+      if (c.mode === 'compare') {
+        const compare = c.compare;
+        if (compare && Array.isArray(compare.conditions)) {
+          for (const cond of compare.conditions) {
+            _checkColRef(cond.col, baseLoaded, availNow, alias, brokenRefs);
+          }
+        }
+        if (compare && compare.trueValue) {
+          _checkColRef(compare.trueValue.type === 'column' ? compare.trueValue.value : null, baseLoaded, availNow, alias, brokenRefs);
+        }
+        if (compare && compare.falseValue) {
+          _checkColRef(compare.falseValue.type === 'column' ? compare.falseValue.value : null, baseLoaded, availNow, alias, brokenRefs);
+        }
+      }
+
+      if (c.mode === 'text') {
+        const text = c.text;
+        if (text) {
+          if (text.operation === 'combine' && Array.isArray(text.parts)) {
+            for (const part of text.parts) {
+              _checkColRef(part.type === 'column' ? part.value : null, baseLoaded, availNow, alias, brokenRefs);
+            }
+          }
+          if (text.source) {
+            _checkColRef(text.source.type === 'column' ? text.source.value : null, baseLoaded, availNow, alias, brokenRefs);
+          }
+        }
+      }
+
+      next.calcStages.push({ ...c, alias, enabled });
+      continue;
+    }
+
+    // ── Old op-based format ────────────────────────────────────────────────
     const left  = c.left || '';
     const right = c.right || '';
     const isArithmetic = ['+', '-', '*', '/'].includes(c.op);
@@ -80,12 +159,12 @@ function hydrateState(payload) {
 
     if (!alias) {
       brokenRefs.push(`Calculated stage has no alias`);
-      next.calcStages.push({ alias, left, op, right, conditions: [], compareMode: 'AND', customTF: false, trueVal: '', falseVal: '', window: 7, explicitOrder: false, orderCol: '', orderDir: 'ASC', enabled: c.enabled !== false });
+      next.calcStages.push({ alias, left, op, right, conditions: [], compareMode: 'AND', customTF: false, trueVal: '', falseVal: '', window: 7, explicitOrder: false, orderCol: '', orderDir: 'ASC', enabled });
       continue;
     }
     if (!op) {
       brokenRefs.push(`Calculated column "${alias}" has an unsupported operator "${c.op}"`);
-      next.calcStages.push({ alias, left, op: '-', right, conditions: [], compareMode: 'AND', customTF: false, trueVal: '', falseVal: '', window: 7, explicitOrder: false, orderCol: '', orderDir: 'ASC', enabled: c.enabled !== false });
+      next.calcStages.push({ alias, left, op: c.op, right, conditions: [], compareMode: 'AND', customTF: false, trueVal: '', falseVal: '', window: 7, explicitOrder: false, orderCol: '', orderDir: 'ASC', enabled });
       continue;
     }
 
@@ -99,7 +178,7 @@ function hydrateState(payload) {
     if (op === 'COMPARE') {
       conditions = Array.isArray(c.conditions) ? c.conditions.map(cond => ({
         col: cond.col || '',
-        op:  ['=', '!=', '>', '>=', '<', '<='].includes(cond.op) ? cond.op : '=',
+        op:  typeof cond.op === 'string' ? cond.op : '=',
         val: String(cond.val ?? ''),
       })) : [];
       for (const cond of conditions) {
@@ -120,7 +199,7 @@ function hydrateState(payload) {
     const customTF = !!c.customTF;
     const trueVal = c.trueVal ?? '';
     const falseVal = c.falseVal ?? '';
-    next.calcStages.push({ alias, left, op, right, conditions, compareMode, customTF, trueVal, falseVal, window, explicitOrder, orderCol, orderDir, enabled: c.enabled !== false });
+    next.calcStages.push({ alias, left, op, right, conditions, compareMode, customTF, trueVal, falseVal, window, explicitOrder, orderCol, orderDir, enabled });
   }
 
   const available = nextAvailableCols();
@@ -141,7 +220,7 @@ function hydrateState(payload) {
     if (f.col && baseLoaded && !available.has(f.col)) {
       brokenRefs.push(`Filter on column "${f.col}" is not available`);
     }
-    const vals = Array.isArray(f.vals) ? f.vals.filter(v => typeof v === 'string') : f.vals;
+    const vals = Array.isArray(f.vals) ? [...f.vals] : f.vals;
     next.filters.push({ col: f.col || '', op: f.op || 'contains', vals, enabled: f.enabled !== false });
   }
 
@@ -165,7 +244,7 @@ function hydrateState(payload) {
     next.sorts.push({ col: s.col || '', dir: s.dir === 'DESC' ? 'DESC' : 'ASC', enabled: s.enabled !== false });
   }
 
-  next.aggMode = ['group', 'totals', 'subtotals', 'none'].includes(payload.aggMode) ? payload.aggMode : 'none';
+  next.aggMode = typeof payload.aggMode === 'string' ? payload.aggMode : 'none';
 
   next.colTotals = {};
   for (const [col, fn] of Object.entries(payload.colTotals || {})) {
@@ -184,6 +263,7 @@ function hydrateState(payload) {
   next.subtotalGrandTotal = payload.subtotalGrandTotal !== false;
   next.subtotalSpacer     = !!payload.subtotalSpacer;
   next.subtotalOnTop      = !!payload.subtotalOnTop;
+  next.subtotalStrategy   = payload.subtotalStrategy === 'nested' ? 'nested' : 'combined';
 
   if (!payload.aggModeState || typeof payload.aggModeState !== 'object') {
     next.aggModeState = null;
@@ -214,6 +294,7 @@ function hydrateState(payload) {
         subtotalGrandTotal: rawSubtotals.subtotalGrandTotal !== false,
         subtotalSpacer:     !!rawSubtotals.subtotalSpacer,
         subtotalOnTop:      !!rawSubtotals.subtotalOnTop,
+        subtotalStrategy:   rawSubtotals.subtotalStrategy === 'nested' ? 'nested' : 'combined',
       } : null,
     };
   }
@@ -250,3 +331,6 @@ function hydrateState(payload) {
 
   return { next, brokenRefs, nextExcludedRows };
 }
+
+export { applyState };
+window.applyState = applyState;

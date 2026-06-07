@@ -1,6 +1,16 @@
-'use strict';
+import { db } from '../core/state.js';
+import { h, colUserLabel, colDisplayLabel, getTableColor, getTableColorClass, chipFgColor } from '../core/utils.js';
+import { buildColSourceMap, projectedCols, projectedColsUpToLookup } from '../catalog/column-catalog.js';
+import { _renameProjectedAliasRefs } from './alias-ref-updater.js';
+import {
+  _isSourceVisibleInLayout, _sampleTipFor, _afterCombineChange,
+  _hideLookupLayoutAliasesSafely, _showLayoutAliasesForSource,
+  _hideLayoutAliasesForSource, _previewOpen, _isAliasVisibleInLayout,
+} from './layout-selection.js';
+import { _buildPreviewHTML, addStack, removeStack, removeLookup, removeCalcStage, selectAllLookupCols, selectNoneLookupCols, togglePreview, onBaseChange, addLookup, addCalcStage } from './query-builder.js';
+import { getValidation } from '../report/validation.js';
 
-function renderPipeline(ids) {
+export function renderPipeline(ids) {
   const pl = document.getElementById('pipeline');
   const sortedIds = ids.sort((a, b) => db.tables[a].name.localeCompare(db.tables[b].name));
   const usedAsLookup = new Set((db.lookups || []).map(l => l.rightId).filter(Boolean));

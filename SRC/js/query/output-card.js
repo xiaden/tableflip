@@ -1,6 +1,12 @@
-'use strict';
+import { db } from '../core/state.js';
+import { projectedCols, buildColSourceMap } from '../catalog/column-catalog.js';
+import { h, colDisplayLabel, getTableColorClass, smartDefaultFn, renameProjectedColumn } from '../core/utils.js';
+import { renderSubtotalsSection, renderAggregateItems, renderAggregation } from '../ui/aggregation.js';
+import { renderQueryBuilder } from './query-builder.js';
+import { renderResults } from '../ui/grid.js';
+import { _syncSubtotalByToLayout, _seenCols } from './layout-selection.js';
 
-function renderColChips() {
+export function renderColChips() {
   if (!db.base) return;
   const cols   = projectedCols();
   const colMap = buildColSourceMap();
@@ -8,7 +14,8 @@ function renderColChips() {
 
   if (!db.selCols) {
     db.selCols = new Set(cols);
-    _seenCols  = new Set(cols);
+    _seenCols.clear();
+    cols.forEach(c => _seenCols.add(c));
   }
 
   if (!db.colOrder) {
@@ -218,10 +225,12 @@ document.getElementById('colChips').addEventListener('drop', e => {
   }
 });
 
-function selectAllCols()  { db.selCols = new Set(projectedCols()); renderColChips(); }
-function selectNoneCols() { db.selCols = new Set();                 renderColChips(); }
+export function selectAllCols()  { db.selCols = new Set(projectedCols()); renderColChips(); }
+window.selectAllCols = selectAllCols;
+export function selectNoneCols() { db.selCols = new Set();                 renderColChips(); }
+window.selectNoneCols = selectNoneCols;
 
-function renderMergeToggles(cols) {
+export function renderMergeToggles(cols) {
   const wrap = document.getElementById('mergeToggles');
   if (!wrap) return;
 
@@ -274,7 +283,8 @@ function renderMergeToggles(cols) {
   }
 }
 
-function setMergeGroupUnderline(checked) {
+export function setMergeGroupUnderline(checked) {
   db.mergeGroupUnderline = !!checked;
   if (db.result) renderResults(db.result);
 }
+window.setMergeGroupUnderline = setMergeGroupUnderline;

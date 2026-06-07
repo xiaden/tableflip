@@ -1,11 +1,11 @@
-'use strict';
+import { db } from '../core/state.js';
 
 // ── Alias Reference Updater ──────────────────────────────────────────────────
 // When a column alias is renamed, updates every config reference
 // (colOrder, selCols, groupBy, subtotalBy, mergedCols, aggregates, filters,
 //  sorts, calcStages, colTotals, subtotalFns, aggModeState) to use the new name.
 
-function _renameProjectedAliasRefs(oldAlias, newAlias) {
+export function _renameProjectedAliasRefs(oldAlias, newAlias) {
   if (!oldAlias || !newAlias || oldAlias === newAlias) return;
 
   if (Array.isArray(db.colOrder)) {

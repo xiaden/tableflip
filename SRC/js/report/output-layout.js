@@ -1,5 +1,3 @@
-'use strict';
-
 // ── Output Layout ─────────────────────────────────────────────────────────────
 // Foundation for future multi-block report pages.  Not yet consumed by any
 // rendering layer — defines the spec shape so the architecture is stable.
@@ -30,23 +28,23 @@ function _normalizeBlock(block) {
   };
 }
 
-function createOutputLayout(blocks) {
+export function createOutputLayout(blocks) {
   return { blocks: Array.isArray(blocks) ? blocks.map(_normalizeBlock) : [] };
 }
 
-function addBlock(layout, block) {
+export function addBlock(layout, block) {
   layout.blocks.push(_normalizeBlock(block));
 }
 
-function removeBlock(layout, blockId) {
+export function removeBlock(layout, blockId) {
   layout.blocks = layout.blocks.filter(b => b.id !== blockId);
 }
 
-function updateBlock(layout, blockId, updates) {
+export function updateBlock(layout, blockId, updates) {
   const idx = layout.blocks.findIndex(b => b.id === blockId);
   if (idx >= 0) layout.blocks[idx] = Object.assign({}, layout.blocks[idx], updates);
 }
 
-function getBlock(layout, blockId) {
+export function getBlock(layout, blockId) {
   return layout.blocks.find(b => b.id === blockId) || null;
 }

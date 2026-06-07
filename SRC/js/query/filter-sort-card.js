@@ -1,4 +1,8 @@
-'use strict';
+import { db } from '../core/state.js';
+import { h, colDisplayLabel } from '../core/utils.js';
+import { buildColSourceMap, projectedCols } from '../catalog/column-catalog.js';
+import { execQuery, quoteId } from '../core/sqldb.js';
+import { getValidation, invalidateValidation } from '../report/validation.js';
 
 const FILTER_OPS = [
   'contains', 'equals', 'not equals',
@@ -26,17 +30,18 @@ function _populateFilterDatalist(i, alias) {
   } catch (_) {}
 }
 
-function addFilter() {
+export function addFilter() {
   db.filters.push({ col: '', op: 'contains', vals: [''], enabled: true });
   renderFilters();
 }
+window.addFilter = addFilter;
 
 function removeFilter(i) {
   db.filters.splice(i, 1);
   renderFilters();
 }
 
-function renderFilters() {
+export function renderFilters() {
   const colMap = buildColSourceMap();
   const cols   = projectedCols().filter(c => {
     const s = colMap.get(c);
@@ -150,7 +155,7 @@ document.getElementById('filterItems').addEventListener('click', e => {
   }
 });
 
-function renderSorts() {
+export function renderSorts() {
   const cols   = projectedCols();
   const colMap = buildColSourceMap();
   const wrap   = document.getElementById('sortItems');
@@ -183,10 +188,11 @@ function renderSorts() {
   }).join('');
 }
 
-function addSort() {
+export function addSort() {
   db.sorts.push({ col: '', dir: 'ASC', enabled: true });
   renderSorts();
 }
+window.addSort = addSort;
 
 function removeSort(i) {
   db.sorts.splice(i, 1);

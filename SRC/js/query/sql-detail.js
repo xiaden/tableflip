@@ -1,6 +1,7 @@
-'use strict';
+import { quoteId } from '../core/sqldb.js';
+import { renderFromJoinWhere } from './sql-joins.js';
 
-function renderDetailSql(plan) {
+export function renderDetailSql(plan) {
   if (!plan.source.base) throw new Error('No base table in plan');
   const { fromClause, joinClauses, whereParts, params, ref } = renderFromJoinWhere(plan);
 

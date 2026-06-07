@@ -1,9 +1,8 @@
-'use strict';
 
-const { describe, it } = require('node:test');
-const assert = require('node:assert/strict');
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 
-const { runReportPipeline, expectReportHealthy, expectResultColumns, sqlContains } = require('../helpers.js');
+import { runReportPipeline, expectReportHealthy, expectResultColumns, sqlContains } from '../helpers.js';
 
 describe('B. Column enable/disable', () => {
   it('should exclude Amount from plan and result when disabled', () => {

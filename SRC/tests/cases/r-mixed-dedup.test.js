@@ -1,9 +1,8 @@
-'use strict';
 
-const { describe, it } = require('node:test');
-const assert = require('node:assert/strict');
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 
-const { runReportPipeline, expectReportHealthy, findRow } = require('../helpers.js');
+import { runReportPipeline, expectReportHealthy, findRow } from '../helpers.js';
 
 describe('R. Mixed-value per-column dedup', () => {
   it('should deduplicate per column when duplicate-key rows share one column value but differ in another', () => {

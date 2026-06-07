@@ -1,4 +1,4 @@
-'use strict';
+import { db } from '../core/state.js';
 
 // ── Column Catalog ─────────────────────────────────────────────────────────────
 // Single source of truth for projected-column resolution.
@@ -10,7 +10,7 @@
 //   tablePrefix(name)          → string
 //
 // Catalog-based API (accepts explicit parameters — no window.db reads):
-//   buildColumnCatalog(reportSpec, upstreamOutputs?)  → ColumnCatalog
+//   buildColumnCatalog(reportSpec, sourceCatalog)    → ColumnCatalog
 //   getProjectedColumns(catalog)                       → string[]
 //   resolveOutputAlias(catalog, alias)                 → entry | null
 //   resolvePhysicalColumn(catalog, alias)              → { tid, col } | null
@@ -26,7 +26,7 @@ function tablePrefix(name) {
 // Returns Map<alias → entry> where entry is { tid, col } | { kind:'calc', … }.
 // Accepts optional ctx with { base, lookups, calcStages }; defaults to db.
 // db.tables is always the global table registry.
-function buildColSourceMap(ctx) {
+export function buildColSourceMap(ctx) {
   ctx = ctx || db;
   const base       = ctx.base;
   const lookups    = ctx.lookups;
@@ -52,6 +52,40 @@ function buildColSourceMap(ctx) {
   for (const [i, calc] of (calcStages || []).entries()) {
     if (calc?.enabled === false) continue;
     const alias = (calc?.alias || '').trim();
+    if (!alias) continue;
+
+    // New mode-based format
+    if (calc.mode && ['math', 'compare', 'text'].includes(calc.mode)) {
+      let valid = false;
+      if (calc.mode === 'math') {
+        const m = calc.math;
+        valid = m && m.strategy === 'stepChain' && Array.isArray(m.steps) && m.steps.length > 0 &&
+                !m.steps[0].op && m.steps.every(s => s && ['column', 'number', 'text'].includes(s.type)) &&
+                m.steps.slice(1).every(s => s.op && ['+', '-', '*', '/', '%'].includes(s.op));
+      } else if (calc.mode === 'compare') {
+        const c = calc.compare;
+        valid = c && Array.isArray(c.conditions) && c.conditions.length > 0 && c.trueValue && c.falseValue &&
+                c.conditions.every(cond => cond && cond.col && ['=', '!=', '>', '>=', '<', '<='].includes(cond.op)) &&
+                c.conditions.some(cond => map.has(cond.col)) &&
+                ['column', 'number', 'text'].includes(c.trueValue.type) &&
+                ['column', 'number', 'text'].includes(c.falseValue.type);
+      } else if (calc.mode === 'text') {
+        const t = calc.text;
+        if (t && ['combine', 'left', 'right', 'substring'].includes(t.operation)) {
+          if (t.operation === 'combine') {
+            valid = Array.isArray(t.parts) && t.parts.length > 0 && t.parts.every(p => p && ['column', 'number', 'text'].includes(p.type));
+          } else {
+            valid = t.source && ['column', 'text'].includes(t.source.type);
+          }
+        }
+      }
+      if (!valid) continue;
+      if (map.has(alias)) continue;
+      map.set(alias, { kind: 'calc', mode: calc.mode, idx: i, calc: calc });
+      continue;
+    }
+
+    // Old op-based format
     const left  = calc?.left  || '';
     const right = calc?.right || '';
     const op    = calc?.op    || '';
@@ -59,7 +93,6 @@ function buildColSourceMap(ctx) {
     const isRolling    = op === 'ROLLAVG';
     const isPctTotal   = op === 'PCTTOTAL';
     const isCompare    = op === 'COMPARE';
-    if (!alias) continue;
     if (!isArithmetic && !isRolling && !isPctTotal && !isCompare) continue;
     if (isCompare) {
       const conditions = calc?.conditions || [];
@@ -87,14 +120,14 @@ function buildColSourceMap(ctx) {
   return map;
 }
 
-function projectedCols(ctx) {
+export function projectedCols(ctx) {
   return [...buildColSourceMap(ctx).keys()];
 }
 
 // Projected cols available as left-key for lookup[upTo].
 // Uses ALL right-table cols (not just lk.cols) so the user can join on any
 // prior-lookup column even if it is not brought into the output.
-function projectedColsUpToLookup(upTo, ctx) {
+export function projectedColsUpToLookup(upTo, ctx) {
   ctx = ctx || db;
   const base    = ctx.base;
   const lookups = ctx.lookups;
@@ -118,13 +151,11 @@ function projectedColsUpToLookup(upTo, ctx) {
 // buildColumnCatalog builds from explicit reportSpec (no window.db config reads).
 // sourceCatalog is a SourceCatalog Map<tid, { id, name, cols, kind, source }>
 // produced by buildSourceCatalog() in source-catalog.js.
-// When sourceCatalog is not provided, buildSourceCatalog() is called internally.
-function buildColumnCatalog(reportSpec, sourceCatalog) {
+// sourceCatalog (Map) is required — throws if missing.
+export function buildColumnCatalog(reportSpec, sourceCatalog) {
   reportSpec   = reportSpec   || db;
   if (!(sourceCatalog instanceof Map)) {
-    sourceCatalog = typeof buildSourceCatalog === 'function'
-      ? buildSourceCatalog()
-      : new Map();
+    throw new Error('buildColumnCatalog: sourceCatalog (Map) is required');
   }
 
   const base       = reportSpec.base;
@@ -178,6 +209,39 @@ function buildColumnCatalog(reportSpec, sourceCatalog) {
   for (const [i, calc] of calcStages.entries()) {
     if (calc?.enabled === false) continue;
     const alias = (calc?.alias || '').trim();
+    if (!alias) continue;
+
+    // New mode-based format
+    if (calc.mode && ['math', 'compare', 'text'].includes(calc.mode)) {
+      let valid = false;
+      if (calc.mode === 'math') {
+        const m = calc.math;
+        valid = m && m.strategy === 'stepChain' && Array.isArray(m.steps) && m.steps.length > 0 &&
+                !m.steps[0].op && m.steps.every(s => s && ['column', 'number', 'text'].includes(s.type)) &&
+                m.steps.slice(1).every(s => s.op && ['+', '-', '*', '/', '%'].includes(s.op));
+      } else if (calc.mode === 'compare') {
+        const c = calc.compare;
+        valid = c && Array.isArray(c.conditions) && c.conditions.length > 0 && c.trueValue && c.falseValue &&
+                c.conditions.every(cond => cond && cond.col && ['=', '!=', '>', '>=', '<', '<='].includes(cond.op)) &&
+                ['column', 'number', 'text'].includes(c.trueValue.type) &&
+                ['column', 'number', 'text'].includes(c.falseValue.type);
+      } else if (calc.mode === 'text') {
+        const t = calc.text;
+        if (t && ['combine', 'left', 'right', 'substring'].includes(t.operation)) {
+          if (t.operation === 'combine') {
+            valid = Array.isArray(t.parts) && t.parts.length > 0 && t.parts.every(p => p && ['column', 'number', 'text'].includes(p.type));
+          } else {
+            valid = t.source && ['column', 'text'].includes(t.source.type);
+          }
+        }
+      }
+      if (!valid) continue;
+      if (colMap.has(alias)) continue;
+      colMap.set(alias, { kind: 'calc', mode: calc.mode, idx: i, calc: calc });
+      continue;
+    }
+
+    // Old op-based format
     const left  = calc?.left  || '';
     const right = calc?.right || '';
     const op    = calc?.op    || '';
@@ -185,7 +249,6 @@ function buildColumnCatalog(reportSpec, sourceCatalog) {
     const isRolling    = op === 'ROLLAVG';
     const isPctTotal   = op === 'PCTTOTAL';
     const isCompare    = op === 'COMPARE';
-    if (!alias) continue;
     if (!isArithmetic && !isRolling && !isPctTotal && !isCompare) continue;
     if (isCompare) {
       const conditions = calc?.conditions || [];

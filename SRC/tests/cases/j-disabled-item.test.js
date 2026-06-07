@@ -1,9 +1,8 @@
-'use strict';
 
-const { describe, it } = require('node:test');
-const assert = require('node:assert/strict');
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 
-const { runReportPipeline, expectReportHealthy, expectReportBlocked } = require('../helpers.js');
+import { runReportPipeline, expectReportHealthy, expectReportBlocked } from '../helpers.js';
 
 describe('J. Disabled unresolved item does not block', () => {
   it('should not block when missing lookup is disabled', () => {

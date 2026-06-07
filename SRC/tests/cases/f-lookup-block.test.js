@@ -1,9 +1,8 @@
-'use strict';
 
-const { describe, it } = require('node:test');
-const assert = require('node:assert/strict');
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 
-const { runReportPipeline, expectReportHealthy, expectReportBlocked, expectItemBlocked, getBlockingIssues } = require('../helpers.js');
+import { runReportPipeline, expectReportHealthy, expectReportBlocked, expectItemBlocked, getBlockingIssues } from '../helpers.js';
 
 describe('F. Duplicate lookup block mode', () => {
   it('should mark report blocked when Contacts has duplicate Company keys', () => {

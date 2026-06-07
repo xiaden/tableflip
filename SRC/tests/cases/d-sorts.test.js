@@ -1,9 +1,8 @@
-'use strict';
 
-const { describe, it } = require('node:test');
-const assert = require('node:assert/strict');
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 
-const { runReportPipeline, expectReportHealthy, sqlContains } = require('../helpers.js');
+import { runReportPipeline, expectReportHealthy, sqlContains } from '../helpers.js';
 
 describe('D. Sort add/remove', () => {
   it('should ORDER BY OrderDate descending', () => {

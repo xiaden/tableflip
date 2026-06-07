@@ -1,4 +1,8 @@
-'use strict';
+import { db } from '../core/state.js';
+import { projectedColsUpToLookup } from '../catalog/column-catalog.js';
+import { quoteId, execQuery } from '../core/sqldb.js';
+import { colUserLabel } from '../core/utils.js';
+import { _lkKeyPairs } from '../report/engine.js';
 
 // ── Lookup Resolver ────────────────────────────────────────────────────────────
 // Validates lookup specs and resolves duplicate-key policies.
@@ -25,7 +29,7 @@
 //   detectDuplicateLookupKeys(rightRows, keyPairs) → { hasDuplicates, duplicateCount }
 //   applyDuplicatePolicy(rightRows, keyPairs, policy) → row[]
 
-function validateLookupSpec(lookupSpec, lookupIndex) {
+export function validateLookupSpec(lookupSpec, lookupIndex) {
   const issues = [];
   if (!lookupSpec.rightId) {
     issues.push({ code: 'MISSING_RIGHT_TABLE', message: 'Lookup has no right-side table.' });
@@ -69,7 +73,7 @@ function validateLookupSpec(lookupSpec, lookupIndex) {
   return issues;
 }
 
-function buildLookupPlan(lookupSpec) {
+export function buildLookupPlan(lookupSpec) {
   const pairs = Array.isArray(lookupSpec.keyPairs)
     ? lookupSpec.keyPairs.filter(p => p.left && p.right)
     : [];
@@ -84,7 +88,7 @@ function buildLookupPlan(lookupSpec) {
 // ── Duplicate-key detection (SQL-level) ──────────────────────────────────────
 // Check whether a lookup's key columns are unique in the right-side table.
 // Returns a human-readable error string, or null if the lookup is clean.
-function checkLookupDuplicates(lk) {
+export function checkLookupDuplicates(lk) {
   if (!lk.rightId || !db.tables[lk.rightId]) return null;
   // When policy is 'combine', duplicates are expected and handled at execution time.
   if (lk.duplicatePolicy && lk.duplicatePolicy.mode === 'combine') return null;
@@ -128,7 +132,7 @@ function checkLookupDuplicates(lk) {
 
 // Inspect a rows array for duplicate key values.
 // rightRows: array of row objects; keyPairs: [{ right }]
-function detectDuplicateLookupKeys(rightRows, keyPairs) {
+export function detectDuplicateLookupKeys(rightRows, keyPairs) {
   const seen   = new Map();
   const dupes  = [];
   for (const row of (rightRows || [])) {
@@ -147,7 +151,7 @@ function detectDuplicateLookupKeys(rightRows, keyPairs) {
 // Pre-aggregate duplicate keys according to policy (mode=combine).
 // Returns a new rows array with duplicates resolved.
 // If policy is mode=block or missing, returns the original rows unchanged.
-function applyDuplicatePolicy(rightRows, keyPairs, policy) {
+export function applyDuplicatePolicy(rightRows, keyPairs, policy) {
   if (!policy || policy.mode !== 'combine') return rightRows;
 
   const combine = Object.assign({

@@ -1,9 +1,9 @@
-'use strict';
 
-const { describe, it } = require('node:test');
-const assert = require('node:assert/strict');
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 
-const { runReportPipeline, expectReportHealthy, expectResultColumns, expectResultRowCount, expectRowsEqual, findRow, sqlContains } = require('../helpers.js');
+import { runReportPipeline, expectReportHealthy, expectResultColumns, expectResultRowCount, expectRowsEqual, findRow, sqlContains } from '../helpers.js';
+import { projectedCols } from '../../js/catalog/column-catalog.js';
 
 describe('Q. Column toggle data integrity', () => {
   const ALL = ['OrderId', 'Company', 'Contact', 'Status', 'Amount', 'OrderDate', 'Region'];

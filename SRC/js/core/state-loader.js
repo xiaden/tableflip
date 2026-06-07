@@ -1,6 +1,8 @@
-'use strict';
+import { toast } from './utils.js';
+import { isRecognizableConfig, STATE_VERSION } from './state-schema.js';
+import { hydrateState, applyState } from './state-hydrator.js';
 
-function loadState(file) {
+export function loadState(file) {
   const reader = new FileReader();
   reader.onload = e => {
     let payload;
@@ -11,14 +13,18 @@ function loadState(file) {
       return;
     }
 
-    if (!payload || typeof payload !== 'object') {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
       toast('Invalid state file.', 'err');
       return;
     }
 
-    if (payload.v !== STATE_VERSION) {
-      toast(`Unsupported project file version (got ${JSON.stringify(payload.v)}, expected ${STATE_VERSION}). Load aborted.`, 'err');
+    if (!isRecognizableConfig(payload)) {
+      toast('File does not appear to be a TableFlip report configuration.', 'err');
       return;
+    }
+
+    if (payload.v !== STATE_VERSION) {
+      toast(`Version mismatch (saved: ${JSON.stringify(payload.v)}, app: ${STATE_VERSION}). Loaded with best-effort \u2014 check items for issues.`, 'warn');
     }
 
     const { next, brokenRefs, nextExcludedRows } = hydrateState(payload);
@@ -37,6 +43,8 @@ function loadState(file) {
   reader.onerror = () => toast('Failed to read file.', 'err');
   reader.readAsText(file);
 }
+
+window.loadState = loadState;
 
 (function () {
   const inp = document.createElement('input');

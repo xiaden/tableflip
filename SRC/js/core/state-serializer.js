@@ -1,6 +1,9 @@
-'use strict';
+import { db } from './state.js';
+import { toast, dl } from './utils.js';
+import { STATE_VERSION } from './state-schema.js';
+import { saveActiveAggModeState, ensureAggModeState } from '../ui/aggregation.js';
 
-function saveState() {
+export function saveState() {
   if (!db.base) { toast('Nothing to save \u2014 load a data file first.', 'err'); return; }
   if (typeof saveActiveAggModeState === 'function') saveActiveAggModeState();
   if (typeof ensureAggModeState === 'function') ensureAggModeState();
@@ -27,23 +30,35 @@ function saveState() {
       enabled:  l.enabled !== false,
       duplicatePolicy: l.duplicatePolicy ? { ...l.duplicatePolicy } : { mode: 'block' },
     })),
-    calcStages:   (db.calcStages || []).map(c => ({
-      alias: (c.alias || '').trim(),
-      left:  c.left || '',
-      op:    c.op || '-',
-      right: c.right || '',
-      conditions: (c.conditions || []).map(cond => ({
-        col: cond.col || '',
-        op:  cond.op  || '=',
-        val: cond.val ?? '',
-      })),
-      compareMode: c.compareMode === 'OR' ? 'OR' : 'AND',
-      window: Math.max(1, parseInt(c.window, 10) || 7),
-      explicitOrder: !!c.explicitOrder,
-      orderCol: c.orderCol || '',
-      orderDir: c.orderDir === 'DESC' ? 'DESC' : 'ASC',
-      enabled:  c.enabled !== false,
-    })),
+    calcStages:   (db.calcStages || []).map(c => {
+      if (c.mode) {
+        return {
+          alias: (c.alias || '').trim(),
+          mode: c.mode,
+          enabled: c.enabled !== false,
+          ...(c.math ? { math: JSON.parse(JSON.stringify(c.math)) } : {}),
+          ...(c.compare ? { compare: JSON.parse(JSON.stringify(c.compare)) } : {}),
+          ...(c.text ? { text: JSON.parse(JSON.stringify(c.text)) } : {}),
+        };
+      }
+      return {
+        alias: (c.alias || '').trim(),
+        left:  c.left || '',
+        op:    c.op || '-',
+        right: c.right || '',
+        conditions: (c.conditions || []).map(cond => ({
+          col: cond.col || '',
+          op:  cond.op  || '=',
+          val: cond.val ?? '',
+        })),
+        compareMode: c.compareMode === 'OR' ? 'OR' : 'AND',
+        window: Math.max(1, parseInt(c.window, 10) || 7),
+        explicitOrder: !!c.explicitOrder,
+        orderCol: c.orderCol || '',
+        orderDir: c.orderDir === 'DESC' ? 'DESC' : 'ASC',
+        enabled:  c.enabled !== false,
+      };
+    }),
     selCols:      db.selCols ? [...db.selCols] : null,
     colOrder:     db.colOrder ? [...db.colOrder] : null,
     filters:      db.filters.map(f => ({
@@ -63,6 +78,7 @@ function saveState() {
     subtotalGrandTotal: db.subtotalGrandTotal !== false,
     subtotalSpacer:     !!db.subtotalSpacer,
     subtotalOnTop:      !!db.subtotalOnTop,
+    subtotalStrategy:   db.subtotalStrategy || 'combined',
     mergedCols:         [...(db.mergedCols || [])],
     mergeGroupUnderline: !!db.mergeGroupUnderline,
     colState:           db.colState || null,
@@ -74,3 +90,5 @@ function saveState() {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   dl(blob, name + '.rcjson');
 }
+
+window.saveState = saveState;

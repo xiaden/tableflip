@@ -1,7 +1,9 @@
-'use strict';
+import { db } from './state.js';
+import { buildColSourceMap } from '../catalog/column-catalog.js';
+import { _renameProjectedAliasRefs } from '../query/alias-ref-updater.js';
 
 // HTML-escape a value for use in attribute values and text content
-function h(s) {
+export function h(s) {
   return String(s ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -9,9 +11,9 @@ function h(s) {
     .replace(/"/g, '&quot;');
 }
 
-function stripExt(fn) { return fn.replace(/\.[^.]+$/, ''); }
+export function stripExt(fn) { return fn.replace(/\.[^.]+$/, ''); }
 
-function dl(blob, name) {
+export function dl(blob, name) {
   const url = URL.createObjectURL(blob);
   const a = Object.assign(document.createElement('a'), { href: url, download: name });
   a.click();
@@ -28,7 +30,7 @@ function getToastContainer() {
   return c;
 }
 
-function toast(msg, type) {
+export function toast(msg, type) {
   const el = document.createElement('div');
   el.className = 'toast ' + (type || '');
   el.textContent = msg;
@@ -37,7 +39,7 @@ function toast(msg, type) {
 }
 
 // Persistent toast — must be dismissed. Optional onAccept callback adds an "Accept" button.
-function stickyToast(msg, type, onAccept, acceptLabel) {
+export function stickyToast(msg, type, onAccept, acceptLabel) {
   const el = document.createElement('div');
   el.className = 'toast toast-sticky ' + (type || 'warn');
   const txt = document.createElement('span');
@@ -59,12 +61,13 @@ function stickyToast(msg, type, onAccept, acceptLabel) {
   getToastContainer().appendChild(el);
 }
 
-function toggleSidebar() {
+export function toggleSidebar() {
   const sb  = document.getElementById('sidebar');
   const btn = document.getElementById('sidebarToggle');
   const collapsed = sb.classList.toggle('collapsed');
   btn.innerHTML = collapsed ? '&#x276F;' : '&#x276E;';
 }
+window.toggleSidebar = toggleSidebar;
 
 // ── Color palette (Paul Tol, colorblind-safe, 16 colors) ─────────────────────
 const TABLE_PALETTE = [
@@ -73,7 +76,7 @@ const TABLE_PALETTE = [
   '#882255','#117733','#999933','#44AA99',
 ];
 
-function getTableColor(tid) {
+export function getTableColor(tid) {
   if (db.tableColors[tid]) return db.tableColors[tid];
   const used = new Set(Object.values(db.tableColors));
   const idx  = TABLE_PALETTE.findIndex(c => !used.has(c));
@@ -83,7 +86,7 @@ function getTableColor(tid) {
 }
 
 // Returns the CSS class name for a table's palette color (e.g. 'chip-c3')
-function getTableColorClass(tid) {
+export function getTableColorClass(tid) {
   const color = getTableColor(tid);
   const idx   = TABLE_PALETTE.indexOf(color);
   return `chip-c${idx >= 0 ? idx : 0}`;
@@ -91,7 +94,7 @@ function getTableColorClass(tid) {
 
 // Choose readable foreground text color for a given hex background.
 // Returns dark text for light backgrounds and white text for dark backgrounds.
-function chipFgColor(bg) {
+export function chipFgColor(bg) {
   if (!bg || typeof bg !== 'string') return '#111';
   const m = bg.trim().match(/^#([0-9a-f]{6})$/i);
   if (!m) return '#111';
@@ -105,18 +108,18 @@ function chipFgColor(bg) {
 }
 
 // Truncated sheet name for display prefix (max 14 chars)
-function tableShortName(tid) {
+export function tableShortName(tid) {
   const name = db.tables[tid]?.name || tid;
   return name.length > 14 ? name.slice(0, 12) + '\u2026' : name;
 }
 
 // User-visible label for a physical column in a specific table
-function colUserLabel(tid, physCol) {
+export function colUserLabel(tid, physCol) {
   return db.columnLabels?.[tid]?.[physCol] ?? physCol;
 }
 
 // Set (or clear) a column label; pass physCol as label to clear
-function setColLabel(tid, physCol, label) {
+export function setColLabel(tid, physCol, label) {
   if (!db.columnLabels[tid]) db.columnLabels[tid] = {};
   if (!label || label === physCol) {
     delete db.columnLabels[tid][physCol];
@@ -126,7 +129,7 @@ function setColLabel(tid, physCol, label) {
   }
 }
 
-function renameProjectedColumn(alias) {
+export function renameProjectedColumn(alias) {
   const colMap = buildColSourceMap();
   const src = colMap.get(alias);
   if (!src) return false;
@@ -152,7 +155,7 @@ function renameProjectedColumn(alias) {
 }
 
 // Full display label for an alias: "ShortName → UserLabel"
-function colDisplayLabel(alias, map) {
+export function colDisplayLabel(alias, map) {
   const src = (map || buildColSourceMap()).get(alias);
   if (!src) return alias;
   if (src.kind === 'calc') return src.alias || alias;
@@ -160,7 +163,7 @@ function colDisplayLabel(alias, map) {
 }
 
 // Export label for a single alias: strip prefix, use user label only
-function colExportLabel(alias, map) {
+export function colExportLabel(alias, map) {
   const src = (map || buildColSourceMap()).get(alias);
   if (!src) return alias;
   if (src.kind === 'calc') return src.alias || alias;
@@ -168,7 +171,7 @@ function colExportLabel(alias, map) {
 }
 
 // Build { alias → exportHeader } with dedup (space-2, space-3 …)
-function buildExportHeaderMap(cols, map) {
+export function buildExportHeaderMap(cols, map) {
   map = map || buildColSourceMap();
   const seen   = new Map();
   const result = {};
@@ -184,7 +187,7 @@ function buildExportHeaderMap(cols, map) {
 // ── Aggregate helpers (shared between aggregation.js and engine.js) ───────────
 
 // Smart default aggregate type based on column name heuristics
-function smartDefaultFn(colName) {
+export function smartDefaultFn(colName) {
   const n = String(colName).toLowerCase();
   if (/\bdate\b|time\b|\bdt\b|shipped|arrival|delivery|due\b|created/.test(n)) return 'DATE RANGE';
   if (/amount|total|value|price|cost|\bqty\b|quantity|\bnum\b|number|units|sales|revenue|weight|volume/.test(n)) return 'SUM';
@@ -192,7 +195,7 @@ function smartDefaultFn(colName) {
 }
 
 // Human-readable default alias for a given aggregate function + column label
-function defaultAggAlias(fn, colLabel) {
+export function defaultAggAlias(fn, colLabel) {
   switch (fn) {
     case 'SUM':             return `Total ${colLabel}`;
     case 'AVG':             return `Avg ${colLabel}`;

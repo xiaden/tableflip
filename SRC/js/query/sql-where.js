@@ -1,6 +1,4 @@
-'use strict';
-
-function renderWhereClause(colRef, op, val, params, opts) {
+export function renderWhereClause(colRef, op, val, params, opts) {
   const likeEsc      = v => v.replace(/%/g, '\\%').replace(/_/g, '\\_');
   const txt          = `CAST(${colRef} AS TEXT)`;
   const num          = `CAST(${colRef} AS REAL)`;

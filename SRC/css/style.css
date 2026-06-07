@@ -545,10 +545,35 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
   border-left: 7px solid var(--border);
 }
 
-/* ── Aggregate mode toggle ─────────────────────────── */
-.agg-mode-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
-.agg-mode-opt { display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 0.8rem; margin: 0; }
-.agg-mode-opt input { accent-color: var(--accent); cursor: pointer; }
+/* ── Tab-style radio groups ────────────────────────── */
+.tab-row {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  background: var(--bg3);
+  border-radius: 6px;
+  padding: 2px;
+  flex-wrap: wrap;
+}
+.tab-opt {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 5px 12px;
+  border-radius: 4px;
+  color: var(--muted);
+  transition: background 0.12s, color 0.12s;
+  user-select: none;
+  white-space: nowrap;
+}
+.tab-opt input { display: none; }
+.tab-opt:has(input:checked) {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.tab-opt:hover:not(:has(input:checked)) { color: var(--text); }
 
 /* ── Data grid wrapper ───────────────────────────────────── */
 .grid-wrap {

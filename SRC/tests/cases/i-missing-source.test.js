@@ -1,9 +1,8 @@
-'use strict';
 
-const { describe, it } = require('node:test');
-const assert = require('node:assert/strict');
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 
-const { runReportPipeline, expectReportBlocked, expectItemBlocked } = require('../helpers.js');
+import { runReportPipeline, expectReportBlocked, expectItemBlocked } from '../helpers.js';
 
 describe('I. Missing source reference blocks', () => {
   it('should load config preserving broken reference, validation blocks it', () => {

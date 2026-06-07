@@ -1,6 +1,8 @@
-'use strict';
+import { quoteId } from '../core/sqldb.js';
+import { _renderCalcExpr } from './sql-calcs.js';
+import { renderWhereClause } from './sql-where.js';
 
-function renderFromJoinWhere(plan) {
+export function renderFromJoinWhere(plan) {
   const colMap    = plan.colMap;
   const src       = plan.source;
   const base      = src.base;
