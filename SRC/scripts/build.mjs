@@ -13,7 +13,7 @@ fs.rmSync(PKG, { recursive: true, force: true });
 // 2. Bundle app JS
 console.log('[build] bundling app…');
 await esbuild.build({
-  entryPoints: [path.join(SRC, 'js/app.js')],
+  entryPoints: [path.join(SRC, 'js/app.ts')],
   bundle: true,
   outfile: path.join(PKG, 'js/app.bundle.js'),
   logLevel: 'warning',
@@ -29,7 +29,7 @@ for (const name of assets) {
 const htmlPath = path.join(PKG, 'index.html');
 let html = fs.readFileSync(htmlPath, 'utf-8');
 html = html.replace(
-  '<script type="module" src="js/app.js"></script>',
+  '<script type="module" src="js-dev/app.js"></script>',
   '<script src="js/app.bundle.js"></script>'
 );
 fs.writeFileSync(htmlPath, html);

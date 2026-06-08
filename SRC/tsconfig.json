@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "declaration": false,
+    "types": ["node"]
+  },
+  "include": ["js/**/*.ts", "tests/**/*.ts"],
+  "exclude": ["node_modules", "js-dev", "pkg", "js/vendor", "js/wasm"]
+}

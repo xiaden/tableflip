@@ -392,6 +392,10 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
 /* Whole card dimmed when the item is disabled */
 .pl-stage-disabled {
   opacity: 0.6;
+  pointer-events: none;
+}
+.pl-stage-disabled .pl-enable-toggle {
+  pointer-events: auto;
 }
 /* Enable/disable toggle sitting inline in stage headers */
 .pl-enable-toggle {

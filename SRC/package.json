@@ -3,11 +3,25 @@
   "version": "1.0.0",
   "private": true,
   "description": "Browser-based spreadsheet reporting tool",
+  "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "node --test tests/run.js"
+    "dev": "tsc --watch -p tsconfig.dev.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint js/ tests/",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage"
   },
   "devDependencies": {
-    "esbuild": "^0.25.0"
+    "@types/node": "^25.9.2",
+    "@vitest/coverage-v8": "^4.1.8",
+    "esbuild": "^0.25.0",
+    "eslint": "^9.23.0",
+    "jsdom": "^29.1.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0",
+    "typescript-eslint": "^8.29.0",
+    "vitest": "^4.1.8"
   }
 }
