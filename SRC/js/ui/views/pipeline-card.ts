@@ -260,6 +260,7 @@ export function renderPipeline(ids: string[]): void {
     const allCols   = db.tables[db.base].cols;
     return `<div class="pl-lookup-cols" style="margin-top:6px">
       <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Columns:</span>
+      <span class="tip" data-tip="Right-click any chip to rename it.">?</span>
       ${allCols.map(c => {
         const isLayoutVisible = _isSourceVisibleInLayout(db.base, c, layoutColMap, layoutMode);
         const color     = getTableColor(db.base);
@@ -581,6 +582,7 @@ function _plLookupStage(lk: LookupSpec, i: number, sortedIds: string[], usedAsLo
     </div>
     <div class="pl-lookup-cols">
       <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Bring in:</span>
+      <span class="tip" data-tip="Right-click any chip to rename it.">?</span>
       ${colChips}
       <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-lk-all="${i}">All</button>
       <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-lk-none="${i}">None</button>
@@ -626,6 +628,7 @@ function _plCalcStage(calc: CalcStage, i: number): string {
     ${builderHtml}
     ${alias ? `<div class="pl-lookup-cols" style="margin-top:8px">
       <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Output:</span>
+      <span class="tip" data-tip="Right-click the chip to rename this column. The alias input above will update.">?</span>
       ${renderChip({ col: alias, label: colDisplayLabel(alias, colMap), selected: _isAliasVisibleInLayout(alias, db.aggMode || 'none'),
         draggable: false, chipClass: 'pl-col-chip', dataAttrs: { 'data-ci': String(i), 'data-ccc': alias } })}
     </div>` : ''}

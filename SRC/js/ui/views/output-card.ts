@@ -103,11 +103,11 @@ export function renderColChips(): void {
   const hint = $('colCardHint');
   if (hint) {
     if (mode === 'group') {
-      hint.textContent = '\u2014 double-click to group by \u00B7 drag to reorder';
+      hint.textContent = '\u2014 double-click to group by \u00B7 drag to reorder \u00B7 right-click to rename';
     } else if (mode === 'subtotals') {
-      hint.textContent = '\u2014 double-click to group rows \u00B7 drag to reorder';
+      hint.textContent = '\u2014 double-click to group rows \u00B7 drag to reorder \u00B7 right-click to rename';
     } else {
-      hint.textContent = '\u2014 double-click to show/hide \u00B7 drag to reorder';
+      hint.textContent = '\u2014 double-click to show/hide \u00B7 drag to reorder \u00B7 right-click to rename';
     }
   }
 }
