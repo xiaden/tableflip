@@ -797,3 +797,41 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
 .ag-theme-balham-dark ::-webkit-scrollbar-thumb   { background: #444c56; border-radius: 4px; }
 .ag-theme-balham-dark ::-webkit-scrollbar-thumb:hover { background: #8b949e; }
 .ag-theme-balham-dark ::-webkit-scrollbar-corner  { background: #161b22; }
+
+/* ── Context menu ────────────────────────────────────────── */
+.ctx-menu {
+  position: fixed; z-index: 1100;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 4px 0; min-width: 140px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+}
+.ctx-menu-item {
+  display: block; width: 100%; padding: 7px 14px;
+  background: none; border: none; color: var(--text);
+  font-size: 0.82rem; text-align: left; cursor: pointer;
+}
+.ctx-menu-item:hover { background: var(--bg3); }
+
+/* ── Modal component ─────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  z-index: 1050;
+}
+.modal-content {
+  position: fixed; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+  padding: 20px; min-width: 340px; max-width: 460px;
+  z-index: 1051;
+}
+.modal-title { font-size: 1rem; font-weight: 600; margin-bottom: 12px; }
+.modal-body  { font-size: 0.85rem; margin-bottom: 16px; }
+.modal-buttons { display: flex; justify-content: flex-end; gap: 8px; }
+.modal-buttons .btn { font-size: 0.82rem; padding: 6px 16px; }
+
+.rename-modal-input {
+  width: 100%; padding: 8px 10px; margin-top: 4px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 0.85rem; font-family: inherit;
+}
+.rename-modal-input:focus { outline: none; border-color: var(--accent); }
