@@ -1,6 +1,7 @@
 import { db } from '../core/state.js';
-import { h, colDisplayLabel, getTableColor, setColLabel, renameProjectedColumn } from '../core/utils.js';
+import { h, colDisplayLabel, getTableColor, setColLabel } from '../core/utils.js';
 import { buildColSourceMap } from '../catalog/column-catalog.js';
+import { resolveRenameTarget, showRenameModal, renameSourceCol } from './components/rename-modal.js';
 import { execQuery, quoteId } from '../core/sqldb.js';
 import { renderQueryBuilder } from './views/query-builder.js';
 import { renderMergeToggles } from './views/output-card.js';
@@ -236,9 +237,12 @@ function makeResultCols(cols: string[]): Record<string, unknown>[] {
     const color     = src ? getTableColor(srcPhys?.tid || '') : null;
 
     const doRename = (): void => {
-      if (!renameProjectedColumn(c)) return;
-      renderQueryBuilder();
-      if (db.result) renderResults(db.result);
+      const target = resolveRenameTarget(c);
+      if (!target) return;
+      showRenameModal(target, () => {
+        renderQueryBuilder();
+        if (db.result) renderResults(db.result);
+      });
     };
 
     return {
@@ -267,12 +271,11 @@ function makePreviewCols(tid: string, physCols: string[]): Record<string, unknow
     const label   = renamed || c;
 
     const doRename = (): void => {
-      const newLabel = window.prompt('New label (blank to reset):', renamed || '');
-      if (newLabel === null) return;
-      setColLabel(tid, c, newLabel.trim());
-      renderQueryBuilder();
-      if (db.result) renderResults(db.result);
-      loadPreview();
+      renameSourceCol(tid, c, () => {
+        renderQueryBuilder();
+        if (db.result) renderResults(db.result);
+        loadPreview();
+      });
     };
 
     const doClear = renamed

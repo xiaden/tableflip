@@ -1,5 +1,3 @@
-import { h } from '../../core/utils.js';
-
 let activeCtxMenu: HTMLElement | null = null;
 
 export interface CtxMenuItem {

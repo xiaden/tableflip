@@ -2,6 +2,8 @@ import { db } from '../../core/state.js';
 import { h, colUserLabel, colDisplayLabel, getTableColor, getTableColorClass, chipFgColor } from '../../core/utils.js';
 import { buildColSourceMap, projectedCols, projectedColsUpToLookup, ColMapEntry } from '../../catalog/column-catalog.js';
 import { _renameProjectedAliasRefs } from '../../query/alias-ref-updater.js';
+import { showContextMenu } from '../components/context-menu.js';
+import { renameSourceCol, resolveRenameTarget, showRenameModal } from '../components/rename-modal.js';
 import {
   _isSourceVisibleInLayout, _sampleTipFor, _afterCombineChange,
   _hideLookupLayoutAliasesSafely, _showLayoutAliasesForSource,
@@ -434,6 +436,46 @@ export function renderPipeline(ids: string[]): void {
       if (s.has(alias)) s.delete(alias);
       else s.add(alias);
       _afterCombineChange();
+    });
+  });
+  qs('[data-bcc]').forEach(el => {
+    el.addEventListener('contextmenu', (e: Event) => {
+      e.preventDefault();
+      const col = el.dataset.bcc!;
+      showContextMenu((e as MouseEvent).clientX, (e as MouseEvent).clientY, [
+        { label: 'Rename', action: () => renameSourceCol(db.base, col, () => _afterCombineChange()) },
+      ]);
+    });
+  });
+  qs('[data-lcc]').forEach(el => {
+    el.addEventListener('contextmenu', (e: Event) => {
+      e.preventDefault();
+      const i   = +el.dataset.li!;
+      const col = el.dataset.lcc!;
+      const lk  = db.lookups[i];
+      if (!lk?.rightId) return;
+      showContextMenu((e as MouseEvent).clientX, (e as MouseEvent).clientY, [
+        { label: 'Rename', action: () => renameSourceCol(lk.rightId, col, () => _afterCombineChange()) },
+      ]);
+    });
+  });
+  qs('[data-ccc]').forEach(el => {
+    el.addEventListener('contextmenu', (e: Event) => {
+      e.preventDefault();
+      const i = +el.dataset.ci!;
+      const c = db.calcStages?.[i];
+      const alias = (c?.alias || '').trim();
+      if (!alias) return;
+      showContextMenu((e as MouseEvent).clientX, (e as MouseEvent).clientY, [
+        {
+          label: 'Rename',
+          action: () => {
+            const target = resolveRenameTarget(alias);
+            if (!target) return;
+            showRenameModal(target, () => _afterCombineChange());
+          },
+        },
+      ]);
     });
   });
   pl.querySelector('[data-bc-all]')?.addEventListener('click', () => {

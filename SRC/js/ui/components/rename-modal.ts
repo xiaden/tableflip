@@ -19,7 +19,17 @@ export function resolveRenameTarget(alias: string): RenameTarget | null {
   if (src.kind === 'calc') {
     return { alias, calcIdx: src.idx };
   }
-  return { alias, tid: (src as { tid: string; col: string }).tid, col: (src as { tid: string; col: string }).col };
+  return { alias, tid: src.tid, col: src.col };
+}
+
+export function renameSourceCol(tid: string, col: string, onDone?: () => void): void {
+  const colMap = buildColSourceMap();
+  for (const [alias, src] of colMap.entries()) {
+    if (src.kind !== 'calc' && src.tid === tid && src.col === col) {
+      showRenameModal({ alias, tid, col }, onDone);
+      return;
+    }
+  }
 }
 
 export function showRenameModal(target: RenameTarget, onDone?: () => void): void {

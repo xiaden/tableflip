@@ -1,9 +1,11 @@
 import { db } from '../../core/state.js';
 import { projectedCols, buildColSourceMap, type ColMapEntry, type PhysicalColEntry, type CalcColEntry } from '../../catalog/column-catalog.js';
-import { h, colDisplayLabel, getTableColorClass, smartDefaultFn, renameProjectedColumn } from '../../core/utils.js';
+import { h, colDisplayLabel, getTableColorClass, smartDefaultFn } from '../../core/utils.js';
 import { renderSubtotalsSection, renderAggregateItems, renderAggregation } from '../aggregation.js';
 import { renderQueryBuilder } from './query-builder.js';
 import { renderResults } from '../grid.js';
+import { showContextMenu } from '../components/context-menu.js';
+import { resolveRenameTarget, showRenameModal } from '../components/rename-modal.js';
 import { _syncSubtotalByToLayout, _seenCols } from '../../query/layout-selection.js';
 
 export function renderColChips(): void {
@@ -195,9 +197,19 @@ if (typeof document !== 'undefined') {
     if (!chip) return;
     e.preventDefault();
     const alias = chip.dataset.col!;
-    if (!renameProjectedColumn(alias)) return;
-    renderQueryBuilder();
-    if (db.result) renderResults(db.result);
+    showContextMenu((e as MouseEvent).clientX, (e as MouseEvent).clientY, [
+      {
+        label: 'Rename',
+        action: () => {
+          const target = resolveRenameTarget(alias);
+          if (!target) return;
+          showRenameModal(target, () => {
+            renderQueryBuilder();
+            if (db.result) renderResults(db.result);
+          });
+        },
+      },
+    ]);
   });
 
   document.getElementById('colChips')!.addEventListener('dragstart', (e: DragEvent) => {
