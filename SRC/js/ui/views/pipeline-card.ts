@@ -5,6 +5,7 @@ import { _renameProjectedAliasRefs } from '../../query/alias-ref-updater.js';
 import { showContextMenu } from '../components/context-menu.js';
 import { renameSourceCol, resolveRenameTarget, showRenameModal } from '../components/rename-modal.js';
 import { renderChip } from '../components/chip.js';
+import { renderTip } from '../components/tip.js';
 import { delegate } from '../utils/events.js';
 import {
   _isSourceVisibleInLayout, _sampleTipFor, _afterCombineChange,
@@ -260,7 +261,7 @@ export function renderPipeline(ids: string[]): void {
     const allCols   = db.tables[db.base].cols;
     return `<div class="pl-lookup-cols" style="margin-top:6px">
       <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Columns:</span>
-      <span class="tip" data-tip="Right-click any chip to rename it.">?</span>
+      ${renderTip('Right-click any chip to rename it.')}
       ${allCols.map(c => {
         const isLayoutVisible = _isSourceVisibleInLayout(db.base, c, layoutColMap, layoutMode);
         const color     = getTableColor(db.base);
@@ -288,7 +289,7 @@ export function renderPipeline(ids: string[]): void {
     </div>
     <div class="pl-h-arrow"><div class="pl-h-line"></div><div class="pl-h-head"></div></div>
     <div class="pl-stage">
-      <div class="pl-stage-label">Include rows from <span class="tip" data-tip="Add sheets with the same columns to get more rows. Like stacking spreadsheets on top of each other.">?</span></div>
+      <div class="pl-stage-label">Include rows from ${renderTip('Add sheets with the same columns to get more rows. Like stacking spreadsheets on top of each other.')}</div>
       ${stackSheetsHtml}
     </div>
   </div>`;
@@ -552,7 +553,7 @@ function _plLookupStage(lk: LookupSpec, i: number, sortedIds: string[], usedAsLo
   const lkVMsg = lkVUnresolved && lkV.issues[0] ? lkV.issues[0].message : null;
 
   return `<div class="pl-lookup-stage${lkVBlocked ? ' pl-lookup-stage--invalid' : lkVUnresolved && !lkEnabled ? ' pl-lookup-stage--disabled-issue' : ''} ${!lkEnabled ? 'pl-stage-disabled' : ''}">
-    <div class="pl-stage-label">Look up columns from <span class="tip" data-tip="Pull columns from another sheet by matching a shared value \u2014 like VLOOKUP. Use '+ AND' to match on multiple columns at once.">?</span>
+    <div class="pl-stage-label">Look up columns from ${renderTip("Pull columns from another sheet by matching a shared value \u2014 like VLOOKUP. Use '+ AND' to match on multiple columns at once.")}
       <label class="pl-enable-toggle" title="${lkEnabled ? 'Disable this lookup (won\'t block report)' : 'Enable this lookup'}"><input type="checkbox" data-li="${i}" data-lp="enabled" ${lkEnabled ? 'checked' : ''}><span class="pl-enable-label">${lkEnabled ? 'Enabled' : 'Disabled'}</span></label>
     </div>
     ${lkVMsg ? `<div class="pl-lookup-error">${lkVBlocked ? '\u26D4' : '\u26A0'} ${h(lkVMsg)}</div>` : ''}
@@ -572,17 +573,17 @@ function _plLookupStage(lk: LookupSpec, i: number, sortedIds: string[], usedAsLo
       <span style="flex-shrink:0">If no match:</span>
       <label><input type="radio" name="lkreq_${i}" data-li="${i}" data-lp="required" value="0" ${!lk.required ? 'checked' : ''}> Leave blank</label>
       <label><input type="radio" name="lkreq_${i}" data-li="${i}" data-lp="required" value="1" ${lk.required ? 'checked' : ''}> Skip row</label>
-      <span class="tip" data-tip="Leave blank: keep all rows even if no match.&#10;Skip row: only keep rows that match.">?</span>
+      ${renderTip('Leave blank: keep all rows even if no match.\nSkip row: only keep rows that match.')}
     </div>
     <div class="pl-lookup-required">
       <span style="flex-shrink:0">Duplicate keys:</span>
       <label><input type="radio" name="lkdup_${i}" data-li="${i}" data-lp="dupMode" value="block" ${(lk.duplicatePolicy && lk.duplicatePolicy.mode) !== 'combine' ? 'checked' : ''}> Block (error)</label>
       <label><input type="radio" name="lkdup_${i}" data-li="${i}" data-lp="dupMode" value="combine" ${(lk.duplicatePolicy && lk.duplicatePolicy.mode) === 'combine' ? 'checked' : ''}> Combine values</label>
-      <span class="tip" data-tip="Block: the report cannot run if the same key appears more than once in the lookup sheet.&#10;Combine: concatenate matching values into a single cell, e.g. 'Tag1; Tag2'.">?</span>
+      ${renderTip("Block: the report cannot run if the same key appears more than once in the lookup sheet.\nCombine: concatenate matching values into a single cell, e.g. 'Tag1; Tag2'.")}
     </div>
     <div class="pl-lookup-cols">
       <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Bring in:</span>
-      <span class="tip" data-tip="Right-click any chip to rename it.">?</span>
+      ${renderTip('Right-click any chip to rename it.')}
       ${colChips}
       <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-lk-all="${i}">All</button>
       <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-lk-none="${i}">None</button>
@@ -611,7 +612,7 @@ function _plCalcStage(calc: CalcStage, i: number): string {
   const builderHtml = calcModeRenderers[mode](builderCtx);
 
   return `<div class="pl-lookup-stage${calcVBlocked ? ' pl-lookup-stage--invalid' : calcVUnresolved && !calcEnabled ? ' pl-lookup-stage--disabled-issue' : ''} ${!calcEnabled ? 'pl-stage-disabled' : ''}">
-    <div class="pl-stage-label">Calculated column <span class="tip" data-tip="Create a virtual column from existing columns.&#10;Math: arithmetic, rolling averages, percentages.&#10;Text: string operations.&#10;Compare: conditional logic.&#10;Date: extract date parts.">?</span>
+    <div class="pl-stage-label">Calculated column ${renderTip('Create a virtual column from existing columns.\nMath: arithmetic, rolling averages, percentages.\nText: string operations.\nCompare: conditional logic.\nDate: extract date parts.')}
       <label class="pl-enable-toggle" title="${calcEnabled ? 'Disable this calculated column' : 'Enable this calculated column'}"><input type="checkbox" data-ci="${i}" data-cp="enabled" ${calcEnabled ? 'checked' : ''}><span class="pl-enable-label">${calcEnabled ? 'Enabled' : 'Disabled'}</span></label>
     </div>
     ${calcVMsg ? `<div class="pl-lookup-error">${calcVBlocked ? '\u26D4' : '\u26A0'} ${h(calcVMsg)}</div>` : ''}
@@ -628,7 +629,7 @@ function _plCalcStage(calc: CalcStage, i: number): string {
     ${builderHtml}
     ${alias ? `<div class="pl-lookup-cols" style="margin-top:8px">
       <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Output:</span>
-      <span class="tip" data-tip="Right-click the chip to rename this column. The alias input above will update.">?</span>
+      ${renderTip('Right-click the chip to rename this column. The alias input above will update.')}
       ${renderChip({ col: alias, label: colDisplayLabel(alias, colMap), selected: _isAliasVisibleInLayout(alias, db.aggMode || 'none'),
         draggable: false, chipClass: 'pl-col-chip', dataAttrs: { 'data-ci': String(i), 'data-ccc': alias } })}
     </div>` : ''}
