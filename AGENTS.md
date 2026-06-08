@@ -5,7 +5,7 @@
 All from `tableflip/SRC/` (where `package.json` lives):
 
 | Task | Command |
-|---|---|
+| --- | --- |
 | Install | `npm install` |
 | Dev (tsc watch → js-dev/) | `npm run dev` |
 | Typecheck | `npm run typecheck` |
@@ -18,6 +18,7 @@ Rebuild xlsx vendor bundle: `cd build_resources/xlsx-js-style-fork && npm run sh
 ## Mandatory checks (run these without prompting)
 
 After any code change, run:
+
 - `npm run typecheck` — zero errors required
 - `npm run lint` — zero warnings required
 - `npm test` — all tests must pass
