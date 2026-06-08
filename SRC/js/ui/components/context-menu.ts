@@ -43,8 +43,10 @@ export function showContextMenu(x: number, y: number, items: CtxMenuItem[]): voi
   if (rect.bottom > window.innerHeight) menu.style.top  = (y - rect.height) + 'px';
 
   const close = (e: Event) => {
-    if (activeCtxMenu && !activeCtxMenu.contains(e.target as Node)) {
-      closeContextMenu();
+    if (!menu.isConnected) return;
+    if (!menu.contains(e.target as Node)) {
+      menu.remove();
+      if (activeCtxMenu === menu) activeCtxMenu = null;
     }
   };
   setTimeout(() => {

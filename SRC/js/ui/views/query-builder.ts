@@ -13,6 +13,7 @@ import { $ } from '../utils/dom.js';
 import {
   _afterCombineChange, _showLayoutAliasesForSource,
   _hideLookupLayoutAliasesSafely, _seenCols, _previewOpen,
+  _disabledCardCols,
 } from '../../query/layout-selection.js';
 import { invalidateValidation, getValidation } from '../../report/validation.js';
 import { runReport as executeReport } from '../../report/engine.js';
@@ -85,8 +86,11 @@ export function onBaseChange(val: string): void {
   db.base     = val;
   db.baseCols = null;
   db.stacks   = [];
+  db.selCols  = null;
+  db.colOrder = null;
   _seenCols.clear();
   _previewOpen.clear();
+  _disabledCardCols.clear();
   renderQueryBuilder();
 }
 

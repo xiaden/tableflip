@@ -2278,8 +2278,10 @@ ${fromPart}${joinPart}${wherePart}`);
     if (rect.right > window.innerWidth) menu.style.left = x - rect.width + "px";
     if (rect.bottom > window.innerHeight) menu.style.top = y - rect.height + "px";
     const close = (e) => {
-      if (activeCtxMenu && !activeCtxMenu.contains(e.target)) {
-        closeContextMenu();
+      if (!menu.isConnected) return;
+      if (!menu.contains(e.target)) {
+        menu.remove();
+        if (activeCtxMenu === menu) activeCtxMenu = null;
       }
     };
     setTimeout(() => {
@@ -4138,8 +4140,11 @@ Sample: ${vals.map((v) => String(v)).join(" \xB7 ")}` : `${from}
     db.base = val;
     db.baseCols = null;
     db.stacks = [];
+    db.selCols = null;
+    db.colOrder = null;
     _seenCols.clear();
     _previewOpen.clear();
+    _disabledCardCols.clear();
     renderQueryBuilder();
   }
   function togglePreview(key) {
