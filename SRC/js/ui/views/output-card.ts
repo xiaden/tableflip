@@ -229,7 +229,7 @@ if (typeof document !== 'undefined') {
     db.colOrder!.splice(from, 1);
     db.colOrder!.splice(to, 0, _dragCol);
     _syncSubtotalByToLayout();
-    renderColChips();
+    renderQueryBuilder();
     if ((db.aggMode || 'none') === 'subtotals') {
       const projected = projectedCols();
       const ordered = Array.isArray(db.colOrder)

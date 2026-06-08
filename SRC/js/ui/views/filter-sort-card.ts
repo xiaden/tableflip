@@ -158,8 +158,10 @@ if (typeof document !== 'undefined') {
 }
 
 export function renderSorts(): void {
-  const cols   = projectedCols();
-  const colMap = buildColSourceMap();
+  const selCols  = db.selCols;
+  const colOrder = db.colOrder || projectedCols();
+  const cols     = colOrder.filter(c => !selCols || selCols.has(c));
+  const colMap   = buildColSourceMap();
   const wrap   = document.getElementById('sortItems');
   if (!wrap) return;
   if (!db.sorts.length) {

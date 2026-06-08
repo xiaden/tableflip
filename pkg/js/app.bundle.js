@@ -3137,7 +3137,7 @@ ${fromPart}${joinPart}${wherePart}`);
       db.colOrder.splice(from, 1);
       db.colOrder.splice(to, 0, _dragCol);
       _syncSubtotalByToLayout();
-      renderColChips();
+      renderQueryBuilder();
       if ((db.aggMode || "none") === "subtotals") {
         const projected = projectedCols();
         const ordered = Array.isArray(db.colOrder) ? db.colOrder.filter((c) => projected.includes(c)) : projected;
@@ -3729,7 +3729,9 @@ ${fromPart}${joinPart}${wherePart}`);
     });
   }
   function renderSorts() {
-    const cols = projectedCols();
+    const selCols = db.selCols;
+    const colOrder = db.colOrder || projectedCols();
+    const cols = colOrder.filter((c) => !selCols || selCols.has(c));
     const colMap = buildColSourceMap();
     const wrap = document.getElementById("sortItems");
     if (!wrap) return;
