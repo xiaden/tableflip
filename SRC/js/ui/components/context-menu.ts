@@ -1,12 +1,22 @@
 let activeCtxMenu: HTMLElement | null = null;
 
+function _hideTooltip(): void {
+  const tipBox = document.querySelector('[style*="z-index: 9500"]') as HTMLElement | null;
+  if (tipBox) tipBox.style.display = 'none';
+}
+
 export interface CtxMenuItem {
   label: string;
   action: () => void;
 }
 
+export function isContextMenuOpen(): boolean {
+  return activeCtxMenu !== null;
+}
+
 export function showContextMenu(x: number, y: number, items: CtxMenuItem[]): void {
   closeContextMenu();
+  _hideTooltip();
 
   const menu = document.createElement('div');
   menu.className = 'ctx-menu';

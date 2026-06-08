@@ -480,28 +480,6 @@
       db.columnLabels[tid][physCol] = label;
     }
   }
-  function renameProjectedColumn(alias) {
-    const colMap = buildColSourceMap();
-    const src = colMap.get(alias);
-    if (!src) return false;
-    if (src.kind === "calc") {
-      const calc = Array.isArray(db.calcStages) ? db.calcStages[src.idx] : null;
-      if (!calc) return false;
-      const current2 = (calc.alias || "").trim() || alias;
-      const next2 = window.prompt("Rename column:", current2);
-      if (next2 === null) return false;
-      const renamed = next2.trim();
-      if (!renamed || renamed === current2) return false;
-      calc.alias = renamed;
-      if (typeof _renameProjectedAliasRefs === "function") _renameProjectedAliasRefs(current2, renamed);
-      return true;
-    }
-    const current = db.columnLabels?.[src.tid]?.[src.col] || "";
-    const next = window.prompt("Rename column (blank to reset):", current);
-    if (next === null) return false;
-    setColLabel(src.tid, src.col, next.trim());
-    return true;
-  }
   function colDisplayLabel(alias, map) {
     const src = (map || buildColSourceMap()).get(alias);
     if (!src) return alias;
@@ -2101,6 +2079,264 @@ ${fromPart}${joinPart}${wherePart}`);
   if (typeof window !== "undefined") window.runReport = runReport;
   if (typeof window !== "undefined") window.executeReport = runReport;
 
+  // js/ui/components/modal.ts
+  var activeModal = null;
+  function showModal(options) {
+    const {
+      id = "modal-" + Date.now(),
+      title = "",
+      content = "",
+      buttons = [],
+      onClose,
+      closeOnBackdrop = true,
+      className = ""
+    } = options;
+    if (activeModal) {
+      closeModal();
+    }
+    const modal = document.createElement("div");
+    modal.id = id;
+    modal.className = `modal ${className}`;
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    const titleHtml = title ? `<div class="modal-title">${h(title)}</div>` : "";
+    const buttonsHtml = buttons.length ? `<div class="modal-buttons">
+        ${buttons.map((btn, i) => {
+      const classes = ["btn", btn.primary ? "btn-primary" : "btn-ghost", btn.className || ""].filter(Boolean).join(" ");
+      return `<button class="${classes}" data-btn-index="${i}">${h(btn.label)}</button>`;
+    }).join("")}
+       </div>` : "";
+    modal.innerHTML = `
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      ${titleHtml}
+      <div class="modal-body">${content}</div>
+      ${buttonsHtml}
+    </div>
+  `;
+    document.body.appendChild(modal);
+    activeModal = modal;
+    const backdrop = modal.querySelector(".modal-backdrop");
+    if (closeOnBackdrop && backdrop) {
+      backdrop.addEventListener("click", () => {
+        closeModal();
+        onClose?.();
+      });
+    }
+    buttons.forEach((btn, i) => {
+      const button = modal.querySelector(`[data-btn-index="${i}"]`);
+      if (button) {
+        button.addEventListener("click", () => {
+          btn.action();
+        });
+      }
+    });
+    const firstButton = modal.querySelector("button");
+    if (firstButton) {
+      firstButton.focus();
+    } else {
+      modal.focus();
+    }
+    const handleEscape = (e) => {
+      if (e.key === "Escape") {
+        closeModal();
+        onClose?.();
+        document.removeEventListener("keydown", handleEscape);
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
+  }
+  function closeModal() {
+    if (activeModal) {
+      activeModal.remove();
+      activeModal = null;
+    }
+  }
+
+  // js/ui/components/rename-modal.ts
+  function resolveRenameTarget(alias) {
+    const colMap = buildColSourceMap();
+    const src = colMap.get(alias);
+    if (!src) return null;
+    if (src.kind === "calc") {
+      return { alias, calcIdx: src.idx };
+    }
+    return { alias, tid: src.tid, col: src.col };
+  }
+  function renameSourceCol(tid, col, onDone) {
+    const colMap = buildColSourceMap();
+    for (const [alias, src] of colMap.entries()) {
+      if (src.kind !== "calc" && src.tid === tid && src.col === col) {
+        showRenameModal({ alias, tid, col }, onDone);
+        return;
+      }
+    }
+  }
+  function showRenameModal(target, onDone) {
+    const isCalc = target.calcIdx != null;
+    let current;
+    if (isCalc) {
+      const calc = Array.isArray(db.calcStages) ? db.calcStages[target.calcIdx] : null;
+      current = (calc?.alias || "").trim() || target.alias;
+    } else {
+      current = db.columnLabels?.[target.tid]?.[target.col] || "";
+    }
+    const inputId = "renameInput-" + Date.now();
+    showModal({
+      title: "Rename column",
+      content: `<label for="${inputId}" style="font-size:0.78rem;color:var(--muted)">Current name</label>
+      <input type="text" id="${inputId}" class="rename-modal-input" value="${h(current || target.alias)}">`,
+      buttons: [
+        {
+          label: "Cancel",
+          action: () => closeModal()
+        },
+        {
+          label: "Rename",
+          primary: true,
+          action: () => {
+            const inp = document.getElementById(inputId);
+            if (!inp) {
+              closeModal();
+              return;
+            }
+            const newName = inp.value.trim();
+            if (isCalc) {
+              if (newName && newName !== current) {
+                const calc = Array.isArray(db.calcStages) ? db.calcStages[target.calcIdx] : null;
+                if (calc) {
+                  calc.alias = newName;
+                  _renameProjectedAliasRefs(current, newName);
+                }
+              }
+            } else {
+              setColLabel(target.tid, target.col, newName);
+            }
+            closeModal();
+            onDone?.();
+          }
+        }
+      ],
+      closeOnBackdrop: true,
+      onClose: () => {
+      }
+    });
+    requestAnimationFrame(() => {
+      const inp = document.getElementById(inputId);
+      if (inp) {
+        inp.focus();
+        inp.select();
+        inp.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            const btn = inp.closest(".modal-content")?.querySelector(".btn-primary");
+            btn?.click();
+          }
+        });
+      }
+    });
+  }
+
+  // js/ui/utils/dom.ts
+  var elementCache = /* @__PURE__ */ new Map();
+  function $(id) {
+    if (!elementCache.has(id)) {
+      elementCache.set(id, document.getElementById(id));
+    }
+    return elementCache.get(id) || null;
+  }
+
+  // js/ui/components/context-menu.ts
+  var activeCtxMenu = null;
+  function _hideTooltip() {
+    const tipBox = document.querySelector('[style*="z-index: 9500"]');
+    if (tipBox) tipBox.style.display = "none";
+  }
+  function isContextMenuOpen() {
+    return activeCtxMenu !== null;
+  }
+  function showContextMenu(x, y, items) {
+    closeContextMenu();
+    _hideTooltip();
+    const menu = document.createElement("div");
+    menu.className = "ctx-menu";
+    menu.style.left = x + "px";
+    menu.style.top = y + "px";
+    for (const item of items) {
+      const btn = document.createElement("button");
+      btn.className = "ctx-menu-item";
+      btn.textContent = item.label;
+      btn.addEventListener("click", () => {
+        closeContextMenu();
+        item.action();
+      });
+      menu.appendChild(btn);
+    }
+    document.body.appendChild(menu);
+    activeCtxMenu = menu;
+    const rect = menu.getBoundingClientRect();
+    if (rect.right > window.innerWidth) menu.style.left = x - rect.width + "px";
+    if (rect.bottom > window.innerHeight) menu.style.top = y - rect.height + "px";
+    const close = (e) => {
+      if (activeCtxMenu && !activeCtxMenu.contains(e.target)) {
+        closeContextMenu();
+      }
+    };
+    setTimeout(() => {
+      document.addEventListener("click", close, { once: true });
+      document.addEventListener("contextmenu", close, { once: true });
+    }, 0);
+  }
+  function closeContextMenu() {
+    if (activeCtxMenu) {
+      activeCtxMenu.remove();
+      activeCtxMenu = null;
+    }
+  }
+
+  // js/ui/components/chip.ts
+  function renderChip(options) {
+    const {
+      col,
+      label,
+      colorClass = "",
+      selected = false,
+      draggable = true,
+      tooltip = "",
+      badge = "",
+      badgeTooltip = "",
+      className = "",
+      chipClass = "chip",
+      dataAttrs,
+      inlineStyle
+    } = options;
+    const classes = [
+      chipClass,
+      selected ? "on" : "",
+      colorClass,
+      className
+    ].filter(Boolean).join(" ");
+    const badgeHtml = badge ? ` <span class="chip-warn-badge" data-autowarn="${h(col)}" title="${h(badgeTooltip)}">${badge}</span>` : "";
+    const draggableAttr = draggable ? 'draggable="true"' : "";
+    const tooltipAttr = tooltip ? `data-tip="${h(tooltip)}"` : "";
+    const styleAttr = inlineStyle ? `style="${inlineStyle}"` : "";
+    const extraAttrs = dataAttrs ? Object.entries(dataAttrs).map(([k, v]) => `${k}="${h(v)}"`).join(" ") : "";
+    return `<span class="${classes}" ${draggableAttr} data-col="${h(col)}" ${extraAttrs} ${tooltipAttr} ${styleAttr}>${h(label)}${badgeHtml}</span>`;
+  }
+  function getChipCol(chip) {
+    return chip.dataset.col || null;
+  }
+
+  // js/ui/utils/events.ts
+  function delegate(parent, selector, event, handler) {
+    parent.addEventListener(event, ((e) => {
+      const target = e.target.closest(selector);
+      if (target && parent.contains(target)) {
+        handler(target, e);
+      }
+    }));
+  }
+
   // js/query/layout-selection.ts
   var _seenCols = /* @__PURE__ */ new Set();
   var _previewOpen = /* @__PURE__ */ new Set();
@@ -2108,12 +2344,11 @@ ${fromPart}${joinPart}${wherePart}`);
   function _sampleTipFor(tid, col, extra = []) {
     const tbl = db.tables?.[tid];
     const vals = (tbl?.samples?.[col] || []).slice(0, 3).map((v) => String(v));
-    const lines = [
+    return [
       `From sheet: ${tbl?.name || tid}`,
       vals.length ? `Sample values: ${vals.join(" \xB7 ")}` : "Sample values: (none found)",
       ...extra
-    ];
-    return `data-tip="${lines.map((line) => h(line)).join("&#10;")}"`;
+    ].join("\n");
   }
   function _isSourceVisibleInLayout(tid, col, colMap, mode) {
     const selCols = db.selCols;
@@ -2630,7 +2865,17 @@ ${fromPart}${joinPart}${wherePart}`);
         const isLayoutVisible = _isSourceVisibleInLayout(db.base, c, layoutColMap, layoutMode);
         const color = getTableColor(db.base);
         const chipStyle = `background:${color};border-color:${color};color:${chipFgColor(color)}`;
-        return `<span class="pl-col-chip on ${isLayoutVisible ? "" : "pl-col-chip-layout-hidden"}" data-bcc="${h(c)}" style="${chipStyle}" ${_sampleTipFor(db.base, c, ["Click to show/hide this column in the report layout."])}>${h(colUserLabel(db.base, c))}</span>`;
+        return renderChip({
+          col: c,
+          label: colUserLabel(db.base, c),
+          selected: true,
+          draggable: false,
+          chipClass: "pl-col-chip",
+          className: isLayoutVisible ? "" : "pl-col-chip-layout-hidden",
+          tooltip: _sampleTipFor(db.base, c, ["Click to show/hide this column in the report layout."]),
+          dataAttrs: { "data-bcc": c },
+          inlineStyle: chipStyle
+        });
       }).join("")}
       <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-bc-all="1">All</button>
       <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-bc-none="1">None</button>
@@ -2799,6 +3044,33 @@ ${fromPart}${joinPart}${wherePart}`);
         _afterCombineChange();
       });
     });
+    delegate(pl, "[data-bcc]", "contextmenu", (el, e) => {
+      e.preventDefault();
+      showContextMenu(e.clientX, e.clientY, [
+        { label: "Rename", action: () => renameSourceCol(db.base, el.dataset.bcc, () => _afterCombineChange()) }
+      ]);
+    });
+    delegate(pl, "[data-lcc]", "contextmenu", (el, e) => {
+      e.preventDefault();
+      const lk = db.lookups[+el.dataset.li];
+      if (!lk?.rightId) return;
+      showContextMenu(e.clientX, e.clientY, [
+        { label: "Rename", action: () => renameSourceCol(lk.rightId, el.dataset.lcc, () => _afterCombineChange()) }
+      ]);
+    });
+    delegate(pl, "[data-ccc]", "contextmenu", (el, e) => {
+      e.preventDefault();
+      const c = db.calcStages?.[+el.dataset.ci];
+      const alias = (c?.alias || "").trim();
+      if (!alias) return;
+      showContextMenu(e.clientX, e.clientY, [
+        { label: "Rename", action: () => {
+          const target = resolveRenameTarget(alias);
+          if (!target) return;
+          showRenameModal(target, () => _afterCombineChange());
+        } }
+      ]);
+    });
     pl.querySelector("[data-bc-all]")?.addEventListener("click", () => {
       _showLayoutAliasesForSource(db.base);
       _afterCombineChange();
@@ -2854,7 +3126,17 @@ ${fromPart}${joinPart}${wherePart}`);
     </div>`).join("");
     const colChips = rt ? rt.cols.map((c) => {
       const isLayoutVisible = _isSourceVisibleInLayout(lk.rightId, c, layoutColMap, layoutMode);
-      return `<span class="pl-col-chip on ${isLayoutVisible ? "" : "pl-col-chip-layout-hidden"} ${lkColorCls}" data-li="${i}" data-lcc="${h(c)}" ${_sampleTipFor(lk.rightId, c, ["Click to show/hide this lookup column in the report layout."])}>${h(colUserLabel(lk.rightId, c))}</span>`;
+      return renderChip({
+        col: c,
+        label: colUserLabel(lk.rightId, c),
+        selected: true,
+        draggable: false,
+        chipClass: "pl-col-chip",
+        colorClass: lkColorCls,
+        className: isLayoutVisible ? "" : "pl-col-chip-layout-hidden",
+        tooltip: _sampleTipFor(lk.rightId, c, ["Click to show/hide this lookup column in the report layout."]),
+        dataAttrs: { "data-li": String(i), "data-lcc": c }
+      });
     }).join("") : "";
     const lkEnabled = lk.enabled !== false;
     const lkV = getValidation().items[`lookup_${i}`];
@@ -2929,12 +3211,51 @@ ${fromPart}${joinPart}${wherePart}`);
     ${builderHtml}
     ${alias ? `<div class="pl-lookup-cols" style="margin-top:8px">
       <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Output:</span>
-      <span class="pl-col-chip ${_isAliasVisibleInLayout(alias, db.aggMode || "none") ? "on" : ""}" data-ci="${i}" data-ccc="${h(alias)}">${h(colDisplayLabel(alias, colMap))}</span>
+      ${renderChip({
+      col: alias,
+      label: colDisplayLabel(alias, colMap),
+      selected: _isAliasVisibleInLayout(alias, db.aggMode || "none"),
+      draggable: false,
+      chipClass: "pl-col-chip",
+      dataAttrs: { "data-ci": String(i), "data-ccc": alias }
+    })}
     </div>` : ""}
   </div>`;
   }
 
   // js/ui/views/output-card.ts
+  function _buildTooltip(c, src) {
+    if (src?.kind === "calc") {
+      const calc = db.calcStages?.[src.idx];
+      const mode = calc?.mode || "unknown";
+      if (mode === "math") {
+        const math = calc.math;
+        const steps = math?.steps?.length || 0;
+        return `Calculated: Math (${steps} step${steps !== 1 ? "s" : ""})`;
+      } else if (mode === "compare") {
+        const compare = calc.compare;
+        const condCount = compare?.conditions?.length || 0;
+        const glue = compare?.compareMode || "AND";
+        return `Calculated: Compare (${condCount} condition${condCount !== 1 ? "s" : ""}, ${glue})`;
+      } else if (mode === "text") {
+        const text = calc.text;
+        return `Calculated: Text (${text?.operation || "unknown"})`;
+      }
+      return `Calculated: ${mode}`;
+    }
+    if (src && src.kind !== "calc") {
+      const phys = src;
+      const tbl = db.tables[phys.tid];
+      const tblAny = tbl;
+      const samples = tblAny.samples;
+      const vals = (samples?.[phys.col] || []).slice(0, 3);
+      const from = `From: ${tbl?.name ?? phys.tid}`;
+      return vals.length ? `${from}
+Sample: ${vals.map((v) => String(v)).join(" \xB7 ")}` : `${from}
+(no sample values)`;
+    }
+    return "";
+  }
   function renderColChips() {
     if (!db.base) return;
     const cols = projectedCols();
@@ -2957,57 +3278,41 @@ ${fromPart}${joinPart}${wherePart}`);
     _syncSubtotalByToLayout();
     const groupSet = new Set(db.groupBy);
     const showBadges = mode === "group" && groupSet.size > 0;
+    const selSet = db.selCols;
     const colOrder = db.colOrder;
-    document.getElementById("colChips").innerHTML = colOrder.map((c) => {
+    $("colChips").innerHTML = colOrder.map((c) => {
       const src = colMap.get(c);
       const colorCls = src ? getTableColorClass(src.tid) : "";
-      const label = h(colDisplayLabel(c, colMap));
-      const selSet = db.selCols;
+      const label = colDisplayLabel(c, colMap);
       if (selSet && !selSet.has(c)) return "";
-      let tip = "";
-      if (src?.kind === "calc") {
-        const calc = db.calcStages?.[src.idx];
-        const mode2 = calc?.mode || "unknown";
-        if (mode2 === "math") {
-          const math = calc.math;
-          const steps = math?.steps?.length || 0;
-          tip = `data-tip="Calculated: Math (${steps} step${steps !== 1 ? "s" : ""})"`;
-        } else if (mode2 === "compare") {
-          const compare = calc.compare;
-          const condCount = compare?.conditions?.length || 0;
-          const glue = compare?.compareMode || "AND";
-          tip = `data-tip="Calculated: Compare (${condCount} condition${condCount !== 1 ? "s" : ""}, ${glue})"`;
-        } else if (mode2 === "text") {
-          const text = calc.text;
-          tip = `data-tip="Calculated: Text (${text?.operation || "unknown"})"`;
-        } else {
-          tip = `data-tip="Calculated: ${h(mode2)}"`;
-        }
-      } else if (src && src.kind !== "calc") {
-        const tbl = db.tables[src.tid];
-        const tblAny = tbl;
-        const samples = tblAny.samples;
-        const vals = (samples?.[src.col] || []).slice(0, 3);
-        const from = `From: ${h(tbl?.name ?? src.tid)}`;
-        tip = vals.length ? `data-tip="${from}&#10;Sample: ${vals.map((v) => h(String(v))).join(" \xB7 ")}"` : `data-tip="${from}&#10;(no sample values)"`;
-      }
+      const tip = _buildTooltip(c, src);
       if (mode === "group") {
-        const isOn = groupSet.has(c);
+        const isOn2 = groupSet.has(c);
         const hasAgg = db.aggregates.some((a) => a.col === c);
-        const isOrphan = showBadges && !isOn && !hasAgg;
-        const badge = isOrphan ? ` <span class="chip-warn-badge" data-autowarn="${h(c)}" title="No calculation for this column \u2014 it will be dropped from results. Click \u26A0 to add one automatically.">\u26A0</span>` : "";
-        return `<span class="chip ${isOn ? "on" : ""} ${isOrphan ? "chip-orphan" : ""} ${colorCls}" draggable="true" data-col="${h(c)}" ${tip}>${label}${badge}</span>`;
+        const isOrphan = showBadges && !isOn2 && !hasAgg;
+        const badge = isOrphan ? "\u26A0" : "";
+        const badgeTip = isOrphan ? "No calculation for this column \u2014 it will be dropped from results. Click \u26A0 to add one automatically." : "";
+        return renderChip({
+          col: c,
+          label,
+          colorClass: colorCls,
+          selected: isOn2,
+          draggable: true,
+          tooltip: tip,
+          badge,
+          badgeTooltip: badgeTip,
+          className: isOrphan ? "chip-orphan" : ""
+        });
       } else if (mode === "subtotals") {
-        const isOn = (db.subtotalBy || []).includes(c);
-        return `<span class="chip ${isOn ? "on" : ""} ${colorCls}" draggable="true" data-col="${h(c)}" ${tip}>${label}</span>`;
-      } else {
-        const isOn = selSet ? selSet.has(c) : false;
-        return `<span class="chip ${isOn ? "on" : ""} ${colorCls}" draggable="true" data-col="${h(c)}" ${tip}>${label}</span>`;
+        const isOn2 = (db.subtotalBy || []).includes(c);
+        return renderChip({ col: c, label, colorClass: colorCls, selected: isOn2, draggable: true, tooltip: tip });
       }
+      const isOn = selSet ? selSet.has(c) : false;
+      return renderChip({ col: c, label, colorClass: colorCls, selected: isOn, draggable: true, tooltip: tip });
     }).join("");
-    const btnRow = document.getElementById("colBtnRow");
+    const btnRow = $("colBtnRow");
     if (btnRow) btnRow.style.display = mode === "group" || mode === "subtotals" ? "none" : "";
-    const hint = document.getElementById("colCardHint");
+    const hint = $("colCardHint");
     if (hint) {
       if (mode === "group") {
         hint.textContent = "\u2014 double-click to group by \xB7 drag to reorder";
@@ -3019,8 +3324,8 @@ ${fromPart}${joinPart}${wherePart}`);
     }
   }
   if (typeof document !== "undefined") {
-    let _chipAtPoint = function(container, x, y) {
-      const chips = [...container.querySelectorAll("[data-col]")].filter((c) => c.dataset.col !== _dragCol);
+    let _chipAtPoint = function(el, x, y) {
+      const chips = [...el.querySelectorAll("[data-col]")].filter((c) => c.dataset.col !== _dragCol);
       if (!chips.length) return null;
       const direct = document.elementFromPoint(x, y)?.closest("[data-col]");
       if (direct && direct.dataset.col !== _dragCol) return direct;
@@ -3043,23 +3348,19 @@ ${fromPart}${joinPart}${wherePart}`);
       return best;
     };
     _chipAtPoint2 = _chipAtPoint;
+    const container = () => $("colChips");
     let _dragCol = null;
-    document.getElementById("colChips").addEventListener("click", (e) => {
-      const badge = e.target.closest("[data-autowarn]");
-      if (badge) {
-        e.stopPropagation();
-        const col = badge.dataset.autowarn;
-        if (!db.aggregates.some((a) => a.col === col)) {
-          db.aggregates.push({ fn: smartDefaultFn(col), col, alias: "", auto: true });
-        }
-        renderColChips();
-        renderAggregateItems(projectedCols());
+    delegate(container(), "[data-autowarn]", "click", (badge, e) => {
+      e.stopPropagation();
+      const col = badge.dataset.autowarn;
+      if (!db.aggregates.some((a) => a.col === col)) {
+        db.aggregates.push({ fn: smartDefaultFn(col), col, alias: "", auto: true });
       }
+      renderColChips();
+      renderAggregateItems(projectedCols());
     });
-    document.getElementById("colChips").addEventListener("dblclick", (e) => {
-      const chip = e.target.closest(".chip[data-col]");
-      if (!chip) return;
-      const col = chip.dataset.col;
+    delegate(container(), ".chip[data-col]", "dblclick", (chip) => {
+      const col = getChipCol(chip);
       const mode = db.aggMode || "none";
       if (mode === "group") {
         const idx = db.groupBy.indexOf(col);
@@ -3099,36 +3400,42 @@ ${fromPart}${joinPart}${wherePart}`);
         renderQueryBuilder();
       }
     });
-    document.getElementById("colChips").addEventListener("contextmenu", (e) => {
-      const chip = e.target.closest(".chip[data-col]");
-      if (!chip) return;
+    delegate(container(), ".chip[data-col]", "contextmenu", (chip, e) => {
       e.preventDefault();
-      const alias = chip.dataset.col;
-      if (!renameProjectedColumn(alias)) return;
-      renderQueryBuilder();
-      if (db.result) renderResults(db.result);
+      const alias = getChipCol(chip);
+      showContextMenu(e.clientX, e.clientY, [
+        {
+          label: "Rename",
+          action: () => {
+            const target = resolveRenameTarget(alias);
+            if (!target) return;
+            showRenameModal(target, () => {
+              renderQueryBuilder();
+              if (db.result) renderResults(db.result);
+            });
+          }
+        }
+      ]);
     });
-    document.getElementById("colChips").addEventListener("dragstart", (e) => {
-      const chip = e.target.closest("[data-col]");
-      if (!chip) return;
+    delegate(container(), "[data-col]", "dragstart", (chip, e) => {
       _dragCol = chip.dataset.col;
       chip.classList.add("dragging");
       if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
     });
-    document.getElementById("colChips").addEventListener("dragend", () => {
+    delegate(container(), "[data-col]", "dragend", () => {
       _dragCol = null;
-      document.querySelectorAll("#colChips .chip").forEach((c) => c.classList.remove("dragging", "drag-over"));
+      container().querySelectorAll(".chip").forEach((c) => c.classList.remove("dragging", "drag-over"));
     });
-    document.getElementById("colChips").addEventListener("dragover", (e) => {
+    delegate(container(), "[data-col]", "dragover", (_chip, e) => {
       e.preventDefault();
       if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-      const nearest = _chipAtPoint(e.currentTarget, e.clientX, e.clientY);
-      document.querySelectorAll("#colChips .chip").forEach((c) => c.classList.remove("drag-over"));
+      const nearest = _chipAtPoint(container(), e.clientX, e.clientY);
+      container().querySelectorAll(".chip").forEach((c) => c.classList.remove("drag-over"));
       if (nearest) nearest.classList.add("drag-over");
     });
-    document.getElementById("colChips").addEventListener("drop", (e) => {
+    delegate(container(), "[data-col]", "drop", (_chip, e) => {
       e.preventDefault();
-      const nearest = _chipAtPoint(e.currentTarget, e.clientX, e.clientY);
+      const nearest = _chipAtPoint(container(), e.clientX, e.clientY);
       if (!nearest || !_dragCol || nearest.dataset.col === _dragCol) return;
       if (!db.colOrder) db.colOrder = projectedCols();
       const from = db.colOrder.indexOf(_dragCol);
@@ -3157,9 +3464,9 @@ ${fromPart}${joinPart}${wherePart}`);
   }
   if (typeof window !== "undefined") window.selectNoneCols = selectNoneCols;
   function renderMergeToggles(cols) {
-    const wrap = document.getElementById("mergeToggles");
+    const wrap = $("mergeToggles");
     if (!wrap) return;
-    const ulChk = document.getElementById("chkMergeGroupUnderline");
+    const ulChk = $("chkMergeGroupUnderline");
     if (ulChk) ulChk.checked = !!db.mergeGroupUnderline;
     const baseDisplayCols = (cols || []).filter((c) => c !== "_rowno" && c !== "_row_type" && c !== "_isTotalsRow");
     const visibleDisplayCols = db.selCols?.has ? baseDisplayCols.filter((c) => db.selCols.has(c)) : baseDisplayCols;
@@ -3585,7 +3892,7 @@ ${fromPart}${joinPart}${wherePart}`);
   ];
   var NO_VAL_OPS = /* @__PURE__ */ new Set(["is empty", "not empty"]);
   function _populateFilterDatalist(i, alias) {
-    const dl2 = document.getElementById("fdl_" + i);
+    const dl2 = $("fdl_" + i);
     if (!dl2 || !alias) {
       if (dl2) dl2.innerHTML = "";
       return;
@@ -3617,7 +3924,7 @@ ${fromPart}${joinPart}${wherePart}`);
   function renderFilters() {
     const colMap = buildColSourceMap();
     const cols = projectedCols();
-    const wrap = document.getElementById("filterItems");
+    const wrap = $("filterItems");
     if (!db.filters.length) {
       wrap.innerHTML = '<span style="font-size:0.76rem;color:var(--muted)">No filters \u2014 all rows returned</span>';
       return;
@@ -3660,8 +3967,7 @@ ${fromPart}${joinPart}${wherePart}`);
     });
   }
   if (typeof document !== "undefined") {
-    document.getElementById("filterItems").addEventListener("change", (e) => {
-      const el = e.target;
+    delegate($("filterItems"), "[data-fi]", "change", (el) => {
       const { fi, fp } = el.dataset;
       if (fi === void 0 || !fp) return;
       const f = db.filters[+fi];
@@ -3684,8 +3990,7 @@ ${fromPart}${joinPart}${wherePart}`);
         if (orWrap) orWrap.style.display = NO_VAL_OPS.has(el.value) ? "none" : "flex";
       }
     });
-    document.getElementById("filterItems").addEventListener("input", (e) => {
-      const el = e.target;
+    delegate($("filterItems"), "[data-fi][data-vi]", "input", (el) => {
       const { fi, vi, fp } = el.dataset;
       if (fi !== void 0 && fp === "val" && vi !== void 0) {
         const f = db.filters[+fi];
@@ -3695,37 +4000,28 @@ ${fromPart}${joinPart}${wherePart}`);
         }
       }
     });
-    document.getElementById("filterItems").addEventListener("click", (e) => {
-      const target = e.target;
-      const rmf = target.closest("[data-rmf]");
-      if (rmf) {
-        removeFilter(+rmf.dataset.rmf);
-        return;
-      }
-      const addOrBtn = target.closest("[data-addorval]");
-      if (addOrBtn) {
-        const i = +addOrBtn.dataset.addorval;
-        const f = db.filters[i];
-        if (!f) return;
-        if (!Array.isArray(f.vals)) f.vals = [""];
-        f.vals.push("");
-        renderFilters();
-        if (f.col) _populateFilterDatalist(i, f.col);
-        return;
-      }
-      const rmVal = target.closest("[data-rmval]");
-      if (rmVal) {
-        const i = +rmVal.dataset.fi;
-        const j = +rmVal.dataset.rmval;
-        const f = db.filters[i];
-        if (!f) return;
-        if (!Array.isArray(f.vals)) f.vals = [""];
-        if (f.vals.length <= 1) return;
-        f.vals.splice(j, 1);
-        renderFilters();
-        if (f.col) _populateFilterDatalist(i, f.col);
-        return;
-      }
+    delegate($("filterItems"), "[data-rmf]", "click", (el) => {
+      removeFilter(+el.dataset.rmf);
+    });
+    delegate($("filterItems"), "[data-addorval]", "click", (el) => {
+      const i = +el.dataset.addorval;
+      const f = db.filters[i];
+      if (!f) return;
+      if (!Array.isArray(f.vals)) f.vals = [""];
+      f.vals.push("");
+      renderFilters();
+      if (f.col) _populateFilterDatalist(i, f.col);
+    });
+    delegate($("filterItems"), "[data-rmval]", "click", (el) => {
+      const i = +el.dataset.fi;
+      const j = +el.dataset.rmval;
+      const f = db.filters[i];
+      if (!f) return;
+      if (!Array.isArray(f.vals)) f.vals = [""];
+      if (f.vals.length <= 1) return;
+      f.vals.splice(j, 1);
+      renderFilters();
+      if (f.col) _populateFilterDatalist(i, f.col);
     });
   }
   function renderSorts() {
@@ -3733,7 +4029,7 @@ ${fromPart}${joinPart}${wherePart}`);
     const colOrder = db.colOrder || projectedCols();
     const cols = colOrder.filter((c) => !selCols || selCols.has(c));
     const colMap = buildColSourceMap();
-    const wrap = document.getElementById("sortItems");
+    const wrap = $("sortItems");
     if (!wrap) return;
     if (!db.sorts.length) {
       wrap.innerHTML = '<span style="font-size:0.76rem;color:var(--muted)">No sort \u2014 rows returned in natural order</span>';
@@ -3772,8 +4068,7 @@ ${fromPart}${joinPart}${wherePart}`);
     renderSorts();
   }
   if (typeof document !== "undefined") {
-    document.getElementById("sortItems").addEventListener("change", (e) => {
-      const el = e.target;
+    delegate($("sortItems"), "[data-si]", "change", (el) => {
       const { si, sp } = el.dataset;
       if (si !== void 0 && sp === "enabled") {
         db.sorts[+si].enabled = el.checked;
@@ -3783,10 +4078,8 @@ ${fromPart}${joinPart}${wherePart}`);
       }
       if (si !== void 0 && sp) db.sorts[+si][sp] = el.value;
     });
-    document.getElementById("sortItems").addEventListener("click", (e) => {
-      const target = e.target;
-      const btn = target.closest("[data-rmsort]");
-      if (btn) removeSort(+btn.dataset.rmsort);
+    delegate($("sortItems"), "[data-rmsort]", "click", (el) => {
+      removeSort(+el.dataset.rmsort);
     });
   }
 
@@ -3794,26 +4087,26 @@ ${fromPart}${joinPart}${wherePart}`);
   function renderQueryBuilder() {
     invalidateValidation();
     const ids = Object.keys(db.tables).sort((a, b) => db.tables[a].name.localeCompare(db.tables[b].name));
-    const qEmpty = document.getElementById("qEmpty");
-    const qBuilder = document.getElementById("qBuilder");
+    const qEmpty = $("qEmpty");
+    const qBuilder = $("qBuilder");
     if (qEmpty) qEmpty.style.display = ids.length ? "none" : "";
     if (qBuilder) qBuilder.style.display = ids.length ? "grid" : "none";
     if (!ids.length) return;
     const hasBase = !!db.base && !!db.tables[db.base];
     const hasBaseConfigured = !!db.base;
     ["colCard", "filterSortCard"].forEach((id) => {
-      const el = document.getElementById(id);
+      const el = $(id);
       if (el) el.style.display = hasBase ? "" : "none";
     });
-    const runRowEl = document.getElementById("runRow");
+    const runRowEl = $("runRow");
     if (runRowEl) runRowEl.style.display = hasBaseConfigured ? "" : "none";
     if (hasBaseConfigured) {
       const v = getValidation();
       const blocked = v.reportStatus === "blocked";
       const items = Object.values(v.items);
       const issueCount = items.filter((it) => it.blocking).length;
-      const pill = document.getElementById("reportStatusPill");
-      const runBtn = document.getElementById("runBtn");
+      const pill = $("reportStatusPill");
+      const runBtn = $("runBtn");
       if (pill) {
         pill.style.display = "";
         if (blocked) {
@@ -3996,7 +4289,7 @@ ${fromPart}${joinPart}${wherePart}`);
       toast("No output columns selected \u2014 click All or pick at least one column.", "err");
       return;
     }
-    const status = document.getElementById("runStatus");
+    const status = $("runStatus");
     status.textContent = "Running\u2026";
     setTimeout(() => {
       try {
@@ -4064,10 +4357,10 @@ ${fromPart}${joinPart}${wherePart}`);
     }
   }
   function renderResults(result) {
-    const wrap = document.getElementById("resultsWrap");
-    const meta = document.getElementById("resultsMeta");
-    const btnXlsx = document.getElementById("btnExpXlsx");
-    const btnCsv = document.getElementById("btnExpCsv");
+    const wrap = $("resultsWrap");
+    const meta = $("resultsMeta");
+    const btnXlsx = $("btnExpXlsx");
+    const btnCsv = $("btnExpCsv");
     const { rows, totalsRow, cols } = result;
     const hasData = rows.length > 0 || totalsRow !== null;
     btnXlsx.style.display = hasData ? "" : "none";
@@ -4111,7 +4404,7 @@ ${fromPart}${joinPart}${wherePart}`);
       onColumnResized: () => _saveResultColState(),
       onColumnVisible: () => _saveResultColState()
     };
-    const el = document.getElementById("resGrid");
+    const el = $("resGrid");
     gridResult = agGrid.createGrid(el, options);
     requestAnimationFrame(() => requestAnimationFrame(() => refreshResultGridLayout()));
     if (db.colState) {
@@ -4124,7 +4417,7 @@ ${fromPart}${joinPart}${wherePart}`);
     if (gridResult) db.colState = gridResult.getColumnState();
   }
   function renderPreviewDropdown() {
-    const sel = document.getElementById("previewSel");
+    const sel = $("previewSel");
     if (!sel) return;
     const prev = sel.value;
     const ids = Object.keys(db.tables);
@@ -4132,9 +4425,9 @@ ${fromPart}${joinPart}${wherePart}`);
     if (db.tables[prev]) sel.value = prev;
   }
   function loadPreview() {
-    const id = document.getElementById("previewSel").value;
-    const wrap = document.getElementById("previewWrap");
-    const meta = document.getElementById("previewMeta");
+    const id = $("previewSel").value;
+    const wrap = $("previewWrap");
+    const meta = $("previewMeta");
     if (gridPreview) {
       gridPreview.destroy();
       gridPreview = null;
@@ -4190,7 +4483,7 @@ ${fromPart}${joinPart}${wherePart}`);
         return btn;
       }
     };
-    const el = document.getElementById("prevGrid");
+    const el = $("prevGrid");
     gridPreview = agGrid.createGrid(el, {
       rowData: rows,
       columnDefs: [excludeColDef, ...makePreviewCols(id, t.cols)],
@@ -4247,9 +4540,12 @@ ${fromPart}${joinPart}${wherePart}`);
       const renamed = src && src.kind !== "calc" ? db.columnLabels?.[srcPhys.tid]?.[srcPhys.col] : void 0;
       const color = src ? getTableColor(srcPhys?.tid || "") : null;
       const doRename = () => {
-        if (!renameProjectedColumn(c)) return;
-        renderQueryBuilder();
-        if (db.result) renderResults(db.result);
+        const target = resolveRenameTarget(c);
+        if (!target) return;
+        showRenameModal(target, () => {
+          renderQueryBuilder();
+          if (db.result) renderResults(db.result);
+        });
       };
       return {
         field: c,
@@ -4285,12 +4581,11 @@ ${fromPart}${joinPart}${wherePart}`);
       const renamed = db.columnLabels?.[tid]?.[c];
       const label = renamed || c;
       const doRename = () => {
-        const newLabel = window.prompt("New label (blank to reset):", renamed || "");
-        if (newLabel === null) return;
-        setColLabel(tid, c, newLabel.trim());
-        renderQueryBuilder();
-        if (db.result) renderResults(db.result);
-        loadPreview();
+        renameSourceCol(tid, c, () => {
+          renderQueryBuilder();
+          if (db.result) renderResults(db.result);
+          loadPreview();
+        });
       };
       const doClear = renamed ? () => {
         setColLabel(tid, c, c);
@@ -4443,8 +4738,8 @@ ${fromPart}${joinPart}${wherePart}`);
     if (!headers || !headers.length || !mergeHeaderSet || mergeHeaderSet.size === 0) return;
     const xlsxUtils = XLSX.utils;
     const merges = [];
-    headers.forEach((h2, cIdx) => {
-      if (!mergeHeaderSet.has(h2)) return;
+    headers.forEach((h3, cIdx) => {
+      if (!mergeHeaderSet.has(h3)) return;
       const leftGateHeaders = headers.slice(0, cIdx).filter((lh) => mergeHeaderSet.has(lh));
       const gateByLeft = leftGateHeaders.length > 0;
       let i = 0;
@@ -4453,13 +4748,13 @@ ${fromPart}${joinPart}${wherePart}`);
           i++;
           continue;
         }
-        const v = cleanRows[i]?.[h2];
+        const v = cleanRows[i]?.[h3];
         if (v == null || String(v) === "") {
           i++;
           continue;
         }
         let j = i + 1;
-        while (j < cleanRows.length && (rowKinds[j] ?? 0) === 0 && cleanRows[j]?.[h2] === v) {
+        while (j < cleanRows.length && (rowKinds[j] ?? 0) === 0 && cleanRows[j]?.[h3] === v) {
           if (gateByLeft && leftGateHeaders.some((lh) => cleanRows[j]?.[lh] !== cleanRows[j - 1]?.[lh])) {
             break;
           }
@@ -4504,8 +4799,8 @@ ${fromPart}${joinPart}${wherePart}`);
         const prev = mergeUnderlineStartByRow.get(sheetRow);
         mergeUnderlineStartByRow.set(sheetRow, prev == null ? colIdx : Math.min(prev, colIdx));
       };
-      headers.forEach((h2, cIdx) => {
-        if (!mergeHeaderSet.has(h2)) return;
+      headers.forEach((h3, cIdx) => {
+        if (!mergeHeaderSet.has(h3)) return;
         const leftGateHeaders = headers.slice(0, cIdx).filter((lh) => mergeHeaderSet.has(lh));
         let i = 0;
         while (i < cleanRows.length) {
@@ -4513,22 +4808,22 @@ ${fromPart}${joinPart}${wherePart}`);
             i++;
             continue;
           }
-          const v = cleanRows[i]?.[h2];
+          const v = cleanRows[i]?.[h3];
           if (v == null || String(v) === "") {
             i++;
             continue;
           }
           let j = i + 1;
-          while (j < cleanRows.length && (rowKinds[j] ?? 0) === 0 && cleanRows[j]?.[h2] === v) {
+          while (j < cleanRows.length && (rowKinds[j] ?? 0) === 0 && cleanRows[j]?.[h3] === v) {
             if (leftGateHeaders.some((lh) => cleanRows[j]?.[lh] !== cleanRows[j - 1]?.[lh])) break;
             j++;
           }
           const span = j - i;
           if (span > 1) {
-            let p = mergeParticipation.get(h2);
+            let p = mergeParticipation.get(h3);
             if (!p) {
               p = /* @__PURE__ */ new Set();
-              mergeParticipation.set(h2, p);
+              mergeParticipation.set(h3, p);
             }
             for (let r = i; r < j; r++) p.add(r);
             addUnderline(j - 1, cIdx);
@@ -4633,11 +4928,11 @@ ${fromPart}${joinPart}${wherePart}`);
     }
     ws["!autofilter"] = { ref };
     ws["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft", state: "frozen" };
-    ws["!cols"] = headers.map((h2) => {
-      let maxLen = String(h2 || "").length;
+    ws["!cols"] = headers.map((h3) => {
+      let maxLen = String(h3 || "").length;
       const sample = Math.min(cleanRows.length, WIDTH_SAMPLE_ROWS);
       for (let i = 0; i < sample; i++) {
-        const v = cleanRows[i]?.[h2];
+        const v = cleanRows[i]?.[h3];
         if (v == null) continue;
         maxLen = Math.max(maxLen, String(v).length);
       }
@@ -5156,13 +5451,13 @@ ${fromPart}${joinPart}${wherePart}`);
     _showNextModal();
   }
   if (typeof window !== "undefined") window.confirmModal = confirmModal;
-  function closeModal() {
+  function closeModal2() {
     if (!_modalQueue.length) return;
     _modalQueue.shift();
     document.getElementById("sheetModal").style.display = "none";
     _showNextModal();
   }
-  if (typeof window !== "undefined") window.closeModal = closeModal;
+  if (typeof window !== "undefined") window.closeModal = closeModal2;
   (function() {
     const overlay = document.getElementById("dropOverlay");
     let dragDepth = 0;
@@ -5425,6 +5720,7 @@ Row contents \u2192 ${previewStr}`,
     });
     document.body.appendChild(tipBox);
     document.addEventListener("mouseover", (e) => {
+      if (isContextMenuOpen()) return;
       const src = e.target.closest("[data-tip]");
       if (!src) return;
       tipBox.textContent = src.dataset.tip;

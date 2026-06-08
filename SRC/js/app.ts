@@ -39,6 +39,7 @@ import './ui/views/output-card.js';
 import './ui/views/filter-sort-card.js';
 import './ui/sidebar.js';
 import './ui/loader.js';
+import { isContextMenuOpen } from './ui/components/context-menu.js';
 
 if (typeof window !== 'undefined') window.initDb = initDb;
 
@@ -74,6 +75,7 @@ if (typeof document !== 'undefined') {
   document.body.appendChild(tipBox);
 
   document.addEventListener('mouseover', (e: MouseEvent) => {
+    if (isContextMenuOpen()) return;
     const src = (e.target as HTMLElement).closest('[data-tip]') as HTMLElement | null;
     if (!src) return;
     tipBox.textContent = src.dataset.tip!;

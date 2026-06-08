@@ -800,7 +800,7 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
 
 /* ── Context menu ────────────────────────────────────────── */
 .ctx-menu {
-  position: fixed; z-index: 1100;
+  position: fixed; z-index: 9600;
   background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
   padding: 4px 0; min-width: 140px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.45);
