@@ -9,6 +9,7 @@ import { renderPipeline } from './pipeline-card.js';
 import { renderAggregation } from '../aggregation.js';
 import { renderMergeToggles, renderColChips } from './output-card.js';
 import { renderFilters, renderSorts } from './filter-sort-card.js';
+import { $ } from '../utils/dom.js';
 import {
   _afterCombineChange, _showLayoutAliasesForSource,
   _hideLookupLayoutAliasesSafely, _seenCols, _previewOpen,
@@ -23,8 +24,8 @@ export function renderQueryBuilder(): void {
 
   const ids = Object.keys(db.tables).sort((a, b) => db.tables[a].name.localeCompare(db.tables[b].name));
 
-  const qEmpty = document.getElementById('qEmpty');
-  const qBuilder = document.getElementById('qBuilder');
+  const qEmpty = $('qEmpty');
+  const qBuilder = $('qBuilder');
   if (qEmpty) qEmpty.style.display = ids.length ? 'none' : '';
   if (qBuilder) qBuilder.style.display = ids.length ? 'grid' : 'none';
 
@@ -34,11 +35,11 @@ export function renderQueryBuilder(): void {
   const hasBaseConfigured = !!db.base;
 
   ['colCard', 'filterSortCard'].forEach(id => {
-    const el = document.getElementById(id);
+    const el = $(id);
     if (el) el.style.display = hasBase ? '' : 'none';
   });
 
-  const runRowEl = document.getElementById('runRow');
+  const runRowEl = $('runRow');
   if (runRowEl) runRowEl.style.display = hasBaseConfigured ? '' : 'none';
 
   if (hasBaseConfigured) {
@@ -47,8 +48,8 @@ export function renderQueryBuilder(): void {
     const items = Object.values(v.items) as Array<{ blocking?: boolean; issues?: Array<{ message?: string }> }>;
     const issueCount = items.filter(it => it.blocking).length;
 
-    const pill    = document.getElementById('reportStatusPill');
-    const runBtn  = document.getElementById('runBtn');
+    const pill    = $('reportStatusPill');
+    const runBtn  = $('runBtn');
 
     if (pill) {
       pill.style.display = '';
@@ -249,7 +250,7 @@ export function runQuery(): void {
     return;
   }
 
-  const status = document.getElementById('runStatus')!;
+  const status = $('runStatus')!;
   status.textContent = 'Running\u2026';
 
   setTimeout(() => {

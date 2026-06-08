@@ -1,5 +1,4 @@
 import { db } from '../core/state.js';
-import { h } from '../core/utils.js';
 import { projectedCols, buildColSourceMap, ColMapEntry } from '../catalog/column-catalog.js';
 import { invalidateValidation } from '../report/validation.js';
 import { renderQueryBuilder } from '../ui/views/query-builder.js';
@@ -15,12 +14,11 @@ export const _disabledCardCols: Set<string> = new Set();
 export function _sampleTipFor(tid: string, col: string, extra: string[] = []): string {
   const tbl  = (db.tables?.[tid] as unknown as Record<string, unknown> | undefined);
   const vals = ((tbl?.samples as Record<string, unknown[]> | undefined)?.[col] || []).slice(0, 3).map((v: unknown) => String(v));
-  const lines = [
+  return [
     `From sheet: ${tbl?.name || tid}`,
     vals.length ? `Sample values: ${vals.join(' \u00B7 ')}` : 'Sample values: (none found)',
     ...extra,
-  ];
-  return `data-tip="${lines.map(line => h(line)).join('&#10;')}"`;
+  ].join('\n');
 }
 
 export function _isSourceVisibleInLayout(tid: string, col: string, colMap: Map<string, ColMapEntry>, mode: string): boolean {

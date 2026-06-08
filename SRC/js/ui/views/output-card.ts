@@ -6,7 +6,43 @@ import { renderQueryBuilder } from './query-builder.js';
 import { renderResults } from '../grid.js';
 import { showContextMenu } from '../components/context-menu.js';
 import { resolveRenameTarget, showRenameModal } from '../components/rename-modal.js';
+import { renderChip, findChip, getChipCol } from '../components/chip.js';
+import { $ } from '../utils/dom.js';
+import { delegate } from '../utils/events.js';
 import { _syncSubtotalByToLayout, _seenCols } from '../../query/layout-selection.js';
+
+function _buildTooltip(c: string, src: ColMapEntry | undefined): string {
+  if (src?.kind === 'calc') {
+    const calc = db.calcStages?.[src.idx];
+    const mode = calc?.mode || 'unknown';
+    if (mode === 'math') {
+      const math = calc.math as { steps?: Array<{ type?: string }> } | undefined;
+      const steps = math?.steps?.length || 0;
+      return `Calculated: Math (${steps} step${steps !== 1 ? 's' : ''})`;
+    } else if (mode === 'compare') {
+      const compare = calc.compare as { conditions?: unknown[]; compareMode?: string } | undefined;
+      const condCount = compare?.conditions?.length || 0;
+      const glue = compare?.compareMode || 'AND';
+      return `Calculated: Compare (${condCount} condition${condCount !== 1 ? 's' : ''}, ${glue})`;
+    } else if (mode === 'text') {
+      const text = calc.text as { operation?: string } | undefined;
+      return `Calculated: Text (${text?.operation || 'unknown'})`;
+    }
+    return `Calculated: ${mode}`;
+  }
+  if (src && src.kind !== 'calc') {
+    const phys = src as PhysicalColEntry;
+    const tbl  = db.tables[phys.tid];
+    const tblAny = tbl as unknown as Record<string, unknown>;
+    const samples = tblAny.samples as Record<string, string[]> | undefined;
+    const vals = (samples?.[phys.col] || []).slice(0, 3);
+    const from = `From: ${tbl?.name ?? phys.tid}`;
+    return vals.length
+      ? `${from}\nSample: ${vals.map((v: unknown) => String(v)).join(' \u00B7 ')}`
+      : `${from}\n(no sample values)`;
+  }
+  return '';
+}
 
 export function renderColChips(): void {
   if (!db.base) return;
@@ -33,68 +69,38 @@ export function renderColChips(): void {
 
   const groupSet   = new Set(db.groupBy);
   const showBadges = mode === 'group' && groupSet.size > 0;
+  const selSet     = db.selCols as unknown as Set<string> | null;
+  const colOrder   = db.colOrder!;
 
-  const colOrder = db.colOrder!;
-
-  document.getElementById('colChips')!.innerHTML = colOrder.map(c => {
+  $('colChips')!.innerHTML = colOrder.map(c => {
     const src      = colMap.get(c);
     const colorCls = src ? getTableColorClass((src as unknown as Record<string, string>).tid) : '';
-    const label    = h(colDisplayLabel(c, colMap));
+    const label    = colDisplayLabel(c, colMap);
 
-    const selSet = db.selCols as unknown as Set<string> | null;
     if (selSet && !selSet.has(c)) return '';
 
-    let tip = '';
-    if (src?.kind === 'calc') {
-      const calc = db.calcStages?.[src.idx];
-      const mode = calc?.mode || 'unknown';
-      if (mode === 'math') {
-        const math = calc.math as { steps?: Array<{ type?: string }> } | undefined;
-        const steps = math?.steps?.length || 0;
-        tip = `data-tip="Calculated: Math (${steps} step${steps !== 1 ? 's' : ''})"`;
-      } else if (mode === 'compare') {
-        const compare = calc.compare as { conditions?: unknown[]; compareMode?: string } | undefined;
-        const condCount = compare?.conditions?.length || 0;
-        const glue = compare?.compareMode || 'AND';
-        tip = `data-tip="Calculated: Compare (${condCount} condition${condCount !== 1 ? 's' : ''}, ${glue})"`;
-      } else if (mode === 'text') {
-        const text = calc.text as { operation?: string } | undefined;
-        tip = `data-tip="Calculated: Text (${text?.operation || 'unknown'})"`;
-      } else {
-        tip = `data-tip="Calculated: ${h(mode)}"`;
-      }
-    } else if (src && src.kind !== 'calc') {
-      const tbl  = db.tables[src.tid];
-      const tblAny = tbl as unknown as Record<string, unknown>;
-      const samples = tblAny.samples as Record<string, string[]> | undefined;
-      const vals = (samples?.[src.col] || []).slice(0, 3);
-      const from = `From: ${h(tbl?.name ?? src.tid)}`;
-      tip = vals.length
-        ? `data-tip="${from}&#10;Sample: ${vals.map((v: unknown) => h(String(v))).join(' \u00B7 ')}"`
-        : `data-tip="${from}&#10;(no sample values)"`;
-    }
+    const tip = _buildTooltip(c, src);
 
     if (mode === 'group') {
       const isOn     = groupSet.has(c);
       const hasAgg   = db.aggregates.some((a: AggregateSpec) => a.col === c);
       const isOrphan = showBadges && !isOn && !hasAgg;
-      const badge    = isOrphan
-        ? ` <span class="chip-warn-badge" data-autowarn="${h(c)}" title="No calculation for this column \u2014 it will be dropped from results. Click \u26A0 to add one automatically.">\u26A0</span>`
-        : '';
-      return `<span class="chip ${isOn ? 'on' : ''} ${isOrphan ? 'chip-orphan' : ''} ${colorCls}" draggable="true" data-col="${h(c)}" ${tip}>${label}${badge}</span>`;
+      const badge    = isOrphan ? '\u26A0' : '';
+      const badgeTip = isOrphan ? 'No calculation for this column \u2014 it will be dropped from results. Click \u26A0 to add one automatically.' : '';
+      return renderChip({ col: c, label, colorClass: colorCls, selected: isOn, draggable: true, tooltip: tip,
+        badge, badgeTooltip: badgeTip, className: isOrphan ? 'chip-orphan' : '' });
     } else if (mode === 'subtotals') {
       const isOn = (db.subtotalBy || []).includes(c);
-      return `<span class="chip ${isOn ? 'on' : ''} ${colorCls}" draggable="true" data-col="${h(c)}" ${tip}>${label}</span>`;
-    } else {
-      const isOn = selSet ? selSet.has(c) : false;
-      return `<span class="chip ${isOn ? 'on' : ''} ${colorCls}" draggable="true" data-col="${h(c)}" ${tip}>${label}</span>`;
+      return renderChip({ col: c, label, colorClass: colorCls, selected: isOn, draggable: true, tooltip: tip });
     }
+    const isOn = selSet ? selSet.has(c) : false;
+    return renderChip({ col: c, label, colorClass: colorCls, selected: isOn, draggable: true, tooltip: tip });
   }).join('');
 
-  const btnRow = document.getElementById('colBtnRow');
+  const btnRow = $('colBtnRow');
   if (btnRow) btnRow.style.display = (mode === 'group' || mode === 'subtotals') ? 'none' : '';
 
-  const hint = document.getElementById('colCardHint');
+  const hint = $('colCardHint');
   if (hint) {
     if (mode === 'group') {
       hint.textContent = '\u2014 double-click to group by \u00B7 drag to reorder';
@@ -107,10 +113,11 @@ export function renderColChips(): void {
 }
 
 if (typeof document !== 'undefined') {
+  const container = () => $('colChips')!;
   let _dragCol: string | null = null;
 
-  function _chipAtPoint(container: HTMLElement, x: number, y: number): Element | null {
-    const chips = [...container.querySelectorAll('[data-col]')]
+  function _chipAtPoint(el: HTMLElement, x: number, y: number): Element | null {
+    const chips = [...el.querySelectorAll('[data-col]')]
       .filter((c: Element) => (c as HTMLElement).dataset.col !== _dragCol);
     if (!chips.length) return null;
 
@@ -134,23 +141,18 @@ if (typeof document !== 'undefined') {
     return best;
   }
 
-  document.getElementById('colChips')!.addEventListener('click', (e: Event) => {
-    const badge = (e.target as HTMLElement).closest('[data-autowarn]') as HTMLElement | null;
-    if (badge) {
-      e.stopPropagation();
-      const col = badge.dataset.autowarn!;
-      if (!db.aggregates.some((a: AggregateSpec) => a.col === col)) {
-        db.aggregates.push({ fn: smartDefaultFn(col), col, alias: '', auto: true } as AggregateSpec & { auto: boolean });
-      }
-      renderColChips();
-      renderAggregateItems(projectedCols());
+  delegate(container(), '[data-autowarn]', 'click', (badge, e) => {
+    e.stopPropagation();
+    const col = badge.dataset.autowarn!;
+    if (!db.aggregates.some((a: AggregateSpec) => a.col === col)) {
+      db.aggregates.push({ fn: smartDefaultFn(col), col, alias: '', auto: true } as AggregateSpec & { auto: boolean });
     }
+    renderColChips();
+    renderAggregateItems(projectedCols());
   });
 
-  document.getElementById('colChips')!.addEventListener('dblclick', (e: Event) => {
-    const chip = (e.target as HTMLElement).closest('.chip[data-col]') as HTMLElement | null;
-    if (!chip) return;
-    const col  = chip.dataset.col!;
+  delegate(container(), '.chip[data-col]', 'dblclick', (chip) => {
+    const col  = getChipCol(chip)!;
     const mode = db.aggMode || 'none';
 
     if (mode === 'group') {
@@ -192,12 +194,10 @@ if (typeof document !== 'undefined') {
     }
   });
 
-  document.getElementById('colChips')!.addEventListener('contextmenu', (e: Event) => {
-    const chip = (e.target as HTMLElement).closest('.chip[data-col]') as HTMLElement | null;
-    if (!chip) return;
+  delegate(container(), '.chip[data-col]', 'contextmenu', (chip, e) => {
     e.preventDefault();
-    const alias = chip.dataset.col!;
-    showContextMenu((e as MouseEvent).clientX, (e as MouseEvent).clientY, [
+    const alias = getChipCol(chip)!;
+    showContextMenu(e.clientX, e.clientY, [
       {
         label: 'Rename',
         action: () => {
@@ -212,27 +212,25 @@ if (typeof document !== 'undefined') {
     ]);
   });
 
-  document.getElementById('colChips')!.addEventListener('dragstart', (e: DragEvent) => {
-    const chip = (e.target as HTMLElement).closest('[data-col]') as HTMLElement | null;
-    if (!chip) return;
+  delegate(container(), '[data-col]', 'dragstart', (chip, e) => {
     _dragCol = chip.dataset.col!;
     chip.classList.add('dragging');
     if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
   });
-  document.getElementById('colChips')!.addEventListener('dragend', () => {
+  delegate(container(), '[data-col]', 'dragend', () => {
     _dragCol = null;
-    document.querySelectorAll('#colChips .chip').forEach((c: Element) => c.classList.remove('dragging', 'drag-over'));
+    container().querySelectorAll('.chip').forEach((c: Element) => c.classList.remove('dragging', 'drag-over'));
   });
-  document.getElementById('colChips')!.addEventListener('dragover', (e: DragEvent) => {
+  delegate(container(), '[data-col]', 'dragover', (_chip, e) => {
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-    const nearest = _chipAtPoint(e.currentTarget as HTMLElement, e.clientX, e.clientY);
-    document.querySelectorAll('#colChips .chip').forEach((c: Element) => c.classList.remove('drag-over'));
+    const nearest = _chipAtPoint(container(), e.clientX, e.clientY);
+    container().querySelectorAll('.chip').forEach((c: Element) => c.classList.remove('drag-over'));
     if (nearest) nearest.classList.add('drag-over');
   });
-  document.getElementById('colChips')!.addEventListener('drop', (e: DragEvent) => {
+  delegate(container(), '[data-col]', 'drop', (_chip, e) => {
     e.preventDefault();
-    const nearest = _chipAtPoint(e.currentTarget as HTMLElement, e.clientX, e.clientY);
+    const nearest = _chipAtPoint(container(), e.clientX, e.clientY);
     if (!nearest || !_dragCol || (nearest as HTMLElement).dataset.col === _dragCol) return;
     if (!db.colOrder) db.colOrder = projectedCols();
     const from = db.colOrder!.indexOf(_dragCol);
@@ -258,10 +256,10 @@ export function selectNoneCols(): void { db.selCols = new Set();                
 if (typeof window !== 'undefined') window.selectNoneCols = selectNoneCols;
 
 export function renderMergeToggles(cols: string[]): void {
-  const wrap = document.getElementById('mergeToggles');
+  const wrap = $('mergeToggles');
   if (!wrap) return;
 
-  const ulChk = document.getElementById('chkMergeGroupUnderline') as HTMLInputElement | null;
+  const ulChk = $('chkMergeGroupUnderline') as HTMLInputElement | null;
   if (ulChk) ulChk.checked = !!db.mergeGroupUnderline;
 
   const baseDisplayCols = (cols || []).filter(c => c !== '_rowno' && c !== '_row_type' && c !== '_isTotalsRow');

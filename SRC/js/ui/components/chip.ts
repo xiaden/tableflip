@@ -13,6 +13,9 @@ export interface ChipOptions {
   badge?: string;
   badgeTooltip?: string;
   className?: string;
+  chipClass?: string;
+  dataAttrs?: Record<string, string>;
+  inlineStyle?: string;
 }
 
 /**
@@ -29,10 +32,13 @@ export function renderChip(options: ChipOptions): string {
     badge = '',
     badgeTooltip = '',
     className = '',
+    chipClass = 'chip',
+    dataAttrs,
+    inlineStyle,
   } = options;
 
   const classes = [
-    'chip',
+    chipClass,
     selected ? 'on' : '',
     colorClass,
     className,
@@ -44,8 +50,12 @@ export function renderChip(options: ChipOptions): string {
 
   const draggableAttr = draggable ? 'draggable="true"' : '';
   const tooltipAttr = tooltip ? `data-tip="${h(tooltip)}"` : '';
+  const styleAttr = inlineStyle ? `style="${inlineStyle}"` : '';
+  const extraAttrs = dataAttrs
+    ? Object.entries(dataAttrs).map(([k, v]) => `${k}="${h(v)}"`).join(' ')
+    : '';
 
-  return `<span class="${classes}" ${draggableAttr} data-col="${h(col)}" ${tooltipAttr}>${h(label)}${badgeHtml}</span>`;
+  return `<span class="${classes}" ${draggableAttr} data-col="${h(col)}" ${extraAttrs} ${tooltipAttr} ${styleAttr}>${h(label)}${badgeHtml}</span>`;
 }
 
 /**
@@ -108,6 +118,13 @@ export function renderChips(
  */
 export function findChip(target: HTMLElement): HTMLElement | null {
   return target.closest('.chip[data-col]') as HTMLElement | null;
+}
+
+/**
+ * Find the closest chip element matching a custom selector
+ */
+export function findChipBy(target: HTMLElement, selector: string): HTMLElement | null {
+  return target.closest(selector) as HTMLElement | null;
 }
 
 /**

@@ -3,6 +3,8 @@ import { h, colDisplayLabel } from '../../core/utils.js';
 import { buildColSourceMap, projectedCols, PhysicalColEntry } from '../../catalog/column-catalog.js';
 import { execQuery, quoteId } from '../../core/sqldb.js';
 import { getValidation, invalidateValidation } from '../../report/validation.js';
+import { $ } from '../utils/dom.js';
+import { delegate } from '../utils/events.js';
 
 const FILTER_OPS: string[] = [
   'contains', 'equals', 'not equals',
@@ -13,7 +15,7 @@ const FILTER_OPS: string[] = [
 const NO_VAL_OPS: Set<string> = new Set(['is empty', 'not empty']);
 
 function _populateFilterDatalist(i: number, alias: string): void {
-  const dl = document.getElementById('fdl_' + i);
+  const dl = $('fdl_' + i);
   if (!dl || !alias) { if (dl) dl.innerHTML = ''; return; }
   const src = buildColSourceMap().get(alias);
   if (!src || src.kind === 'calc') return;
@@ -44,7 +46,7 @@ function removeFilter(i: number): void {
 export function renderFilters(): void {
   const colMap = buildColSourceMap();
   const cols   = projectedCols();
-  const wrap   = document.getElementById('filterItems')!;
+  const wrap   = $('filterItems')!;
 
   if (!db.filters.length) {
     wrap.innerHTML = '<span style="font-size:0.76rem;color:var(--muted)">No filters \u2014 all rows returned</span>';
@@ -89,71 +91,61 @@ export function renderFilters(): void {
 }
 
 if (typeof document !== 'undefined') {
-  document.getElementById('filterItems')!.addEventListener('change', (e: Event) => {
-    const el = e.target as HTMLInputElement;
+  delegate($('filterItems')!, '[data-fi]', 'change', (el) => {
     const { fi, fp } = el.dataset;
     if (fi === undefined || !fp) return;
     const f = db.filters[+fi];
     if (!f) return;
     if (fp === 'enabled') {
-      f.enabled = el.checked;
+      f.enabled = (el as HTMLInputElement).checked;
       invalidateValidation();
       renderFilters();
       return;
     }
     const i = +fi;
     if (fp === 'col') {
-      f.col = el.value;
+      f.col = (el as HTMLInputElement).value;
       f.vals = [''];
       renderFilters();
       if (f.col) _populateFilterDatalist(i, f.col);
     } else if (fp === 'op') {
-      f.op = el.value;
+      f.op = (el as HTMLInputElement).value;
       const orWrap = el.closest('.filter-row')!.querySelector('.filter-or-wrap') as HTMLElement | null;
-      if (orWrap) orWrap.style.display = NO_VAL_OPS.has(el.value) ? 'none' : 'flex';
+      if (orWrap) orWrap.style.display = NO_VAL_OPS.has((el as HTMLInputElement).value) ? 'none' : 'flex';
     }
   });
-  document.getElementById('filterItems')!.addEventListener('input', (e: Event) => {
-    const el = e.target as HTMLInputElement;
+  delegate($('filterItems')!, '[data-fi][data-vi]', 'input', (el) => {
     const { fi, vi, fp } = el.dataset;
     if (fi !== undefined && fp === 'val' && vi !== undefined) {
       const f = db.filters[+fi];
       if (f) {
         if (!Array.isArray(f.vals)) f.vals = [''];
-        f.vals[+vi] = el.value;
+        f.vals[+vi] = (el as HTMLInputElement).value;
       }
     }
   });
-  document.getElementById('filterItems')!.addEventListener('click', (e: MouseEvent) => {
-    const target = e.target as HTMLElement;
-    const rmf = target.closest('[data-rmf]') as HTMLElement | null;
-    if (rmf) { removeFilter(+rmf.dataset.rmf!); return; }
-
-    const addOrBtn = target.closest('[data-addorval]') as HTMLElement | null;
-    if (addOrBtn) {
-      const i = +addOrBtn.dataset.addorval!;
-      const f = db.filters[i];
-      if (!f) return;
-      if (!Array.isArray(f.vals)) f.vals = [''];
-      f.vals.push('');
-      renderFilters();
-      if (f.col) _populateFilterDatalist(i, f.col);
-      return;
-    }
-
-    const rmVal = target.closest('[data-rmval]') as HTMLElement | null;
-    if (rmVal) {
-      const i = +rmVal.dataset.fi!;
-      const j = +rmVal.dataset.rmval!;
-      const f = db.filters[i];
-      if (!f) return;
-      if (!Array.isArray(f.vals)) f.vals = [''];
-      if (f.vals.length <= 1) return;
-      f.vals.splice(j, 1);
-      renderFilters();
-      if (f.col) _populateFilterDatalist(i, f.col);
-      return;
-    }
+  delegate($('filterItems')!, '[data-rmf]', 'click', (el) => {
+    removeFilter(+el.dataset.rmf!);
+  });
+  delegate($('filterItems')!, '[data-addorval]', 'click', (el) => {
+    const i = +el.dataset.addorval!;
+    const f = db.filters[i];
+    if (!f) return;
+    if (!Array.isArray(f.vals)) f.vals = [''];
+    f.vals.push('');
+    renderFilters();
+    if (f.col) _populateFilterDatalist(i, f.col);
+  });
+  delegate($('filterItems')!, '[data-rmval]', 'click', (el) => {
+    const i = +el.dataset.fi!;
+    const j = +el.dataset.rmval!;
+    const f = db.filters[i];
+    if (!f) return;
+    if (!Array.isArray(f.vals)) f.vals = [''];
+    if (f.vals.length <= 1) return;
+    f.vals.splice(j, 1);
+    renderFilters();
+    if (f.col) _populateFilterDatalist(i, f.col);
   });
 }
 
@@ -162,7 +154,7 @@ export function renderSorts(): void {
   const colOrder = db.colOrder || projectedCols();
   const cols     = colOrder.filter(c => !selCols || selCols.has(c));
   const colMap   = buildColSourceMap();
-  const wrap   = document.getElementById('sortItems');
+  const wrap   = $('sortItems');
   if (!wrap) return;
   if (!db.sorts.length) {
     wrap.innerHTML = '<span style="font-size:0.76rem;color:var(--muted)">No sort \u2014 rows returned in natural order</span>';
@@ -204,20 +196,17 @@ function removeSort(i: number): void {
 }
 
 if (typeof document !== 'undefined') {
-  document.getElementById('sortItems')!.addEventListener('change', (e: Event) => {
-    const el = e.target as HTMLInputElement;
+  delegate($('sortItems')!, '[data-si]', 'change', (el) => {
     const { si, sp } = el.dataset;
     if (si !== undefined && sp === 'enabled') {
-      db.sorts[+si].enabled = el.checked;
+      db.sorts[+si].enabled = (el as HTMLInputElement).checked;
       invalidateValidation();
       renderSorts();
       return;
     }
-    if (si !== undefined && sp) (db.sorts[+si] as unknown as Record<string, string>)[sp] = el.value;
+    if (si !== undefined && sp) (db.sorts[+si] as unknown as Record<string, string>)[sp] = (el as HTMLInputElement).value;
   });
-  document.getElementById('sortItems')!.addEventListener('click', (e: MouseEvent) => {
-    const target = e.target as HTMLElement;
-    const btn = target.closest('[data-rmsort]') as HTMLElement | null;
-    if (btn) removeSort(+btn.dataset.rmsort!);
+  delegate($('sortItems')!, '[data-rmsort]', 'click', (el) => {
+    removeSort(+el.dataset.rmsort!);
   });
 }

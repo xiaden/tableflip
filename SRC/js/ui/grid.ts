@@ -2,6 +2,7 @@ import { db } from '../core/state.js';
 import { h, colDisplayLabel, getTableColor, setColLabel } from '../core/utils.js';
 import { buildColSourceMap } from '../catalog/column-catalog.js';
 import { resolveRenameTarget, showRenameModal, renameSourceCol } from './components/rename-modal.js';
+import { $ } from './utils/dom.js';
 import { execQuery, quoteId } from '../core/sqldb.js';
 import { renderQueryBuilder } from './views/query-builder.js';
 import { renderMergeToggles } from './views/output-card.js';
@@ -25,10 +26,10 @@ export function refreshPreviewGridLayout(): void {
 }
 
 export function renderResults(result: Record<string, unknown>): void {
-  const wrap    = document.getElementById('resultsWrap')!;
-  const meta    = document.getElementById('resultsMeta')!;
-  const btnXlsx = document.getElementById('btnExpXlsx')!;
-  const btnCsv  = document.getElementById('btnExpCsv')!;
+  const wrap    = $('resultsWrap')!;
+  const meta    = $('resultsMeta')!;
+  const btnXlsx = $('btnExpXlsx')!;
+  const btnCsv  = $('btnExpCsv')!;
 
   const { rows, totalsRow, cols } = result as { rows: Record<string, unknown>[]; totalsRow: Record<string, unknown> | null; cols: string[] };
   const hasData = rows.length > 0 || totalsRow !== null;
@@ -79,7 +80,7 @@ export function renderResults(result: Record<string, unknown>): void {
     onColumnVisible: () => _saveResultColState(),
   };
 
-  const el = document.getElementById('resGrid')!;
+  const el = $('resGrid')!;
   gridResult = agGrid.createGrid(el, options);
 
   requestAnimationFrame(() => requestAnimationFrame(() => refreshResultGridLayout()));
@@ -97,7 +98,7 @@ function _saveResultColState(): void {
 }
 
 export function renderPreviewDropdown(): void {
-  const sel  = document.getElementById('previewSel') as HTMLSelectElement | null;
+  const sel  = $('previewSel') as HTMLSelectElement | null;
   if (!sel) return;
   const prev = sel.value;
   const ids  = Object.keys(db.tables);
@@ -107,9 +108,9 @@ export function renderPreviewDropdown(): void {
 }
 
 export function loadPreview(): void {
-  const id   = (document.getElementById('previewSel') as HTMLSelectElement).value;
-  const wrap = document.getElementById('previewWrap')!;
-  const meta = document.getElementById('previewMeta')!;
+  const id   = ($('previewSel') as HTMLSelectElement).value;
+  const wrap = $('previewWrap')!;
+  const meta = $('previewMeta')!;
 
   if (gridPreview) { gridPreview.destroy(); gridPreview = null; }
 
@@ -176,7 +177,7 @@ export function loadPreview(): void {
     },
   };
 
-  const el = document.getElementById('prevGrid')!;
+  const el = $('prevGrid')!;
   gridPreview = agGrid.createGrid(el, {
     rowData:        rows,
     columnDefs:     [excludeColDef, ...makePreviewCols(id, t.cols)],

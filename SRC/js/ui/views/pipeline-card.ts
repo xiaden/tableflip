@@ -4,6 +4,8 @@ import { buildColSourceMap, projectedCols, projectedColsUpToLookup, ColMapEntry 
 import { _renameProjectedAliasRefs } from '../../query/alias-ref-updater.js';
 import { showContextMenu } from '../components/context-menu.js';
 import { renameSourceCol, resolveRenameTarget, showRenameModal } from '../components/rename-modal.js';
+import { renderChip } from '../components/chip.js';
+import { delegate } from '../utils/events.js';
 import {
   _isSourceVisibleInLayout, _sampleTipFor, _afterCombineChange,
   _hideLookupLayoutAliasesSafely, _showLayoutAliasesForSource,
@@ -262,7 +264,10 @@ export function renderPipeline(ids: string[]): void {
         const isLayoutVisible = _isSourceVisibleInLayout(db.base, c, layoutColMap, layoutMode);
         const color     = getTableColor(db.base);
         const chipStyle = `background:${color};border-color:${color};color:${chipFgColor(color)}`;
-        return `<span class="pl-col-chip on ${isLayoutVisible ? '' : 'pl-col-chip-layout-hidden'}" data-bcc="${h(c)}" style="${chipStyle}" ${_sampleTipFor(db.base, c, ['Click to show/hide this column in the report layout.'])}>${h(colUserLabel(db.base, c))}</span>`;
+        return renderChip({ col: c, label: colUserLabel(db.base, c), selected: true, draggable: false,
+          chipClass: 'pl-col-chip', className: isLayoutVisible ? '' : 'pl-col-chip-layout-hidden',
+          tooltip: _sampleTipFor(db.base, c, ['Click to show/hide this column in the report layout.']),
+          dataAttrs: { 'data-bcc': c }, inlineStyle: chipStyle });
       }).join('')}
       <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-bc-all="1">All</button>
       <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-bc-none="1">None</button>
@@ -438,45 +443,32 @@ export function renderPipeline(ids: string[]): void {
       _afterCombineChange();
     });
   });
-  qs('[data-bcc]').forEach(el => {
-    el.addEventListener('contextmenu', (e: Event) => {
-      e.preventDefault();
-      const col = el.dataset.bcc!;
-      showContextMenu((e as MouseEvent).clientX, (e as MouseEvent).clientY, [
-        { label: 'Rename', action: () => renameSourceCol(db.base, col, () => _afterCombineChange()) },
-      ]);
-    });
+  delegate(pl, '[data-bcc]', 'contextmenu', (el, e) => {
+    e.preventDefault();
+    showContextMenu(e.clientX, e.clientY, [
+      { label: 'Rename', action: () => renameSourceCol(db.base, el.dataset.bcc!, () => _afterCombineChange()) },
+    ]);
   });
-  qs('[data-lcc]').forEach(el => {
-    el.addEventListener('contextmenu', (e: Event) => {
-      e.preventDefault();
-      const i   = +el.dataset.li!;
-      const col = el.dataset.lcc!;
-      const lk  = db.lookups[i];
-      if (!lk?.rightId) return;
-      showContextMenu((e as MouseEvent).clientX, (e as MouseEvent).clientY, [
-        { label: 'Rename', action: () => renameSourceCol(lk.rightId, col, () => _afterCombineChange()) },
-      ]);
-    });
+  delegate(pl, '[data-lcc]', 'contextmenu', (el, e) => {
+    e.preventDefault();
+    const lk = db.lookups[+el.dataset.li!];
+    if (!lk?.rightId) return;
+    showContextMenu(e.clientX, e.clientY, [
+      { label: 'Rename', action: () => renameSourceCol(lk.rightId, el.dataset.lcc!, () => _afterCombineChange()) },
+    ]);
   });
-  qs('[data-ccc]').forEach(el => {
-    el.addEventListener('contextmenu', (e: Event) => {
-      e.preventDefault();
-      const i = +el.dataset.ci!;
-      const c = db.calcStages?.[i];
-      const alias = (c?.alias || '').trim();
-      if (!alias) return;
-      showContextMenu((e as MouseEvent).clientX, (e as MouseEvent).clientY, [
-        {
-          label: 'Rename',
-          action: () => {
-            const target = resolveRenameTarget(alias);
-            if (!target) return;
-            showRenameModal(target, () => _afterCombineChange());
-          },
-        },
-      ]);
-    });
+  delegate(pl, '[data-ccc]', 'contextmenu', (el, e) => {
+    e.preventDefault();
+    const c = db.calcStages?.[+el.dataset.ci!];
+    const alias = (c?.alias || '').trim();
+    if (!alias) return;
+    showContextMenu(e.clientX, e.clientY, [
+      { label: 'Rename', action: () => {
+        const target = resolveRenameTarget(alias);
+        if (!target) return;
+        showRenameModal(target, () => _afterCombineChange());
+      }},
+    ]);
   });
   pl.querySelector('[data-bc-all]')?.addEventListener('click', () => {
     _showLayoutAliasesForSource(db.base);
@@ -545,7 +537,11 @@ function _plLookupStage(lk: LookupSpec, i: number, sortedIds: string[], usedAsLo
 
   const colChips = rt ? rt.cols.map(c => {
     const isLayoutVisible = _isSourceVisibleInLayout(lk.rightId, c, layoutColMap, layoutMode);
-    return `<span class="pl-col-chip on ${isLayoutVisible ? '' : 'pl-col-chip-layout-hidden'} ${lkColorCls}" data-li="${i}" data-lcc="${h(c)}" ${_sampleTipFor(lk.rightId, c, ['Click to show/hide this lookup column in the report layout.'])}>${h(colUserLabel(lk.rightId, c))}</span>`;
+    return renderChip({ col: c, label: colUserLabel(lk.rightId, c), selected: true, draggable: false,
+      chipClass: 'pl-col-chip', colorClass: lkColorCls,
+      className: isLayoutVisible ? '' : 'pl-col-chip-layout-hidden',
+      tooltip: _sampleTipFor(lk.rightId, c, ['Click to show/hide this lookup column in the report layout.']),
+      dataAttrs: { 'data-li': String(i), 'data-lcc': c } });
   }).join('') : '';
 
   const lkEnabled = lk.enabled !== false;
@@ -630,7 +626,8 @@ function _plCalcStage(calc: CalcStage, i: number): string {
     ${builderHtml}
     ${alias ? `<div class="pl-lookup-cols" style="margin-top:8px">
       <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Output:</span>
-      <span class="pl-col-chip ${_isAliasVisibleInLayout(alias, db.aggMode || 'none') ? 'on' : ''}" data-ci="${i}" data-ccc="${h(alias)}">${h(colDisplayLabel(alias, colMap))}</span>
+      ${renderChip({ col: alias, label: colDisplayLabel(alias, colMap), selected: _isAliasVisibleInLayout(alias, db.aggMode || 'none'),
+        draggable: false, chipClass: 'pl-col-chip', dataAttrs: { 'data-ci': String(i), 'data-ccc': alias } })}
     </div>` : ''}
   </div>`;
 }
