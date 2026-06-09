@@ -2,6 +2,7 @@ import { db } from '../core/state.js';
 import { quoteId } from '../core/sqldb.js';
 import { ColMapEntry } from '../catalog/column-catalog.js';
 import { QueryPlan } from './query-plan.js';
+import { detectDateFormat, getColumnSamples, normalizeDateExpr, type DateFormat } from '../core/date-format.js';
 
 const _toNum = (expr: string): string =>
   `CAST(COALESCE(NULLIF(TRIM(CAST(${expr} AS TEXT)), ''), '0') AS REAL)`;
@@ -168,7 +169,18 @@ function _renderModeDate(calc: CalcStage, alias: string, colMap: Map<string, Col
   const op   = date!.operation;
 
   if (op === 'extract') {
-    const src = _renderDateSource(date!.source!, colMap, plan, baseTid, trail);
+    // Detect date format from source column samples
+    let dateFormat: DateFormat | null = null;
+    const source = date!.source;
+    if (source?.type === 'column') {
+      const entry = colMap.get(source.value);
+      if (entry && entry.kind !== 'calc') {
+        const samples = getColumnSamples(entry.tid, entry.col);
+        dateFormat = detectDateFormat(samples);
+      }
+    }
+
+    const src = _renderDateSource(date!.source!, colMap, plan, baseTid, trail, dateFormat);
     const part = date!.part || 'year';
     const output = date!.output || 'text';
 
@@ -226,8 +238,11 @@ function _renderModeDate(calc: CalcStage, alias: string, colMap: Map<string, Col
   throw new Error(`Unknown date operation "${op}" in calc "${alias}"`);
 }
 
-function _renderDateSource(source: { type: string; value: string }, colMap: Map<string, ColMapEntry>, plan: QueryPlan, baseTid: string, trail: Set<string>): string {
-  if (source.type === 'column') return _renderCalcExpr(source.value, colMap, plan, baseTid, trail);
+function _renderDateSource(source: { type: string; value: string }, colMap: Map<string, ColMapEntry>, plan: QueryPlan, baseTid: string, trail: Set<string>, format?: DateFormat | null): string {
+  if (source.type === 'column') {
+    const expr = _renderCalcExpr(source.value, colMap, plan, baseTid, trail);
+    return normalizeDateExpr(expr, format ?? null);
+  }
   throw new Error(`Unsupported date source type "${source.type}"`);
 }
 

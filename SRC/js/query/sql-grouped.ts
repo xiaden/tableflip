@@ -3,6 +3,7 @@ import { renderFromJoinWhere } from './sql-joins.js';
 import { renderAggregateExpr } from './sql-aggregates.js';
 import { defaultAggAlias } from '../core/utils.js';
 import { QueryPlan } from './query-plan.js';
+import { ColMapEntry } from '../catalog/column-catalog.js';
 
 interface GroupedResult {
   sql: string;
@@ -35,7 +36,13 @@ export function renderGroupedSql(plan: QueryPlan): GroupedResult {
           : `${agg.fn}(${agg.col || '*'})`);
       if (selColSet && !selColSet.has(outName)) continue;
       const colRef = agg.col && agg.col !== '*' ? ref(agg.col) : null;
-      const expr   = renderAggregateExpr(agg.fn, colRef || '*');
+      let tid: string | undefined;
+      let physCol: string | undefined;
+      if (agg.col && agg.col !== '*') {
+        const entry = plan.colMap?.get(agg.col);
+        if (entry && entry.kind !== 'calc') { tid = entry.tid; physCol = entry.col; }
+      }
+      const expr   = renderAggregateExpr(agg.fn, colRef || '*', tid, physCol);
       selParts.push(`${expr} AS ${quoteId(outName)}`);
       colAliases.push(outName);
     }

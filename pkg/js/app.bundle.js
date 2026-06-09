@@ -725,8 +725,98 @@
     }
   }
 
+  // js/core/date-format.ts
+  var RE_MDY = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+  var RE_DMMY = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/;
+  function _parseMDY(s3) {
+    const m3 = s3.match(RE_MDY);
+    if (!m3) return null;
+    return { m: +m3[1], d: +m3[2], y: +m3[3] };
+  }
+  function _parseDMY(s3) {
+    const m3 = s3.match(RE_MDY);
+    if (!m3) return null;
+    return { m: +m3[2], d: +m3[1], y: +m3[3] };
+  }
+  function _isValid(d3) {
+    return d3.m >= 1 && d3.m <= 12 && d3.d >= 1 && d3.d <= 31 && d3.y >= 1;
+  }
+  function detectDateFormat(values) {
+    const mdy = [];
+    const dmy = [];
+    const dmmy = [];
+    for (const v3 of values) {
+      const s3 = v3.trim();
+      if (!s3) continue;
+      if (RE_MDY.test(s3)) {
+        mdy.push(s3);
+        dmy.push(s3);
+      } else if (RE_DMMY.test(s3)) {
+        dmmy.push(s3);
+      }
+    }
+    if (dmmy.length > 0) return "dmmy";
+    if (mdy.length === 0) return null;
+    let mdyValid = 0, dmyValid = 0, ambiguous = 0;
+    for (const s3 of mdy) {
+      const a3 = _parseMDY(s3);
+      const b2 = _parseDMY(s3);
+      const aOk = _isValid(a3);
+      const bOk = _isValid(b2);
+      if (aOk && !bOk) mdyValid++;
+      else if (!aOk && bOk) dmyValid++;
+      else if (aOk && bOk) {
+        if (a3.m !== b2.d) mdyValid++;
+        else ambiguous++;
+      }
+    }
+    if (mdyValid > 0 && dmyValid === 0) return "mdy";
+    if (dmyValid > 0 && mdyValid === 0) return "dmy";
+    if (mdyValid > dmyValid) return "mdy";
+    if (dmyValid > mdyValid) return "dmy";
+    return "mdy";
+  }
+  function getColumnSamples(tid, col) {
+    const tbl = db.tables?.[tid];
+    const samples = tbl?.samples;
+    return samples?.[col] || [];
+  }
+  function normalizeDateExpr(colExpr, format) {
+    if (!format) return colExpr;
+    if (format === "mdy") {
+      return `CASE WHEN length(${colExpr}) = 10 AND substr(${colExpr},3,1) = '/' AND substr(${colExpr},6,1) = '/'
+      THEN substr(${colExpr},7,4) || '-' || substr(${colExpr},1,2) || '-' || substr(${colExpr},4,2)
+      ELSE ${colExpr} END`;
+    }
+    if (format === "dmy") {
+      return `CASE WHEN length(${colExpr}) = 10 AND substr(${colExpr},3,1) = '/' AND substr(${colExpr},6,1) = '/'
+      THEN substr(${colExpr},7,4) || '-' || substr(${colExpr},4,2) || '-' || substr(${colExpr},1,2)
+      ELSE ${colExpr} END`;
+    }
+    if (format === "dmmy") {
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const whenParts = months.map((name, i3) => {
+        const mm = String(i3 + 1).padStart(2, "0");
+        return `WHEN '-${name}-' THEN '${mm}'`;
+      }).join(" ");
+      return `CASE WHEN ${colExpr} GLOB '[0-9]*-???-????'
+      THEN substr(${colExpr},8,4) || '-' ||
+           (CASE substr(${colExpr}, instr(${colExpr},'-')+1, 3) ${whenParts} END) || '-' ||
+           printf('%02d', CAST(substr(${colExpr}, 1, instr(${colExpr},'-')-1) AS INTEGER))
+      ELSE ${colExpr} END`;
+    }
+    return colExpr;
+  }
+
   // js/query/sql-aggregates.ts
-  function renderAggregateExpr(fn, colRef) {
+  function renderAggregateExpr(fn, colRef, tid, col) {
+    const dateFns = /* @__PURE__ */ new Set(["DATE RANGE", "DATE SPAN"]);
+    let ref = colRef;
+    if (dateFns.has(fn) && tid && col) {
+      const samples = getColumnSamples(tid, col);
+      const format = detectDateFormat(samples);
+      ref = normalizeDateExpr(colRef, format);
+    }
     switch (fn) {
       case "SUM":
         return `SUM(${colRef})`;
@@ -747,9 +837,9 @@
       case "LAST":
         return `MAX(${colRef})`;
       case "DATE RANGE":
-        return `MIN(${colRef}) || ' \u2014 ' || MAX(${colRef})`;
+        return `MIN(${ref}) || ' \u2014 ' || MAX(${ref})`;
       case "DATE SPAN":
-        return `CAST(julianday(MAX(${colRef})) - julianday(MIN(${colRef})) AS INTEGER)`;
+        return `CAST(julianday(MAX(${ref})) - julianday(MIN(${ref})) AS INTEGER)`;
       case "NUMERIC RANGE":
         return `MIN(${colRef}) || ' \u2013 ' || MAX(${colRef})`;
       case "NUMERIC SPAN":
@@ -888,7 +978,16 @@
     const date = calc.date;
     const op = date.operation;
     if (op === "extract") {
-      const src = _renderDateSource(date.source, colMap, plan, baseTid, trail);
+      let dateFormat = null;
+      const source = date.source;
+      if (source?.type === "column") {
+        const entry = colMap.get(source.value);
+        if (entry && entry.kind !== "calc") {
+          const samples = getColumnSamples(entry.tid, entry.col);
+          dateFormat = detectDateFormat(samples);
+        }
+      }
+      const src = _renderDateSource(date.source, colMap, plan, baseTid, trail, dateFormat);
       const part = date.part || "year";
       const output = date.output || "text";
       const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -936,8 +1035,11 @@
     }
     throw new Error(`Unknown date operation "${op}" in calc "${alias}"`);
   }
-  function _renderDateSource(source, colMap, plan, baseTid, trail) {
-    if (source.type === "column") return _renderCalcExpr(source.value, colMap, plan, baseTid, trail);
+  function _renderDateSource(source, colMap, plan, baseTid, trail, format) {
+    if (source.type === "column") {
+      const expr = _renderCalcExpr(source.value, colMap, plan, baseTid, trail);
+      return normalizeDateExpr(expr, format ?? null);
+    }
     throw new Error(`Unsupported date source type "${source.type}"`);
   }
   function _renderTypedValue(tv, colMap, plan, baseTid, trail) {
@@ -1105,7 +1207,16 @@ FROM ${fromClause}`;
         const outName = (agg.alias || "").trim() || (typeof defaultAggAlias === "function" ? defaultAggAlias(agg.fn, agg.col && agg.col !== "*" ? agg.col : "all rows") : `${agg.fn}(${agg.col || "*"})`);
         if (selColSet && !selColSet.has(outName)) continue;
         const colRef = agg.col && agg.col !== "*" ? ref(agg.col) : null;
-        const expr = renderAggregateExpr(agg.fn, colRef || "*");
+        let tid;
+        let physCol;
+        if (agg.col && agg.col !== "*") {
+          const entry = plan.colMap?.get(agg.col);
+          if (entry && entry.kind !== "calc") {
+            tid = entry.tid;
+            physCol = entry.col;
+          }
+        }
+        const expr = renderAggregateExpr(agg.fn, colRef || "*", tid, physCol);
         selParts.push(`${expr} AS ${quoteId(outName)}`);
         colAliases.push(outName);
       }
@@ -1133,10 +1244,18 @@ FROM ${fromClause}`;
     const colTotals = plan.colTotals || {};
     const hasAny = detailCols.some((c3) => colTotals[c3] && colTotals[c3] !== "skip");
     if (!hasAny) return null;
+    const colMap = plan.colMap;
     const selParts = detailCols.map((col) => {
       const fn = colTotals[col];
       if (!fn || fn === "skip") return `NULL AS ${quoteId(col)}`;
-      return `${renderAggregateExpr(fn, ref(col))} AS ${quoteId(col)}`;
+      let tid;
+      let physCol;
+      const entry = colMap?.get(col);
+      if (entry && entry.kind !== "calc") {
+        tid = entry.tid;
+        physCol = entry.col;
+      }
+      return `${renderAggregateExpr(fn, ref(col), tid, physCol)} AS ${quoteId(col)}`;
     });
     let sql = `SELECT ${selParts.join(",\n       ")}
 FROM ${fromClause}`;
@@ -1167,7 +1286,14 @@ FROM ${fromClause}`;
     const subAggExpr = (a3) => {
       const fn = subtotalFns[a3];
       if (!fn || fn === "skip") return `NULL AS ${quoteId(a3)}`;
-      return `${renderAggregateExpr(fn, ref(a3))} AS ${quoteId(a3)}`;
+      let tid;
+      let physCol;
+      const entry = colMap.get(a3);
+      if (entry && entry.kind !== "calc") {
+        tid = entry.tid;
+        physCol = entry.col;
+      }
+      return `${renderAggregateExpr(fn, ref(a3), tid, physCol)} AS ${quoteId(a3)}`;
     };
     const subtotalBySet = new Set(subtotalBy);
     const fromPart = `FROM ${fromClause}`;
