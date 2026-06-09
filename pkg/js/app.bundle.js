@@ -4102,6 +4102,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
         {
           ref: containerRef,
           id: "colChips",
+          class: "chips",
           onDragOver,
           onDrop,
           children: colOrder.map((c3) => {

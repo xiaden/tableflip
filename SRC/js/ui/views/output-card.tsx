@@ -197,6 +197,7 @@ export function ColChips() {
       <div
         ref={containerRef}
         id="colChips"
+        class="chips"
         onDragOver={onDragOver}
         onDrop={onDrop}
       >
