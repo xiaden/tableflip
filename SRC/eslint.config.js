@@ -6,10 +6,12 @@ export default tseslint.config(
     extends: [
       ...tseslint.configs.recommended,
     ],
-    files: ['js/**/*.ts', 'tests/**/*.ts'],
+    files: ['js/**/*.ts', 'js/**/*.tsx', 'tests/**/*.ts'],
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        projectService: {
+          allowDefaultProject: ['*.js'],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
     },

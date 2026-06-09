@@ -6,6 +6,6 @@
     "outDir": "js-dev",
     "rootDir": "js"
   },
-  "include": ["js/**/*.ts"],
+  "include": ["js/**/*.ts", "js/**/*.tsx"],
   "exclude": ["node_modules", "js-dev", "pkg", "js/vendor", "js/wasm", "tests"]
 }

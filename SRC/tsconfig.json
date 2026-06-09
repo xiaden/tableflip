@@ -11,8 +11,10 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "declaration": false,
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
     "types": ["node"]
   },
-  "include": ["js/**/*.ts", "tests/**/*.ts"],
+  "include": ["js/**/*.ts", "js/**/*.tsx", "tests/**/*.ts"],
   "exclude": ["node_modules", "js-dev", "pkg", "js/vendor", "js/wasm"]
 }

@@ -17,6 +17,9 @@ await esbuild.build({
   bundle: true,
   outfile: path.join(PKG, 'js/app.bundle.js'),
   logLevel: 'warning',
+  jsx: 'automatic',
+  jsxImportSource: 'preact',
+  loader: { '.tsx': 'tsx' },
 });
 
 // 3. Copy static assets
