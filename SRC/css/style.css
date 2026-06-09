@@ -511,10 +511,10 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
 .pl-mini-preview {
   margin-top: 10px; border-radius: 6px; overflow-x: auto;
   border: 1px solid var(--border); font-size: 0.72rem;
-  width: 100%; max-width: 100%; box-sizing: border-box;
+  max-width: 100%; box-sizing: border-box;
 }
 .pl-mini-preview table {
-  width: 100%; border-collapse: collapse; table-layout: fixed;
+  width: auto; min-width: 100%; border-collapse: collapse;
 }
 .pl-mini-preview th {
   background: var(--bg3); color: var(--muted);
