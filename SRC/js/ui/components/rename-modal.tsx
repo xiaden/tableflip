@@ -22,7 +22,7 @@ export function resolveRenameTarget(alias: string): RenameTarget | null {
 
 export function renameSourceCol(tid: string, col: string, onDone?: () => void): void {
   const colMap = buildColSourceMap();
-  for (const [alias, src] of colMap.entries()) {
+  for (const [, src] of colMap.entries()) {
     if (src.kind !== 'calc' && src.tid === tid && src.col === col) {
       // Sets target externally — caller should manage state
       onDone?.();

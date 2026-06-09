@@ -1,7 +1,6 @@
 import { quoteId } from '../core/sqldb.js';
 import { _renderCalcExpr } from './sql-calcs.js';
 import { renderWhereClause } from './sql-where.js';
-import { ColMapEntry } from '../catalog/column-catalog.js';
 import { QueryPlan } from './query-plan.js';
 
 interface JoinClauseResult {

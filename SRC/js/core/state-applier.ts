@@ -20,7 +20,7 @@ export function applyState(next: Record<string, unknown>, nextExcludedRows: Reco
   loadAggModeState(db.aggMode || 'none');
   renderQueryBuilder();
   if (db.base) {
-    try { renderMergeToggles(projectedCols()); } catch (_) {}
+    try { renderMergeToggles(projectedCols()); } catch {}
   }
 }
 if (typeof window !== 'undefined') window.applyState = applyState;

@@ -3,7 +3,7 @@ import { render } from 'preact/compat';
 import { db } from '../../core/state.js';
 import { toast, colDisplayLabel } from '../../core/utils.js';
 import { quoteId, execQuery } from '../../core/sqldb.js';
-import { buildColSourceMap, buildColumnCatalog, projectedCols } from '../../catalog/column-catalog.js';
+import { buildColSourceMap, buildColumnCatalog } from '../../catalog/column-catalog.js';
 import { buildSourceCatalog } from '../../catalog/source-catalog.js';
 import { buildQueryPlan } from '../../query/query-plan.js';
 import { renderDetailSql } from '../../query/sql-detail.js';

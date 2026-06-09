@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { normalizeDateExpr, getDateInputFormat, isISODate, getColumnSamples, type DateInputFormat } from '../../js/core/date-format.js';
+import { normalizeDateExpr, getDateInputFormat, isISODate, getColumnSamples } from '../../js/core/date-format.js';
 import { db } from '../../js/core/state.js';
 
 describe('Date Format', () => {

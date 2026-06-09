@@ -67,8 +67,7 @@ describe('Utils Extended', () => {
     });
 
     it('should add accept button when onAccept provided', () => {
-      let accepted = false;
-      stickyToast('Accept?', 'info', () => { accepted = true; }, 'OK');
+      stickyToast('Accept?', 'info', () => {}, 'OK');
       const container = document.getElementById('toast-container');
       const buttons = container!.querySelectorAll('.toast-close');
       expect(buttons.length).toBe(2);

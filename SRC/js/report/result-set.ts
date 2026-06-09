@@ -1,5 +1,3 @@
-import { db } from '../core/state.js';
-
 export interface ResultSetMetadata {
   rowCount: number;
   generatedAt: number;

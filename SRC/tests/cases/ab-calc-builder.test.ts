@@ -143,7 +143,7 @@ describe('calc-builder', () => {
 
     it('should return HTML for each mode', () => {
       const ctx = makeCtx();
-      for (const [mode, renderer] of Object.entries(calcModeRenderers)) {
+      for (const [, renderer] of Object.entries(calcModeRenderers)) {
         const html = renderer(ctx);
         expect(html).toBeTruthy();
         expect(typeof html).toBe('string');

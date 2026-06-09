@@ -7,7 +7,6 @@ let buildSourceCatalog: any;
 let buildQueryPlan: any;
 let renderDetailSql: any;
 let renderGroupedSql: any;
-let renderTotalsSql: any;
 let renderSubtotalsSql: any;
 let runReport: any;
 
@@ -20,7 +19,6 @@ beforeEach(async () => {
   const planMod = await import('../../js/query/query-plan.js');
   const detailMod = await import('../../js/query/sql-detail.js');
   const groupMod = await import('../../js/query/sql-grouped.js');
-  const totalsMod = await import('../../js/query/sql-totals.js');
   const subtotalsMod = await import('../../js/query/sql-subtotals.js');
   const engineMod = await import('../../js/report/engine.js');
   
@@ -30,7 +28,6 @@ beforeEach(async () => {
   buildQueryPlan = planMod.buildQueryPlan;
   renderDetailSql = detailMod.renderDetailSql;
   renderGroupedSql = groupMod.renderGroupedSql;
-  renderTotalsSql = totalsMod.renderTotalsSql;
   renderSubtotalsSql = subtotalsMod.renderSubtotalsSql;
   runReport = engineMod.runReport;
 });
@@ -75,7 +72,6 @@ function runReportPipeline(config: Record<string, any> = {}) {
       sql = result.sql;
     } else if (mode === 'totals') {
       const detail = renderDetailSql(plan);
-      const totals = renderTotalsSql(plan, detail.cols);
       sql = detail.sql;
     } else if (mode === 'subtotals') {
       const result = renderSubtotalsSql(plan);

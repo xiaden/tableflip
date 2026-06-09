@@ -249,7 +249,3 @@ export function buildColumnCatalog(reportSpec: Record<string, unknown>, sourceCa
 
   return { colMap, lookupBoundaries, reportSpec };
 }
-
-function getProjectedColumns(catalog: ColumnCatalog): string[] {
-  return [...catalog.colMap.keys()];
-}

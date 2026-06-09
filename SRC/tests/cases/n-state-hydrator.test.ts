@@ -93,7 +93,7 @@ describe('State Hydrator', () => {
       mergedCols: ['Company'],
       mergeGroupUnderline: true,
     };
-    const { next, brokenRefs } = hydrateState(payload);
+    const { next } = hydrateState(payload);
     expect(next.stacks).toEqual(['Contacts']);
     expect(next.lookups).toHaveLength(1);
     expect(next.lookups[0].rightId).toBe('Contacts');
@@ -118,7 +118,7 @@ describe('State Hydrator', () => {
 
   it('should handle missing optional fields', () => {
     const payload = { base: 'Orders' };
-    const { next, brokenRefs } = hydrateState(payload);
+    const { next } = hydrateState(payload);
     expect(next.base).toBe('Orders');
     expect(next.baseCols).toBeNull();
     expect(next.stacks).toEqual([]);

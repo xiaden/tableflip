@@ -1,7 +1,4 @@
 import { db } from './state.js';
-import { STATE_VERSION, RECOGNIZABLE_KEYS } from './state-schema.js';
-import { colUserLabel } from './utils.js';
-import { buildSourceCatalog } from '../catalog/source-catalog.js';
 import { applyState } from './state-applier.js';
 import { projectedColsUpToLookup } from '../catalog/column-catalog.js';
 

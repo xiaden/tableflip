@@ -14,7 +14,6 @@ vi.mock('../../js/core/utils.js', async (importOriginal) => {
 describe('State Serializer', () => {
   let saveState: any;
   let capturedBlob: Blob | null = null;
-  let capturedName: string | null = null;
 
   beforeEach(async () => {
     const module = await import('../../js/core/state-serializer.js');
@@ -53,14 +52,12 @@ describe('State Serializer', () => {
     db.result = null;
 
     capturedBlob = null;
-    capturedName = null;
   });
 
   function captureSave(): Record<string, any> {
     vi.spyOn(window, 'prompt').mockReturnValue('test-query');
     (utils.dl as any).mockImplementation((blob: Blob, name: string) => {
       capturedBlob = blob;
-      capturedName = name;
     });
     try {
       saveState();

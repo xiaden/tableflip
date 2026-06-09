@@ -3,7 +3,7 @@ import { render } from 'preact/compat';
 import { db } from '../../core/state.js';
 import { projectedCols, buildColSourceMap, type ColMapEntry, type PhysicalColEntry } from '../../catalog/column-catalog.js';
 import { colDisplayLabel, getTableColorClass, smartDefaultFn } from '../../core/utils.js';
-import { renderSubtotalsSection, renderAggregateItems, renderAggregation } from '../aggregation.js';
+import { renderSubtotalsSection, renderAggregation } from '../aggregation.js';
 import { renderQueryBuilder } from './query-builder.js';
 import { renderResults } from '../grid.js';
 import { ContextMenu, type CtxMenuItem } from '../components/context-menu.js';
@@ -277,7 +277,7 @@ export function selectNoneCols(): void { db.selCols = new Set();                
 if (typeof window !== 'undefined') window.selectNoneCols = selectNoneCols;
 
 export function MergeToggles() {
-  const cols = (db.result?.cols as string[]) || [];
+  const cols = (db.result?.cols as string[]) || projectedCols();
   if (!cols.length) return null;
 
   const baseDisplayCols = cols.filter(c => c !== '_rowno' && c !== '_row_type' && c !== '_isTotalsRow');
@@ -341,7 +341,7 @@ export function renderColChips(): void {
   render(<ColChips />, _colChipsRoot);
 }
 
-export function renderMergeToggles(cols: string[]): void {
+export function renderMergeToggles(_cols: string[]): void {
   const el = document.getElementById('mergeToggles');
   if (!el) return;
   if (!_mergeTogglesRoot) {

@@ -21,7 +21,7 @@ export function _sampleTipFor(tid: string, col: string, extra: string[] = []): s
   ].join('\n');
 }
 
-export function _isSourceVisibleInLayout(tid: string, col: string, colMap: Map<string, ColMapEntry>, mode: string): boolean {
+export function _isSourceVisibleInLayout(tid: string, col: string, colMap: Map<string, ColMapEntry>, _mode: string): boolean {
   const selCols = db.selCols as Set<string> | null;
   if (!(selCols instanceof Set)) return true;
   let seen = false;
@@ -79,7 +79,7 @@ export function _hideLookupLayoutAliasesSafely(tid: string, col: string | null =
   }
 }
 
-export function _isAliasVisibleInLayout(alias: string, mode: string): boolean {
+export function _isAliasVisibleInLayout(alias: string, _mode: string): boolean {
   if (!alias) return true;
   const selCols = db.selCols as Set<string> | null;
   if (!(selCols instanceof Set)) return true;

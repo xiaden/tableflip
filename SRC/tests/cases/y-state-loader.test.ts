@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { STATE_VERSION } from '../../js/core/state-schema.js';
 import * as utils from '../../js/core/utils.js';
 

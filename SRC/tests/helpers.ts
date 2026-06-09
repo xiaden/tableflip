@@ -5,7 +5,6 @@ import { buildSourceCatalog } from '../js/catalog/source-catalog.js';
 import { buildQueryPlan } from '../js/query/query-plan.js';
 import { renderDetailSql } from '../js/query/sql-detail.js';
 import { renderGroupedSql } from '../js/query/sql-grouped.js';
-import { renderTotalsSql } from '../js/query/sql-totals.js';
 import { renderSubtotalsSql } from '../js/query/sql-subtotals.js';
 import { runReport } from '../js/report/engine.js';
 
@@ -89,7 +88,6 @@ export function runReportPipeline(config: ReportConfig = {}): ReportResult {
       sql = result.sql;
     } else if (mode === 'totals') {
       const detail = renderDetailSql(plan);
-      const totals = renderTotalsSql(plan, detail.cols);
       sql = detail.sql;
     } else if (mode === 'subtotals') {
       const subResult = renderSubtotalsSql(plan);

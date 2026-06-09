@@ -7,16 +7,7 @@ import {
   TOTAL_FNS, TOTAL_LABELS,
   SUBTOTAL_FNS, SUBTOTAL_LABELS,
   AGG_MODES,
-  getAggregateLabel, getTotalLabel, getSubtotalLabel,
-  isValidAggregateFn, isValidTotalFn, isValidSubtotalFn,
-  aggregateNeedsColumn,
 } from './components/aggregation-constants.js';
-
-function renderAggregateExpression(fn: string, colLabel: string): string {
-  const label = getAggregateLabel(fn);
-  if (!aggregateNeedsColumn(fn)) return label;
-  return `${label} of ${colLabel}`;
-}
 
 function _selColsToArray(selCols: unknown): string[] | null {
   if (selCols instanceof Set) return [...selCols];

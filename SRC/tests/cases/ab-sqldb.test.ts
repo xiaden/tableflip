@@ -14,7 +14,7 @@ const createdTables: string[] = [];
 
 afterEach(() => {
   for (const t of createdTables) {
-    try { dropTable(t); } catch (_) {}
+    try { dropTable(t); } catch {}
   }
   createdTables.length = 0;
 });

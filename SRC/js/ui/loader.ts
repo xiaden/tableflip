@@ -5,7 +5,6 @@ import { dropTable, createTable, insertRows, tableRowCount } from '../core/sqldb
 import { renderSidebar } from './sidebar.js';
 import { renderQueryBuilder } from './views/query-builder.js';
 import { renderPreviewDropdown, loadPreview } from './grid.js';
-import { switchTab } from './tabs.js';
 
 let _pendingLoads  = 0;
 let _sheetsLoaded  = 0;
@@ -53,7 +52,7 @@ function _showNextModal(): void {
       const r = XLSX.utils.decode_range(ws['!ref']!);
       rows = (r.e.r - r.s.r).toLocaleString();
       cols = r.e.c - r.s.c + 1;
-    } catch (_) {}
+    } catch {}
 
     const id  = 'chk_' + Math.random().toString(36).slice(2);
     const row = document.createElement('div');

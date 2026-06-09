@@ -12,7 +12,6 @@ interface SubtotalResult {
 
 export function renderSubtotalsSql(plan: QueryPlan): SubtotalResult | null {
   if (!plan.source.base) throw new Error('No base table in plan');
-  const colMap = plan.colMap;
   const { fromClause, joinClauses, whereParts, params: filterParams, ref } = renderFromJoinWhere(plan);
 
   const toShow = plan.selectedColumns;

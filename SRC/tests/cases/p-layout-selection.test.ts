@@ -13,7 +13,6 @@ describe('Layout Selection', () => {
   let _syncSubtotalByToLayout: any;
   let _afterCombineChange: any;
   let buildColSourceMap: any;
-  let projectedCols: any;
 
   beforeEach(async () => {
     const layoutModule = await import('../../js/query/layout-selection.js');
@@ -27,7 +26,6 @@ describe('Layout Selection', () => {
     
     const catalogModule = await import('../../js/catalog/column-catalog.js');
     buildColSourceMap = catalogModule.buildColSourceMap;
-    projectedCols = catalogModule.projectedCols;
     const db = (globalThis as any).db;
     db.tables = {
       Orders: { id: 'Orders', name: 'Orders', cols: ['OrderId', 'Company', 'Contact', 'Status', 'Amount', 'OrderDate', 'Region'], rowCount: 8 },
