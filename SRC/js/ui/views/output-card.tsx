@@ -1,5 +1,4 @@
 import { useRef, useCallback, useState } from 'preact/hooks';
-import { render } from 'preact/compat';
 import { db } from '../../core/state.js';
 import { projectedCols, buildColSourceMap, type ColMapEntry, type PhysicalColEntry } from '../../catalog/column-catalog.js';
 import { colDisplayLabel, getTableColorClass, smartDefaultFn } from '../../core/utils.js';
@@ -328,24 +327,10 @@ export function setMergeGroupUnderline(checked: boolean): void {
 }
 if (typeof window !== 'undefined') window.setMergeGroupUnderline = setMergeGroupUnderline;
 
-// Legacy render function — calls render() to mount Preact component
-let _colChipsRoot: HTMLElement | null = null;
-let _mergeTogglesRoot: HTMLElement | null = null;
-
 export function renderColChips(): void {
-  const el = document.getElementById('colChips');
-  if (!el) return;
-  if (!_colChipsRoot) {
-    _colChipsRoot = el.parentElement!;
-  }
-  render(<ColChips />, _colChipsRoot);
+  renderQueryBuilder();
 }
 
 export function renderMergeToggles(_cols: string[]): void {
-  const el = document.getElementById('mergeToggles');
-  if (!el) return;
-  if (!_mergeTogglesRoot) {
-    _mergeTogglesRoot = el;
-  }
-  render(<MergeToggles />, _mergeTogglesRoot);
+  renderQueryBuilder();
 }

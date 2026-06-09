@@ -10,7 +10,7 @@ import { renderDetailSql } from '../../query/sql-detail.js';
 import { Pipeline } from './pipeline-card.js';
 import { renderAggregation, setAggMode } from '../aggregation.js';
 import { ColChips, MergeToggles, selectAllCols, selectNoneCols } from './output-card.js';
-import { Filters, Sorts } from './filter-sort-card.js';
+import { Filters, Sorts, addSort, addFilter } from './filter-sort-card.js';
 import {
   _afterCombineChange, _showLayoutAliasesForSource,
   _hideLookupLayoutAliasesSafely, _seenCols, _previewOpen,
@@ -137,16 +137,6 @@ export function QueryBuilder() {
       )}
     </>
   );
-}
-
-function addSort() {
-  db.sorts.push({ col: '', dir: 'ASC', enabled: true });
-  renderQueryBuilder();
-}
-
-function addFilter() {
-  db.filters.push({ col: '', op: 'contains', val: '', vals: [''], enabled: true });
-  renderQueryBuilder();
 }
 
 export function onBaseChange(val: string): void {

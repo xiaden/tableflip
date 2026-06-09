@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'preact/hooks';
-import { render } from 'preact/compat';
 import { db } from '../../core/state.js';
 import { colDisplayLabel } from '../../core/utils.js';
 import { buildColSourceMap, projectedCols } from '../../catalog/column-catalog.js';
 import { execQuery, quoteId } from '../../core/sqldb.js';
 import { getValidation, invalidateValidation } from '../../report/validation.js';
+import { renderQueryBuilder } from './query-builder.js';
 
 const FILTER_OPS: string[] = [
   'contains', 'equals', 'not equals',
@@ -190,20 +190,10 @@ export function addSort(): void {
 }
 if (typeof window !== 'undefined') window.addSort = addSort;
 
-// Legacy render functions — use render() to mount Preact components
-let _filtersRoot: HTMLElement | null = null;
-let _sortsRoot: HTMLElement | null = null;
-
 export function renderFilters(): void {
-  const el = document.getElementById('filterItems');
-  if (!el) return;
-  if (!_filtersRoot) _filtersRoot = el;
-  render(<Filters />, _filtersRoot);
+  renderQueryBuilder();
 }
 
 export function renderSorts(): void {
-  const el = document.getElementById('sortItems');
-  if (!el) return;
-  if (!_sortsRoot) _sortsRoot = el;
-  render(<Sorts />, _sortsRoot);
+  renderQueryBuilder();
 }
