@@ -1,6 +1,6 @@
 # Preact Migration Plan
 
-## Status: In Progress
+## Status: Complete
 
 ## Phase 1: Build Pipeline
 - [x] Install `preact` dependency
@@ -10,84 +10,60 @@
 - [x] Update `eslint.config.js` for `.tsx` files
 - [x] Verify: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` all pass
 
-## Phase 2: First Components (<Chip> + <Tip>)
-- [x] Convert `chip.ts` → `chip.tsx` with Preact `<Chip>` component
-- [x] Convert `tip.ts` → `tip.tsx` with Preact `<Tip>` component
-- [x] Keep `renderChip`/`renderTip` as legacy bridges (delete when views migrate)
-- [ ] Wire `<Chip>` into output-card (convert output-card to Preact)
-- [ ] Wire `<Chip>` into pipeline-card (convert pipeline-card to Preact)
-- [ ] Verify tests pass
+## Phase 2: Component Conversions
+- [x] `chip.ts` → `chip.tsx` — Preact `<Chip>` component, no legacy code
+- [x] `tip.ts` → `tip.tsx` — Preact `<Tip>` component, no legacy code
+- [x] `modal.ts` → `modal.tsx` — Preact `<Modal>` component with createPortal, no legacy code
+- [x] `context-menu.ts` → `context-menu.tsx` — Preact `<ContextMenu>` component with createPortal, no legacy code
+- [x] `rename-modal.ts` → `rename-modal.tsx` — Preact `<RenameModal>` component, no legacy code
 
-## Phase 3: Modal + Context Menu
-- [x] Convert `modal.ts` → `modal.tsx` with Preact `<Modal>` component
-- [x] Convert `context-menu.ts` → `context-menu.tsx` with Preact `<ContextMenu>` component
-- [x] Legacy `showModal`/`closeModal`/`showContextMenu`/`closeContextMenu` bridges use `render()` to mount Preact components
-- [ ] Verify rename flow works end-to-end
+## Phase 3: View Conversions
+- [x] `output-card.ts` → `output-card.tsx` — `<ColChips>`, `<MergeToggles>` with state-driven `<ContextMenu>` and `<RenameModal>`
+- [x] `pipeline-card.ts` → `pipeline-card.tsx` — `<Pipeline>` with sub-components `<BaseStage>`, `<StackSheets>`, `<LookupStage>`, `<CalcStageComponent>`, `<PipelineArrow>`
+- [x] `filter-sort-card.ts` → `filter-sort-card.tsx` — `<Filters>`, `<Sorts>` with per-row components
+- [x] `query-builder.ts` → `query-builder.tsx` — `<QueryBuilder>` orchestrator composing all sub-components
+- [x] `grid.ts` — removed `$()` import, uses `document.getElementById()` directly (AG Grid stays imperative)
 
-## Phase 4: Filter + Sort Views
-- [ ] Convert `filter-sort-card.ts` to `<Filters>` + `<Sorts>` components
-- [ ] Events become JSX props (no more `delegate()`)
-- [ ] Verify filter/sort functionality
+## Phase 4: Cleanup
+- [x] Deleted `dom.ts` — replaced by Preact refs and JSX
+- [x] Deleted `events.ts` — replaced by Preact synthetic events
+- [x] Deleted `button.ts` — dormant, unused
+- [x] Deleted `select.ts` — dormant, unused
+- [x] Deleted `card.ts` — dormant, unused
 
-## Phase 5: Output Card
-- [ ] Convert `output-card.ts` to `<ColChips>` + `<MergeToggles>`
-- [ ] Drag-and-drop via `useRef` + imperative DOM
-- [ ] Context menu via `<ContextMenu>` component
-- [ ] Verify chip interactions (click, dblclick, drag, right-click)
+## Architecture
 
-## Phase 6: Pipeline Card
-- [ ] Convert `pipeline-card.ts` to `<Pipeline>` component
-- [ ] Sub-components: `<BaseStage>`, `<LookupStage>`, `<CalcStage>`, `<StackStage>`
-- [ ] Calc builder sub-components from `calc-builder.ts`
-- [ ] Verify all pipeline interactions
-
-## Phase 7: Query Builder Orchestrator
-- [ ] Convert `query-builder.ts` to `<QueryBuilder>` component
-- [ ] Replaces `renderQueryBuilder()` with state-driven re-renders
-- [ ] Wires up all sub-components
-- [ ] Verify full query builder flow
-
-## Phase 8: AG Grid Integration
-- [ ] Wrap grid init in `useRef` + `useEffect`
-- [ ] Grid header rename components become Preact
-- [ ] Verify result + preview grids
-
-## Phase 9: Global Systems
-- [ ] Tooltip system becomes `<TooltipProvider>` with context
-- [ ] Tab switching becomes declarative
-- [ ] Toast system becomes Preact component
-- [ ] Sidebar becomes Preact component
-
-## Phase 10: Cleanup
-- [ ] Delete `dom.ts` (replaced by Preact)
-- [ ] Delete `events.ts` (replaced by Preact)
-- [ ] Delete dormant `button.ts`, `select.ts`, `card.ts` (or convert if useful)
-- [ ] Update tests for new component signatures
-- [ ] Remove `window.*` assignments for onclick handlers
-
-## Architecture Notes
-
-### State Strategy
+### State Pattern
 - `db` stays as mutable global object
-- Preact components read from `db` directly
-- Mutations trigger `setState` to force re-render
-- Pattern: `const [tick, setTick] = useState(0); const forceUpdate = () => setTick(t => t + 1);`
-- Or: wrap `db` in a Preact context that components subscribe to
+- Preact components read from `db` during render
+- Event handlers mutate `db` then call `renderQueryBuilder()` which calls `render(<QueryBuilder />, root)` to re-render the tree
+- This is the "global state with imperative re-render" pattern — simple, no state management library needed
 
-### File Naming
-- Preact components use `.tsx` extension
-- Pure logic/utils keep `.ts` extension
-- Components in `js/ui/components/` become `.tsx`
-- Views in `js/ui/views/` become `.tsx`
-
-### Testing
-- Pure logic tests (SQL, validation, state) — unchanged
-- Component tests — add `@testing-library/preact` later if needed
-- Calc builder tests — update if render signature changes
-- Vitest needs JSX support via esbuild transform
+### Component Hierarchy
+```
+QueryBuilder
+├── Pipeline
+│   ├── BaseStage (base sheet selector + column chips)
+│   ├── StackSheets (stack sheet chips)
+│   ├── LookupStage[] (lookup config + column chips)
+│   ├── CalcStageComponent[] (calc config + output chip)
+│   └── PipelineArrow[] (preview toggles)
+├── ColChips (report layout chips + drag-and-drop)
+│   └── ContextMenu / RenameModal (state-driven overlays)
+├── Filters (filter rows)
+├── Sorts (sort rows)
+└── MergeToggles (merge duplicate cells)
+```
 
 ### AG Grid
-- Grid stays imperative (agGrid.createGrid)
-- Container div managed by Preact via useRef
-- Grid init/destroy in useEffect
-- Header components rendered by AG Grid stay as classes (not Preact)
+- Stays imperative (`agGrid.createGrid`)
+- Grid header components use `render()` from preact/compat to mount `<RenameModal>` (non-Preact context)
+- Container div managed by `document.getElementById()`
+
+### Remaining Non-Preact Code
+- `aggregation.ts` — still uses innerHTML rendering (not yet converted)
+- `sidebar.ts` — still uses innerHTML rendering (not yet converted)
+- `loader.ts` — file loading modal uses innerHTML (not yet converted)
+- `export.ts` — export logic, no rendering
+- `tabs.ts` — tab switching, minimal DOM
+- `app.ts` — tooltip system uses document-level event listeners

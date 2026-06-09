@@ -1,12 +1,22 @@
 import { db } from '../core/state.js';
 import { h, colDisplayLabel, getTableColor, setColLabel } from '../core/utils.js';
 import { buildColSourceMap } from '../catalog/column-catalog.js';
-import { resolveRenameTarget, showRenameModal, renameSourceCol } from './components/rename-modal.js';
-import { $ } from './utils/dom.js';
+import { resolveRenameTarget, RenameModal, type RenameTarget } from './components/rename-modal.js';
+import { render } from 'preact/compat';
 import { execQuery, quoteId } from '../core/sqldb.js';
 import { renderQueryBuilder } from './views/query-builder.js';
 import { renderMergeToggles } from './views/output-card.js';
 import { getValidation } from '../report/validation.js';
+
+function openRenameModal(target: RenameTarget, onDone?: () => void): void {
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  const cleanup = () => { render(null, host); host.remove(); };
+  render(
+    RenameModal({ target, onDone, onClose: cleanup }),
+    host,
+  );
+}
 
 let gridResult: AGridApi | null  = null;
 let gridPreview: AGridApi | null = null;
@@ -26,10 +36,10 @@ export function refreshPreviewGridLayout(): void {
 }
 
 export function renderResults(result: Record<string, unknown>): void {
-  const wrap    = $('resultsWrap')!;
-  const meta    = $('resultsMeta')!;
-  const btnXlsx = $('btnExpXlsx')!;
-  const btnCsv  = $('btnExpCsv')!;
+  const wrap    = document.getElementById('resultsWrap')!;
+  const meta    = document.getElementById('resultsMeta')!;
+  const btnXlsx = document.getElementById('btnExpXlsx')!;
+  const btnCsv  = document.getElementById('btnExpCsv')!;
 
   const { rows, totalsRow, cols } = result as { rows: Record<string, unknown>[]; totalsRow: Record<string, unknown> | null; cols: string[] };
   const hasData = rows.length > 0 || totalsRow !== null;
@@ -80,7 +90,7 @@ export function renderResults(result: Record<string, unknown>): void {
     onColumnVisible: () => _saveResultColState(),
   };
 
-  const el = $('resGrid')!;
+  const el = document.getElementById('resGrid')!;
   gridResult = agGrid.createGrid(el, options);
 
   requestAnimationFrame(() => requestAnimationFrame(() => refreshResultGridLayout()));
@@ -98,7 +108,7 @@ function _saveResultColState(): void {
 }
 
 export function renderPreviewDropdown(): void {
-  const sel  = $('previewSel') as HTMLSelectElement | null;
+  const sel  = document.getElementById('previewSel') as HTMLSelectElement | null;
   if (!sel) return;
   const prev = sel.value;
   const ids  = Object.keys(db.tables);
@@ -108,9 +118,9 @@ export function renderPreviewDropdown(): void {
 }
 
 export function loadPreview(): void {
-  const id   = ($('previewSel') as HTMLSelectElement).value;
-  const wrap = $('previewWrap')!;
-  const meta = $('previewMeta')!;
+  const id   = (document.getElementById('previewSel') as HTMLSelectElement).value;
+  const wrap = document.getElementById('previewWrap')!;
+  const meta = document.getElementById('previewMeta')!;
 
   if (gridPreview) { gridPreview.destroy(); gridPreview = null; }
 
@@ -177,7 +187,7 @@ export function loadPreview(): void {
     },
   };
 
-  const el = $('prevGrid')!;
+  const el = document.getElementById('prevGrid')!;
   gridPreview = agGrid.createGrid(el, {
     rowData:        rows,
     columnDefs:     [excludeColDef, ...makePreviewCols(id, t.cols)],
@@ -240,7 +250,7 @@ function makeResultCols(cols: string[]): Record<string, unknown>[] {
     const doRename = (): void => {
       const target = resolveRenameTarget(c);
       if (!target) return;
-      showRenameModal(target, () => {
+      openRenameModal(target, () => {
         renderQueryBuilder();
         if (db.result) renderResults(db.result);
       });
@@ -272,11 +282,20 @@ function makePreviewCols(tid: string, physCols: string[]): Record<string, unknow
     const label   = renamed || c;
 
     const doRename = (): void => {
-      renameSourceCol(tid, c, () => {
-        renderQueryBuilder();
-        if (db.result) renderResults(db.result);
-        loadPreview();
-      });
+      const colMap = buildColSourceMap();
+      for (const [alias, src] of colMap.entries()) {
+        if (src && src.kind !== 'calc' && src.tid === tid && src.col === c) {
+          const target = resolveRenameTarget(alias);
+          if (target) {
+            openRenameModal(target, () => {
+              renderQueryBuilder();
+              if (db.result) renderResults(db.result);
+              loadPreview();
+            });
+          }
+          return;
+        }
+      }
     };
 
     const doClear = renamed

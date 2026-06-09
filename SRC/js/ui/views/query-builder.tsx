@@ -1,15 +1,16 @@
+import { useEffect } from 'preact/hooks';
+import { render } from 'preact/compat';
 import { db } from '../../core/state.js';
-import { h, toast, colDisplayLabel } from '../../core/utils.js';
+import { toast, colDisplayLabel } from '../../core/utils.js';
 import { quoteId, execQuery } from '../../core/sqldb.js';
 import { buildColSourceMap, buildColumnCatalog, projectedCols } from '../../catalog/column-catalog.js';
 import { buildSourceCatalog } from '../../catalog/source-catalog.js';
 import { buildQueryPlan } from '../../query/query-plan.js';
 import { renderDetailSql } from '../../query/sql-detail.js';
-import { renderPipeline } from './pipeline-card.js';
+import { Pipeline } from './pipeline-card.js';
 import { renderAggregation } from '../aggregation.js';
-import { renderMergeToggles, renderColChips } from './output-card.js';
-import { renderFilters, renderSorts } from './filter-sort-card.js';
-import { $ } from '../utils/dom.js';
+import { ColChips, MergeToggles } from './output-card.js';
+import { Filters, Sorts } from './filter-sort-card.js';
 import {
   _afterCombineChange, _showLayoutAliasesForSource,
   _hideLookupLayoutAliasesSafely, _seenCols, _previewOpen,
@@ -20,66 +21,106 @@ import { runReport as executeReport } from '../../report/engine.js';
 import { switchTab } from '../tabs.js';
 import { renderResults } from '../grid.js';
 
-export function renderQueryBuilder(): void {
-  invalidateValidation();
-
+export function QueryBuilder() {
   const ids = Object.keys(db.tables).sort((a, b) => db.tables[a].name.localeCompare(db.tables[b].name));
-
-  const qEmpty = $('qEmpty');
-  const qBuilder = $('qBuilder');
-  if (qEmpty) qEmpty.style.display = ids.length ? 'none' : '';
-  if (qBuilder) qBuilder.style.display = ids.length ? 'grid' : 'none';
-
-  if (!ids.length) return;
-
   const hasBase = !!db.base && !!db.tables[db.base];
   const hasBaseConfigured = !!db.base;
 
-  ['colCard', 'filterSortCard'].forEach(id => {
-    const el = $(id);
-    if (el) el.style.display = hasBase ? '' : 'none';
+  useEffect(() => {
+    if (hasBase) {
+      renderAggregation();
+    }
   });
 
-  const runRowEl = $('runRow');
-  if (runRowEl) runRowEl.style.display = hasBaseConfigured ? '' : 'none';
+  if (!ids.length) {
+    return (
+      <div id="qEmpty">
+        <div class="empty"><div class="empty-icon">📂</div><div>Load a spreadsheet to get started</div></div>
+      </div>
+    );
+  }
+
+  let statusPill = null;
+  let runDisabled = false;
 
   if (hasBaseConfigured) {
-    const v         = getValidation()!;
-    const blocked   = v.reportStatus === 'blocked';
+    const v = getValidation()!;
+    const blocked = v.reportStatus === 'blocked';
     const items = Object.values(v.items) as Array<{ blocking?: boolean; issues?: Array<{ message?: string }> }>;
     const issueCount = items.filter(it => it.blocking).length;
 
-    const pill    = $('reportStatusPill');
-    const runBtn  = $('runBtn');
-
-    if (pill) {
-      pill.style.display = '';
-      if (blocked) {
-        pill.textContent   = `\u26A0 Blocked (${issueCount} issue${issueCount !== 1 ? 's' : ''})`;
-        pill.style.background  = 'rgba(200,60,60,0.18)';
-        pill.style.color       = '#e07070';
-        pill.style.border      = '1px solid rgba(200,60,60,0.35)';
-      } else {
-        pill.textContent   = '\u2713 Healthy';
-        pill.style.background  = 'rgba(50,180,100,0.15)';
-        pill.style.color       = '#6ec87e';
-        pill.style.border      = '1px solid rgba(50,180,100,0.3)';
-      }
+    if (blocked) {
+      statusPill = { text: `\u26A0 Blocked (${issueCount} issue${issueCount !== 1 ? 's' : ''})`, bg: 'rgba(200,60,60,0.18)', color: '#e07070', border: '1px solid rgba(200,60,60,0.35)' };
+    } else {
+      statusPill = { text: '\u2713 Healthy', bg: 'rgba(50,180,100,0.15)', color: '#6ec87e', border: '1px solid rgba(50,180,100,0.3)' };
     }
-    if (runBtn) (runBtn as HTMLButtonElement).disabled = blocked;
+    runDisabled = blocked;
   }
 
-  renderPipeline(ids);
+  return (
+    <div id="qBuilder" style={{ display: ids.length ? 'grid' : 'none' }}>
+      <Pipeline />
 
-  if (!hasBase) return;
-  renderColChips();
-  renderFilters();
-  renderSorts();
-  renderAggregation();
+      {hasBase && (
+        <div id="colCard">
+          <div class="qb-title" style="margin-bottom:6px">
+            Report Layout
+            <span class="tip" id="colCardTip" data-tip="Choose which columns appear in your report and how they are summarized. Drag chips to reorder columns. Double-click a chip to hide/show it.">?</span>
+          </div>
+          <ColChips />
+          <div id="aggSection" />
+          <div id="totalsSection" />
+          <div id="subtotalsSection" />
+        </div>
+      )}
 
-  try {
-    renderMergeToggles(projectedCols());
-  } catch (_) {}
+      {hasBase && (
+        <div id="filterSortCard">
+          <div class="qb-title" style="margin-bottom:6px">Sort & Filter</div>
+          <div style="margin-bottom:8px">
+            <div style="font-size:0.76rem;margin-bottom:4px">Sort By</div>
+            <Sorts />
+            <button class="btn btn-ghost" style="font-size:0.72rem;margin-top:4px" onClick={addSort}>+ Add sort</button>
+          </div>
+          <div style="margin-bottom:8px">
+            <div style="font-size:0.76rem;margin-bottom:4px">Filters</div>
+            <Filters />
+            <button class="btn btn-ghost" style="font-size:0.72rem;margin-top:4px" onClick={addFilter}>+ Add filter</button>
+          </div>
+          <div>
+            <div style="font-size:0.76rem;margin-bottom:4px">Merge duplicate cells</div>
+            <MergeToggles />
+          </div>
+        </div>
+      )}
+
+      {hasBaseConfigured && (
+        <div id="runRow" style="display:flex;align-items:center;gap:8px;padding:8px 0">
+          <span id="reportStatusPill" style={{
+            display: '',
+            background: statusPill?.bg || '',
+            color: statusPill?.color || '',
+            border: statusPill?.border || '',
+            fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px',
+          }}>
+            {statusPill?.text || ''}
+          </span>
+          <button id="runBtn" class="btn btn-primary" disabled={runDisabled} onClick={runQuery}>Run Report</button>
+          <span id="runStatus" style="font-size:0.72rem;color:var(--muted)" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function addSort() {
+  db.sorts.push({ col: '', dir: 'ASC', enabled: true });
+  renderQueryBuilder();
+}
+
+function addFilter() {
+  db.filters.push({ col: '', op: 'contains', val: '', vals: [''], enabled: true });
+  renderQueryBuilder();
 }
 
 export function onBaseChange(val: string): void {
@@ -95,49 +136,31 @@ export function onBaseChange(val: string): void {
 }
 
 export function togglePreview(key: string): void {
-  if (_previewOpen.has(key)) {
-    _previewOpen.delete(key);
-  } else {
-    _previewOpen.add(key);
-  }
-  const ids = Object.keys(db.tables).sort((a, b) => db.tables[a].name.localeCompare(db.tables[b].name));
-  renderPipeline(ids);
+  if (_previewOpen.has(key)) _previewOpen.delete(key);
+  else _previewOpen.add(key);
+  renderQueryBuilder();
 }
 
 function _buildPreviewSQL(key: string): { sql: string; params: unknown[] } | null {
   const spec = {
-    base:        db.base,
-    baseCols:    db.baseCols,
-    stacks:      db.stacks,
-    excludedRows: db.excludedRows,
-    lookups:     db.lookups,
-    calcStages:  db.calcStages,
-    selCols:     db.selCols,
-    colOrder:    db.colOrder,
-    filters:     [],
-    sorts:       [],
-    groupBy:     [],
-    aggregates:  [],
-    aggMode:     'none',
-    colTotals:   {},
-    subtotalBy:  [],
-    subtotalFns: {},
+    base: db.base, baseCols: db.baseCols, stacks: db.stacks, excludedRows: db.excludedRows,
+    lookups: db.lookups, calcStages: db.calcStages, selCols: db.selCols, colOrder: db.colOrder,
+    filters: [], sorts: [], groupBy: [], aggregates: [], aggMode: 'none',
+    colTotals: {}, subtotalBy: [], subtotalFns: {},
   };
-
   if (key !== 'base') {
-    const lkMatch   = key.match(/^lk(\d+)$/);
+    const lkMatch = key.match(/^lk(\d+)$/);
     const calcMatch = key.match(/^calc(\d+)$/);
     if (!lkMatch && !calcMatch) return null;
     if (lkMatch) {
       const depth = +lkMatch[1];
-      spec.lookups    = (db.lookups || []).slice(0, depth + 1);
+      spec.lookups = (db.lookups || []).slice(0, depth + 1);
       spec.calcStages = [];
     } else {
       const depth = +calcMatch![1];
       spec.calcStages = (db.calcStages || []).slice(0, depth + 1);
     }
   }
-
   const srcCatalog = typeof buildSourceCatalog === 'function' ? buildSourceCatalog() : null;
   if (!srcCatalog) return null;
   const colCatalog = buildColumnCatalog(spec, srcCatalog);
@@ -157,7 +180,7 @@ export function _buildPreviewHTML(key: string): string {
       const baseCols = db.tables[db.base].cols;
       sql = ids.map(id => {
         const tCols = db.tables[id].cols;
-        const sel   = baseCols.map(c => tCols.includes(c) ? quoteId(c) : 'NULL').join(', ');
+        const sel = baseCols.map(c => tCols.includes(c) ? quoteId(c) : 'NULL').join(', ');
         return `SELECT ${sel} FROM ${quoteId(id)}`;
       }).join(' UNION ALL ');
       sql = `SELECT * FROM (${sql}) LIMIT 5`;
@@ -165,21 +188,21 @@ export function _buildPreviewHTML(key: string): string {
     } else {
       const result = _buildPreviewSQL(key);
       if (!result) return '<em>Unknown stage</em>';
-      sql    = result.sql;
+      sql = result.sql;
       params = result.params;
     }
     const rows = execQuery(sql, params);
     if (!rows.length) return '<em style="font-size:0.72rem;color:var(--muted)">No rows</em>';
-    const cols  = Object.keys(rows[0]);
+    const cols = Object.keys(rows[0]);
     const pvMap = buildColSourceMap();
     return `<table>
-      <thead><tr>${cols.map(c => `<th title="${h(c)}">${h(colDisplayLabel(c, pvMap))}</th>`).join('')}</tr></thead>
+      <thead><tr>${cols.map(c => `<th title="${c}">${colDisplayLabel(c, pvMap)}</th>`).join('')}</tr></thead>
       <tbody>${rows.map(r =>
-        `<tr>${cols.map(c => `<td title="${h(String(r[c] ?? ''))}">${h(String(r[c] ?? ''))}</td>`).join('')}</tr>`
-      ).join('')}</tbody>
+      `<tr>${cols.map(c => `<td title="${String(r[c] ?? '')}">${String(r[c] ?? '')}</td>`).join('')}</tr>`
+    ).join('')}</tbody>
     </table>`;
   } catch (ex: unknown) {
-    return `<em style="color:var(--red);font-size:0.72rem">Error: ${h((ex as Error).message)}</em>`;
+    return `<em style="color:var(--red);font-size:0.72rem">Error: ${(ex as Error).message}</em>`;
   }
 }
 
@@ -198,25 +221,21 @@ export function addLookup(): void {
   db.lookups.push({ rightId: '', keyPairs: [{ left: '', right: '' }], cols: [], required: false, enabled: true, duplicatePolicy: { mode: 'block' } });
   _afterCombineChange();
 }
-
 export function addCalcStage(): void {
   if (!db.base) return;
   if (!db.calcStages) db.calcStages = [];
   db.calcStages.push({
-    alias: '',
-    mode: 'math',
+    alias: '', mode: 'math',
     math: { strategy: 'stepChain', steps: [{ type: 'column', value: '' }, { type: 'column', value: '', op: '+' }] },
     enabled: true,
   });
   _afterCombineChange();
 }
-
 export function removeCalcStage(i: number): void {
   if (!Array.isArray(db.calcStages)) db.calcStages = [];
   db.calcStages.splice(i, 1);
   _afterCombineChange();
 }
-
 export function removeLookup(i: number): void {
   db.lookups.splice(i, 1);
   _afterCombineChange();
@@ -224,10 +243,7 @@ export function removeLookup(i: number): void {
 export function selectAllLookupCols(i: number): void {
   const lk = db.lookups[i];
   const rt = lk.rightId && db.tables[lk.rightId];
-  if (rt) {
-    _showLayoutAliasesForSource(lk.rightId);
-    _afterCombineChange();
-  }
+  if (rt) { _showLayoutAliasesForSource(lk.rightId); _afterCombineChange(); }
 }
 export function selectNoneLookupCols(i: number): void {
   const lk = db.lookups[i];
@@ -237,9 +253,7 @@ export function selectNoneLookupCols(i: number): void {
 
 export function runQuery(): void {
   if (!db.base || !db.tables[db.base]) return;
-
   invalidateValidation();
-
   const v = getValidation()!;
   if (v.reportStatus === 'blocked') {
     const blockingItems = (Object.values(v.items) as Array<{ blocking?: boolean; issues?: Array<{ message?: string }> }>).filter(item => item.blocking);
@@ -247,48 +261,45 @@ export function runQuery(): void {
     toast(`Can't run \u2014 fix source issues first (${firstMsg}${blockingItems.length > 1 ? ` and ${blockingItems.length - 1} more` : ''}).`, 'err');
     return;
   }
-
   const _hasAgg = db.aggMode === 'group' && (db.groupBy.length > 0 || db.aggregates.length > 0);
   if (!_hasAgg && !['totals', 'subtotals'].includes(db.aggMode) && db.selCols && db.selCols.size === 0) {
     toast('No output columns selected \u2014 click All or pick at least one column.', 'err');
     return;
   }
-
-  const status = $('runStatus')!;
+  const status = document.getElementById('runStatus')!;
   status.textContent = 'Running\u2026';
-
   setTimeout(() => {
     try {
       const resultSet = executeReport(db);
       if (!resultSet) throw new Error('No result set returned');
-
-      const displayRows = resultSet.rows.filter(r => !r._row_type);
-      const hasTotals   = !!resultSet.metadata.totalsRow;
-      const hasSubs     = !!resultSet.metadata.hasSubtotals;
-
-      db.result = {
-        rows:         resultSet.rows,
-        totalsRow:    resultSet.metadata.totalsRow || null,
-        cols:         resultSet.columns,
-        hasSubtotals: hasSubs,
-      };
-
+      const displayRows = resultSet.rows.filter((r: Record<string, unknown>) => !r._row_type);
+      const hasTotals = !!resultSet.metadata.totalsRow;
+      const hasSubs = !!resultSet.metadata.hasSubtotals;
+      db.result = { rows: resultSet.rows, totalsRow: resultSet.metadata.totalsRow || null, cols: resultSet.columns, hasSubtotals: hasSubs };
       let statusText = displayRows.length.toLocaleString() + ' rows';
       if (hasTotals) statusText += ' + grand total';
-      if (hasSubs)   statusText += ' (subtotals)';
+      if (hasSubs) statusText += ' (subtotals)';
       status.textContent = statusText;
-
       switchTab('results');
       renderResults(db.result);
     } catch (ex: unknown) {
       status.textContent = 'Error';
       toast('Query error: ' + (ex as Error).message, 'err');
-      console.error((ex as Error).message);
     }
   }, 20);
 }
 
-// HTML onclick / onchange compatibility
+// Legacy render function — mounts Preact component
+let _root: HTMLElement | null = null;
+
+export function renderQueryBuilder(): void {
+  invalidateValidation();
+  if (!_root) {
+    _root = document.getElementById('qBuilder') || document.getElementById('qEmpty')?.parentElement || document.body;
+  }
+  render(<QueryBuilder />, _root);
+}
+
 if (typeof window !== 'undefined') (window as unknown as Record<string, unknown>).onBaseChange = onBaseChange;
 if (typeof window !== 'undefined') (window as unknown as Record<string, unknown>).addStack = addStack;
 if (typeof window !== 'undefined') (window as unknown as Record<string, unknown>).addLookup = addLookup;

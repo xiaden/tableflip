@@ -2150,13 +2150,13 @@ ${fromPart}${joinPart}${wherePart}`);
     }
   }
   function L(n2, l3, u4, t3, i3, r3, o3, e3, f4, c3, a3) {
-    var s3, h5, p3, v3, y3, _3, g4, m3 = t3 && t3.__k || w, b2 = l3.length;
-    for (f4 = T(u4, l3, m3, f4, b2), s3 = 0; s3 < b2; s3++) null != (p3 = u4.__k[s3]) && (h5 = -1 != p3.__i && m3[p3.__i] || d, p3.__i = s3, _3 = q(n2, p3, h5, i3, r3, o3, e3, f4, c3, a3), v3 = p3.__e, p3.ref && h5.ref != p3.ref && (h5.ref && J(h5.ref, null, p3), a3.push(p3.ref, p3.__c || v3, p3)), null == y3 && null != v3 && (y3 = v3), (g4 = !!(4 & p3.__u)) || h5.__k === p3.__k ? (f4 = j(p3, f4, n2, g4), g4 && h5.__e && (h5.__e = null)) : "function" == typeof p3.type && void 0 !== _3 ? f4 = _3 : v3 && (f4 = v3.nextSibling), p3.__u &= -7);
+    var s3, h4, p3, v3, y3, _3, g4, m3 = t3 && t3.__k || w, b2 = l3.length;
+    for (f4 = T(u4, l3, m3, f4, b2), s3 = 0; s3 < b2; s3++) null != (p3 = u4.__k[s3]) && (h4 = -1 != p3.__i && m3[p3.__i] || d, p3.__i = s3, _3 = q(n2, p3, h4, i3, r3, o3, e3, f4, c3, a3), v3 = p3.__e, p3.ref && h4.ref != p3.ref && (h4.ref && J(h4.ref, null, p3), a3.push(p3.ref, p3.__c || v3, p3)), null == y3 && null != v3 && (y3 = v3), (g4 = !!(4 & p3.__u)) || h4.__k === p3.__k ? (f4 = j(p3, f4, n2, g4), g4 && h4.__e && (h4.__e = null)) : "function" == typeof p3.type && void 0 !== _3 ? f4 = _3 : v3 && (f4 = v3.nextSibling), p3.__u &= -7);
     return u4.__e = y3, f4;
   }
   function T(n2, l3, u4, t3, i3) {
-    var r3, o3, e3, f4, c3, a3 = u4.length, s3 = a3, h5 = 0;
-    for (n2.__k = new Array(i3), r3 = 0; r3 < i3; r3++) null != (o3 = l3[r3]) && "boolean" != typeof o3 && "function" != typeof o3 ? ("string" == typeof o3 || "number" == typeof o3 || "bigint" == typeof o3 || o3.constructor == String ? o3 = n2.__k[r3] = x(null, o3, null, null, null) : g(o3) ? o3 = n2.__k[r3] = x(S, { children: o3 }, null, null, null) : void 0 === o3.constructor && o3.__b > 0 ? o3 = n2.__k[r3] = x(o3.type, o3.props, o3.key, o3.ref ? o3.ref : null, o3.__v) : n2.__k[r3] = o3, f4 = r3 + h5, o3.__ = n2, o3.__b = n2.__b + 1, e3 = null, -1 != (c3 = o3.__i = O(o3, u4, f4, s3)) && (s3--, (e3 = u4[c3]) && (e3.__u |= 2)), null == e3 || null == e3.__v ? (-1 == c3 && (i3 > a3 ? h5-- : i3 < a3 && h5++), "function" != typeof o3.type && (o3.__u |= 4)) : c3 != f4 && (c3 == f4 - 1 ? h5-- : c3 == f4 + 1 ? h5++ : (c3 > f4 ? h5-- : h5++, o3.__u |= 4))) : n2.__k[r3] = null;
+    var r3, o3, e3, f4, c3, a3 = u4.length, s3 = a3, h4 = 0;
+    for (n2.__k = new Array(i3), r3 = 0; r3 < i3; r3++) null != (o3 = l3[r3]) && "boolean" != typeof o3 && "function" != typeof o3 ? ("string" == typeof o3 || "number" == typeof o3 || "bigint" == typeof o3 || o3.constructor == String ? o3 = n2.__k[r3] = x(null, o3, null, null, null) : g(o3) ? o3 = n2.__k[r3] = x(S, { children: o3 }, null, null, null) : void 0 === o3.constructor && o3.__b > 0 ? o3 = n2.__k[r3] = x(o3.type, o3.props, o3.key, o3.ref ? o3.ref : null, o3.__v) : n2.__k[r3] = o3, f4 = r3 + h4, o3.__ = n2, o3.__b = n2.__b + 1, e3 = null, -1 != (c3 = o3.__i = O(o3, u4, f4, s3)) && (s3--, (e3 = u4[c3]) && (e3.__u |= 2)), null == e3 || null == e3.__v ? (-1 == c3 && (i3 > a3 ? h4-- : i3 < a3 && h4++), "function" != typeof o3.type && (o3.__u |= 4)) : c3 != f4 && (c3 == f4 - 1 ? h4-- : c3 == f4 + 1 ? h4++ : (c3 > f4 ? h4-- : h4++, o3.__u |= 4))) : n2.__k[r3] = null;
     if (s3) for (r3 = 0; r3 < a3; r3++) null != (e3 = u4[r3]) && 0 == (2 & e3.__u) && (e3.__e == t3 && (t3 = $(e3)), K(e3, e3));
     return t3;
   }
@@ -2217,27 +2217,27 @@ ${fromPart}${joinPart}${wherePart}`);
     };
   }
   function q(n2, u4, t3, i3, r3, o3, e3, f4, c3, a3) {
-    var s3, h5, p3, v3, y3, d3, _3, k3, x3, M3, $4, I2, P4, A4, H3, T4 = u4.type;
+    var s3, h4, p3, v3, y3, d3, _3, k3, x3, M3, $3, I2, P4, A4, H3, T4 = u4.type;
     if (void 0 !== u4.constructor) return null;
     128 & t3.__u && (c3 = !!(32 & t3.__u), o3 = [f4 = u4.__e = t3.__e]), (s3 = l.__b) && s3(u4);
     n: if ("function" == typeof T4) try {
-      if (k3 = u4.props, x3 = T4.prototype && T4.prototype.render, M3 = (s3 = T4.contextType) && i3[s3.__c], $4 = s3 ? M3 ? M3.props.value : s3.__ : i3, t3.__c ? _3 = (h5 = u4.__c = t3.__c).__ = h5.__E : (x3 ? u4.__c = h5 = new T4(k3, $4) : (u4.__c = h5 = new C(k3, $4), h5.constructor = T4, h5.render = Q), M3 && M3.sub(h5), h5.state || (h5.state = {}), h5.__n = i3, p3 = h5.__d = true, h5.__h = [], h5._sb = []), x3 && null == h5.__s && (h5.__s = h5.state), x3 && null != T4.getDerivedStateFromProps && (h5.__s == h5.state && (h5.__s = m({}, h5.__s)), m(h5.__s, T4.getDerivedStateFromProps(k3, h5.__s))), v3 = h5.props, y3 = h5.state, h5.__v = u4, p3) x3 && null == T4.getDerivedStateFromProps && null != h5.componentWillMount && h5.componentWillMount(), x3 && null != h5.componentDidMount && h5.__h.push(h5.componentDidMount);
+      if (k3 = u4.props, x3 = T4.prototype && T4.prototype.render, M3 = (s3 = T4.contextType) && i3[s3.__c], $3 = s3 ? M3 ? M3.props.value : s3.__ : i3, t3.__c ? _3 = (h4 = u4.__c = t3.__c).__ = h4.__E : (x3 ? u4.__c = h4 = new T4(k3, $3) : (u4.__c = h4 = new C(k3, $3), h4.constructor = T4, h4.render = Q), M3 && M3.sub(h4), h4.state || (h4.state = {}), h4.__n = i3, p3 = h4.__d = true, h4.__h = [], h4._sb = []), x3 && null == h4.__s && (h4.__s = h4.state), x3 && null != T4.getDerivedStateFromProps && (h4.__s == h4.state && (h4.__s = m({}, h4.__s)), m(h4.__s, T4.getDerivedStateFromProps(k3, h4.__s))), v3 = h4.props, y3 = h4.state, h4.__v = u4, p3) x3 && null == T4.getDerivedStateFromProps && null != h4.componentWillMount && h4.componentWillMount(), x3 && null != h4.componentDidMount && h4.__h.push(h4.componentDidMount);
       else {
-        if (x3 && null == T4.getDerivedStateFromProps && k3 !== v3 && null != h5.componentWillReceiveProps && h5.componentWillReceiveProps(k3, $4), u4.__v == t3.__v || !h5.__e && null != h5.shouldComponentUpdate && false === h5.shouldComponentUpdate(k3, h5.__s, $4)) {
-          u4.__v != t3.__v && (h5.props = k3, h5.state = h5.__s, h5.__d = false), u4.__e = t3.__e, u4.__k = t3.__k, u4.__k.some(function(n3) {
+        if (x3 && null == T4.getDerivedStateFromProps && k3 !== v3 && null != h4.componentWillReceiveProps && h4.componentWillReceiveProps(k3, $3), u4.__v == t3.__v || !h4.__e && null != h4.shouldComponentUpdate && false === h4.shouldComponentUpdate(k3, h4.__s, $3)) {
+          u4.__v != t3.__v && (h4.props = k3, h4.state = h4.__s, h4.__d = false), u4.__e = t3.__e, u4.__k = t3.__k, u4.__k.some(function(n3) {
             n3 && (n3.__ = u4);
-          }), w.push.apply(h5.__h, h5._sb), h5._sb = [], h5.__h.length && e3.push(h5);
+          }), w.push.apply(h4.__h, h4._sb), h4._sb = [], h4.__h.length && e3.push(h4);
           break n;
         }
-        null != h5.componentWillUpdate && h5.componentWillUpdate(k3, h5.__s, $4), x3 && null != h5.componentDidUpdate && h5.__h.push(function() {
-          h5.componentDidUpdate(v3, y3, d3);
+        null != h4.componentWillUpdate && h4.componentWillUpdate(k3, h4.__s, $3), x3 && null != h4.componentDidUpdate && h4.__h.push(function() {
+          h4.componentDidUpdate(v3, y3, d3);
         });
       }
-      if (h5.context = $4, h5.props = k3, h5.__P = n2, h5.__e = false, I2 = l.__r, P4 = 0, x3) h5.state = h5.__s, h5.__d = false, I2 && I2(u4), s3 = h5.render(h5.props, h5.state, h5.context), w.push.apply(h5.__h, h5._sb), h5._sb = [];
+      if (h4.context = $3, h4.props = k3, h4.__P = n2, h4.__e = false, I2 = l.__r, P4 = 0, x3) h4.state = h4.__s, h4.__d = false, I2 && I2(u4), s3 = h4.render(h4.props, h4.state, h4.context), w.push.apply(h4.__h, h4._sb), h4._sb = [];
       else do {
-        h5.__d = false, I2 && I2(u4), s3 = h5.render(h5.props, h5.state, h5.context), h5.state = h5.__s;
-      } while (h5.__d && ++P4 < 25);
-      h5.state = h5.__s, null != h5.getChildContext && (i3 = m(m({}, i3), h5.getChildContext())), x3 && !p3 && null != h5.getSnapshotBeforeUpdate && (d3 = h5.getSnapshotBeforeUpdate(v3, y3)), A4 = null != s3 && s3.type === S && null == s3.key ? E(s3.props.children) : s3, f4 = L(n2, g(A4) ? A4 : [A4], u4, t3, i3, r3, o3, e3, f4, c3, a3), h5.base = u4.__e, u4.__u &= -161, h5.__h.length && e3.push(h5), _3 && (h5.__E = h5.__ = null);
+        h4.__d = false, I2 && I2(u4), s3 = h4.render(h4.props, h4.state, h4.context), h4.state = h4.__s;
+      } while (h4.__d && ++P4 < 25);
+      h4.state = h4.__s, null != h4.getChildContext && (i3 = m(m({}, i3), h4.getChildContext())), x3 && !p3 && null != h4.getSnapshotBeforeUpdate && (d3 = h4.getSnapshotBeforeUpdate(v3, y3)), A4 = null != s3 && s3.type === S && null == s3.key ? E(s3.props.children) : s3, f4 = L(n2, g(A4) ? A4 : [A4], u4, t3, i3, r3, o3, e3, f4, c3, a3), h4.base = u4.__e, u4.__u &= -161, h4.__h.length && e3.push(h4), _3 && (h4.__E = h4.__ = null);
     } catch (n3) {
       if (u4.__v = null, c3 || null != o3) if (n3.then) {
         for (u4.__u |= c3 ? 160 : 128; f4 && 8 == f4.nodeType && f4.nextSibling; ) f4 = f4.nextSibling;
@@ -2271,7 +2271,7 @@ ${fromPart}${joinPart}${wherePart}`);
     return "object" != typeof n2 || null == n2 || n2.__b > 0 ? n2 : g(n2) ? n2.map(E) : void 0 !== n2.constructor ? null : m({}, n2);
   }
   function G(u4, t3, i3, r3, o3, e3, f4, c3, a3) {
-    var s3, h5, p3, v3, y3, w3, _3, m3 = i3.props || d, k3 = t3.props, x3 = t3.type;
+    var s3, h4, p3, v3, y3, w3, _3, m3 = i3.props || d, k3 = t3.props, x3 = t3.type;
     if ("svg" == x3 ? o3 = "http://www.w3.org/2000/svg" : "math" == x3 ? o3 = "http://www.w3.org/1998/Math/MathML" : o3 || (o3 = "http://www.w3.org/1999/xhtml"), null != e3) {
       for (s3 = 0; s3 < e3.length; s3++) if ((y3 = e3[s3]) && "setAttribute" in y3 == !!x3 && (x3 ? y3.localName == x3 : 3 == y3.nodeType)) {
         u4 = y3, e3[s3] = null;
@@ -2286,8 +2286,8 @@ ${fromPart}${joinPart}${wherePart}`);
     else {
       if (e3 = "textarea" == x3 && null != k3.defaultValue ? null : e3 && n.call(u4.childNodes), !c3 && null != e3) for (m3 = {}, s3 = 0; s3 < u4.attributes.length; s3++) m3[(y3 = u4.attributes[s3]).name] = y3.value;
       for (s3 in m3) y3 = m3[s3], "dangerouslySetInnerHTML" == s3 ? p3 = y3 : "children" == s3 || s3 in k3 || "value" == s3 && "defaultValue" in k3 || "checked" == s3 && "defaultChecked" in k3 || N(u4, s3, null, y3, o3);
-      for (s3 in k3) y3 = k3[s3], "children" == s3 ? v3 = y3 : "dangerouslySetInnerHTML" == s3 ? h5 = y3 : "value" == s3 ? w3 = y3 : "checked" == s3 ? _3 = y3 : c3 && "function" != typeof y3 || m3[s3] === y3 || N(u4, s3, y3, m3[s3], o3);
-      if (h5) c3 || p3 && (h5.__html == p3.__html || h5.__html == u4.innerHTML) || (u4.innerHTML = h5.__html), t3.__k = [];
+      for (s3 in k3) y3 = k3[s3], "children" == s3 ? v3 = y3 : "dangerouslySetInnerHTML" == s3 ? h4 = y3 : "value" == s3 ? w3 = y3 : "checked" == s3 ? _3 = y3 : c3 && "function" != typeof y3 || m3[s3] === y3 || N(u4, s3, y3, m3[s3], o3);
+      if (h4) c3 || p3 && (h4.__html == p3.__html || h4.__html == u4.innerHTML) || (u4.innerHTML = h4.__html), t3.__k = [];
       else if (p3 && (u4.innerHTML = ""), L("template" == t3.type ? u4.content : u4, g(v3) ? v3 : [v3], t3, i3, r3, "foreignObject" == x3 ? "http://www.w3.org/1999/xhtml" : o3, e3, f4, e3 ? e3[0] : i3.__k && $(i3, 0), c3, a3), null != e3) for (s3 = e3.length; s3--; ) b(e3[s3]);
       c3 && "textarea" != x3 || (s3 = "value", "progress" == x3 && null == w3 ? u4.removeAttribute("value") : null != w3 && (w3 !== u4[s3] || "progress" == x3 && !w3 || "option" == x3 && w3 != m3[s3]) && N(u4, s3, w3, m3[s3], o3), s3 = "checked", null != _3 && _3 != u4[s3] && N(u4, s3, _3, m3[s3], o3));
     }
@@ -2360,6 +2360,43 @@ ${fromPart}${joinPart}${wherePart}`);
     var u4 = r2.__H || (r2.__H = { __: [], __h: [] });
     return n2 >= u4.__.length && u4.__.push({}), u4.__[n2];
   }
+  function d2(n2) {
+    return o2 = 1, h3(D2, n2);
+  }
+  function h3(n2, u4, i3) {
+    var o3 = p2(t2++, 2);
+    if (o3.t = n2, !o3.__c && (o3.__ = [i3 ? i3(u4) : D2(void 0, u4), function(n3) {
+      var t3 = o3.__N ? o3.__N[0] : o3.__[0], r3 = o3.t(t3, n3);
+      t3 !== r3 && (o3.__N = [r3, o3.__[1]], o3.__c.setState({}));
+    }], o3.__c = r2, !r2.__f)) {
+      var f4 = function(n3, t3, r3) {
+        if (!o3.__c.__H) return true;
+        var u5 = o3.__c.__H.__.filter(function(n4) {
+          return n4.__c;
+        });
+        if (u5.every(function(n4) {
+          return !n4.__N;
+        })) return !c3 || c3.call(this, n3, t3, r3);
+        var i4 = o3.__c.props !== n3;
+        return u5.some(function(n4) {
+          if (n4.__N) {
+            var t4 = n4.__[0];
+            n4.__ = n4.__N, n4.__N = void 0, t4 !== n4.__[0] && (i4 = true);
+          }
+        }), c3 && c3.call(this, n3, t3, r3) || i4;
+      };
+      r2.__f = true;
+      var c3 = r2.shouldComponentUpdate, e3 = r2.componentWillUpdate;
+      r2.componentWillUpdate = function(n3, t3, r3) {
+        if (this.__e) {
+          var u5 = c3;
+          c3 = void 0, f4(n3, t3, r3), c3 = u5;
+        }
+        e3 && e3.call(this, n3, t3, r3);
+      }, r2.shouldComponentUpdate = f4;
+    }
+    return o3.__N || o3.__;
+  }
   function y2(n2, u4) {
     var i3 = p2(t2++, 3);
     !c2.__s && C2(i3.__H, u4) && (i3.__ = n2, i3.u = u4, r2.__H.__h.push(i3));
@@ -2372,6 +2409,11 @@ ${fromPart}${joinPart}${wherePart}`);
   function T2(n2, r3) {
     var u4 = p2(t2++, 7);
     return C2(u4.__H, r3) && (u4.__ = n2(), u4.__H = r3, u4.__h = n2), u4.__;
+  }
+  function q2(n2, t3) {
+    return o2 = 8, T2(function() {
+      return n2;
+    }, t3);
   }
   function j2() {
     for (var n2; n2 = f2.shift(); ) {
@@ -2441,6 +2483,9 @@ ${fromPart}${joinPart}${wherePart}`);
     return !n2 || n2.length !== t3.length || t3.some(function(t4, r3) {
       return t4 !== n2[r3];
     });
+  }
+  function D2(n2, t3) {
+    return "function" == typeof t3 ? t3(n2) : t3;
   }
 
   // node_modules/preact/compat/dist/compat.module.js
@@ -2667,9 +2712,7 @@ ${fromPart}${joinPart}${wherePart}`);
     y2(() => {
       if (!open) return;
       const handleEscape = (e3) => {
-        if (e3.key === "Escape") {
-          onClose?.();
-        }
+        if (e3.key === "Escape") onClose?.();
       };
       document.addEventListener("keydown", handleEscape);
       return () => document.removeEventListener("keydown", handleEscape);
@@ -2700,146 +2743,76 @@ ${fromPart}${joinPart}${wherePart}`);
       document.body
     );
   }
-  var activeModal = null;
-  function showModal(options) {
-    const {
-      id = "modal-" + Date.now(),
-      title = "",
-      content = "",
-      buttons = [],
-      onClose,
-      closeOnBackdrop = true,
-      className = ""
-    } = options;
-    if (activeModal) closeModal();
-    const container = document.createElement("div");
-    container.id = id;
-    document.body.appendChild(container);
-    activeModal = container;
-    const handleClose = () => {
-      closeModal();
-      onClose?.();
-    };
-    nn(
-      /* @__PURE__ */ u3(
-        Modal,
-        {
-          open: true,
-          title,
-          onClose: handleClose,
-          closeOnBackdrop,
-          className,
-          buttons: buttons.map((btn) => ({
-            label: btn.label,
-            action: () => btn.action(),
-            primary: btn.primary,
-            className: btn.className
-          })),
-          children: /* @__PURE__ */ u3("div", { dangerouslySetInnerHTML: { __html: content } })
-        }
-      ),
-      container
-    );
-  }
-  function closeModal() {
-    if (activeModal) {
-      nn(null, activeModal);
-      activeModal.remove();
-      activeModal = null;
-    }
-  }
 
-  // js/ui/components/rename-modal.ts
+  // js/ui/components/rename-modal.tsx
   function resolveRenameTarget(alias) {
     const colMap = buildColSourceMap();
     const src = colMap.get(alias);
     if (!src) return null;
-    if (src.kind === "calc") {
-      return { alias, calcIdx: src.idx };
-    }
+    if (src.kind === "calc") return { alias, calcIdx: src.idx };
     return { alias, tid: src.tid, col: src.col };
   }
-  function renameSourceCol(tid, col, onDone) {
-    const colMap = buildColSourceMap();
-    for (const [alias, src] of colMap.entries()) {
-      if (src.kind !== "calc" && src.tid === tid && src.col === col) {
-        showRenameModal({ alias, tid, col }, onDone);
-        return;
-      }
-    }
-  }
-  function showRenameModal(target, onDone) {
+  function RenameModal({ target, onDone, onClose }) {
     const isCalc = target.calcIdx != null;
-    let current;
-    if (isCalc) {
-      const calc = Array.isArray(db.calcStages) ? db.calcStages[target.calcIdx] : null;
-      current = (calc?.alias || "").trim() || target.alias;
-    } else {
-      current = db.columnLabels?.[target.tid]?.[target.col] || "";
-    }
-    const inputId = "renameInput-" + Date.now();
-    showModal({
-      title: "Rename column",
-      content: `<label for="${inputId}" style="font-size:0.78rem;color:var(--muted)">Current name</label>
-      <input type="text" id="${inputId}" class="rename-modal-input" value="${h(current || target.alias)}">`,
-      buttons: [
-        {
-          label: "Cancel",
-          action: () => closeModal()
-        },
-        {
-          label: "Rename",
-          primary: true,
-          action: () => {
-            const inp = document.getElementById(inputId);
-            if (!inp) {
-              closeModal();
-              return;
-            }
-            const newName = inp.value.trim();
-            if (isCalc) {
-              if (newName && newName !== current) {
-                const calc = Array.isArray(db.calcStages) ? db.calcStages[target.calcIdx] : null;
-                if (calc) {
-                  calc.alias = newName;
-                  _renameProjectedAliasRefs(current, newName);
-                }
-              }
-            } else {
-              setColLabel(target.tid, target.col, newName);
-            }
-            closeModal();
-            onDone?.();
-          }
-        }
-      ],
-      closeOnBackdrop: true,
-      onClose: () => {
-      }
-    });
-    requestAnimationFrame(() => {
-      const inp = document.getElementById(inputId);
+    const current = isCalc ? ((Array.isArray(db.calcStages) ? db.calcStages[target.calcIdx]?.alias : "") || "").trim() || target.alias : db.columnLabels?.[target.tid]?.[target.col] || "";
+    const [value, setValue] = d2(current || target.alias);
+    const inputRef = A2(null);
+    y2(() => {
+      const inp = inputRef.current;
       if (inp) {
         inp.focus();
         inp.select();
-        inp.addEventListener("keydown", (e3) => {
-          if (e3.key === "Enter") {
-            e3.preventDefault();
-            const btn = inp.closest(".modal-content")?.querySelector(".btn-primary");
-            btn?.click();
-          }
-        });
       }
-    });
-  }
-
-  // js/ui/utils/dom.ts
-  var elementCache = /* @__PURE__ */ new Map();
-  function $3(id) {
-    if (!elementCache.has(id)) {
-      elementCache.set(id, document.getElementById(id));
-    }
-    return elementCache.get(id) || null;
+    }, []);
+    const handleRename = () => {
+      const newName = value.trim();
+      if (isCalc) {
+        if (newName && newName !== current) {
+          const calc = Array.isArray(db.calcStages) ? db.calcStages[target.calcIdx] : null;
+          if (calc) {
+            calc.alias = newName;
+            _renameProjectedAliasRefs(current, newName);
+          }
+        }
+      } else {
+        setColLabel(target.tid, target.col, newName);
+      }
+      onClose();
+      onDone?.();
+    };
+    const handleKey = (e3) => {
+      if (e3.key === "Enter") {
+        e3.preventDefault();
+        handleRename();
+      }
+    };
+    return /* @__PURE__ */ u3(
+      Modal,
+      {
+        open: true,
+        title: "Rename column",
+        onClose,
+        buttons: [
+          { label: "Cancel", action: onClose },
+          { label: "Rename", primary: true, action: handleRename }
+        ],
+        children: [
+          /* @__PURE__ */ u3("label", { for: "rename-input", style: "font-size:0.78rem;color:var(--muted)", children: "Current name" }),
+          /* @__PURE__ */ u3(
+            "input",
+            {
+              ref: inputRef,
+              id: "rename-input",
+              type: "text",
+              class: "rename-modal-input",
+              value,
+              onInput: (e3) => setValue(e3.target.value),
+              onKeyDown: handleKey
+            }
+          )
+        ]
+      }
+    );
   }
 
   // js/ui/components/context-menu.tsx
@@ -2879,82 +2852,71 @@ ${fromPart}${joinPart}${wherePart}`);
       document.body
     );
   }
-  var _legacyContainer = null;
-  function _hideTooltip() {
-    const tipBox = document.querySelector('[style*="z-index: 9500"]');
-    if (tipBox) tipBox.style.display = "none";
-  }
-  function isContextMenuOpen() {
-    return _legacyContainer !== null;
-  }
-  function showContextMenu(x3, y3, items) {
-    closeContextMenu();
-    _hideTooltip();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    _legacyContainer = container;
-    nn(
-      /* @__PURE__ */ u3(
-        ContextMenu,
-        {
-          x: x3,
-          y: y3,
-          items,
-          onClose: closeContextMenu
-        }
-      ),
-      container
-    );
-  }
-  function closeContextMenu() {
-    if (_legacyContainer) {
-      nn(null, _legacyContainer);
-      _legacyContainer.remove();
-      _legacyContainer = null;
-    }
-  }
 
   // js/ui/components/chip.tsx
-  function renderChip(options) {
-    const {
-      col,
-      label,
-      colorClass = "",
-      selected = false,
-      draggable = true,
-      tooltip = "",
-      badge = "",
-      badgeTooltip = "",
-      className = "",
-      chipClass = "chip",
-      dataAttrs,
-      inlineStyle
-    } = options;
-    const classes = [chipClass, selected ? "on" : "", colorClass, className].filter(Boolean).join(" ");
-    const badgeHtml = badge ? ` <span class="chip-warn-badge" data-autowarn="${col}" title="${badgeTooltip}">${badge}</span>` : "";
-    const draggableAttr = draggable ? 'draggable="true"' : "";
-    const tooltipAttr = tooltip ? `data-tip="${tooltip}"` : "";
-    const styleAttr = inlineStyle ? `style="${inlineStyle}"` : "";
-    const extraAttrs = dataAttrs ? Object.entries(dataAttrs).map(([k3, v3]) => `${k3}="${v3}"`).join(" ") : "";
-    return `<span class="${classes}" ${draggableAttr} data-col="${col}" ${extraAttrs} ${tooltipAttr} ${styleAttr}>${label}${badgeHtml}</span>`;
-  }
-  function getChipCol(chip) {
-    return chip.dataset.col || null;
+  function Chip({
+    col,
+    label,
+    colorClass = "",
+    selected = false,
+    draggable = true,
+    tooltip = "",
+    badge = "",
+    badgeTooltip = "",
+    className = "",
+    chipClass = "chip",
+    dataAttrs,
+    inlineStyle,
+    onClick,
+    onContextMenu,
+    onDblClick,
+    onDragStart,
+    onDragEnd,
+    onDragOver,
+    onDrop
+  }) {
+    const classes = [
+      chipClass,
+      selected ? "on" : "",
+      colorClass,
+      className
+    ].filter(Boolean).join(" ");
+    const extraAttrs = { ...dataAttrs };
+    return /* @__PURE__ */ u3(
+      "span",
+      {
+        class: classes,
+        draggable,
+        "data-col": col,
+        "data-tip": tooltip || void 0,
+        style: inlineStyle || void 0,
+        ...extraAttrs,
+        onClick,
+        onContextMenu,
+        onDblClick,
+        onDragStart,
+        onDragEnd,
+        onDragOver,
+        onDrop,
+        children: [
+          label,
+          badge && /* @__PURE__ */ u3(
+            "span",
+            {
+              class: "chip-warn-badge",
+              "data-autowarn": col,
+              title: badgeTooltip,
+              children: badge
+            }
+          )
+        ]
+      }
+    );
   }
 
   // js/ui/components/tip.tsx
-  function renderTip(text) {
-    return `<span class="tip" data-tip="${text}">?</span>`;
-  }
-
-  // js/ui/utils/events.ts
-  function delegate(parent, selector, event, handler) {
-    parent.addEventListener(event, ((e3) => {
-      const target = e3.target.closest(selector);
-      if (target && parent.contains(target)) {
-        handler(target, e3);
-      }
-    }));
+  function Tip({ text }) {
+    return /* @__PURE__ */ u3("span", { class: "tip", "data-tip": text, children: "?" });
   }
 
   // js/query/layout-selection.ts
@@ -3246,7 +3208,7 @@ ${fromPart}${joinPart}${wherePart}`);
     date: renderDateBuilder
   };
 
-  // js/ui/views/pipeline-card.ts
+  // js/ui/views/pipeline-card.tsx
   var lookupPropHandlers = {
     enabled: (lk, inp) => {
       const wasEnabled = lk.enabled !== false;
@@ -3297,13 +3259,13 @@ ${fromPart}${joinPart}${wherePart}`);
       lk.duplicatePolicy.mode = inp.value;
     },
     kpLeft: (lk, inp) => {
-      const pi = +inp.dataset.lkp;
+      const pi = +(inp.dataset.lkp ?? "0");
       if (!Array.isArray(lk.keyPairs)) lk.keyPairs = [{ left: "", right: "" }];
       if (!lk.keyPairs[pi]) lk.keyPairs[pi] = { left: "", right: "" };
       lk.keyPairs[pi].left = inp.value;
     },
     kpRight: (lk, inp) => {
-      const pi = +inp.dataset.lkp;
+      const pi = +(inp.dataset.lkp ?? "0");
       if (!Array.isArray(lk.keyPairs)) lk.keyPairs = [{ left: "", right: "" }];
       if (!lk.keyPairs[pi]) lk.keyPairs[pi] = { left: "", right: "" };
       lk.keyPairs[pi].right = inp.value;
@@ -3453,400 +3415,524 @@ ${fromPart}${joinPart}${wherePart}`);
       cond.val = inp.value;
     }
   };
-  function renderPipeline(ids) {
-    const pl = document.getElementById("pipeline");
-    const sortedIds = ids.sort((a3, b2) => db.tables[a3].name.localeCompare(db.tables[b2].name));
-    const usedAsLookup = new Set((db.lookups || []).map((l3) => l3.rightId).filter(Boolean));
-    const usedAsStack = new Set(db.stacks || []);
-    const layoutColMap = db.base && db.tables[db.base] ? buildColSourceMap() : /* @__PURE__ */ new Map();
-    const layoutMode = db.aggMode || "none";
-    const stackAvail = sortedIds.filter((id) => id !== db.base && !usedAsStack.has(id) && !usedAsLookup.has(id));
-    const lookupAvail = sortedIds.filter((id) => id !== db.base && !usedAsStack.has(id) && !usedAsLookup.has(id));
-    let html = "";
-    const stackSheetsHtml = db.base && db.tables[db.base] ? `
-    <div class="pl-stack-sheets" id="plStackSheets">
-      ${(db.stacks || []).filter((id) => db.tables[id]).map((id) => `
-        <span class="pl-stack-chip" style="border-left:3px solid ${getTableColor(id)}">
-          ${h(db.tables[id].name)}
-          <span class="rm" data-rmstack="${id}">\xD7</span>
-        </span>`).join("")}
-      ${stackAvail.length ? `
-        <div class="pl-add-btn" id="plStackAddBtn">\uFF0B Include</div>
-        <select class="pl-add-select" id="plStackSel" onchange="addStack(this.value)">
-          <option value="">pick a sheet\u2026</option>
-          ${stackAvail.map((id) => `<option value="${id}">${h(db.tables[id].name)}</option>`).join("")}
-        </select>` : ""}
-    </div>` : '<span style="font-size:0.76rem;color:var(--muted)">\u2190 Pick a sheet first</span>';
-    const baseColChipsHtml = db.base && db.tables[db.base] ? (() => {
-      const allCols = db.tables[db.base].cols;
-      return `<div class="pl-lookup-cols" style="margin-top:6px">
-      <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Columns:</span>
-      ${renderTip("Right-click any chip to rename it.")}
-      ${allCols.map((c3) => {
-        const isLayoutVisible = _isSourceVisibleInLayout(db.base, c3, layoutColMap, layoutMode);
-        const color = getTableColor(db.base);
-        const chipStyle = `background:${color};border-color:${color};color:${chipFgColor(color)}`;
-        return renderChip({
-          col: c3,
-          label: colUserLabel(db.base, c3),
-          selected: true,
-          draggable: false,
-          chipClass: "pl-col-chip",
-          className: isLayoutVisible ? "" : "pl-col-chip-layout-hidden",
-          tooltip: _sampleTipFor(db.base, c3, ["Click to show/hide this column in the report layout."]),
-          dataAttrs: { "data-bcc": c3 },
-          inlineStyle: chipStyle
-        });
-      }).join("")}
-      <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-bc-all="1">All</button>
-      <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-bc-none="1">None</button>
-    </div>`;
-    })() : "";
-    html += `<div class="pl-top-pair">
-    <div class="pl-stage">
-      <div class="pl-stage-label">Start from</div>
-      <div class="pl-base-row">
-        <select id="baseSelect" onchange="onBaseChange(this.value)">
-          <option value="">\u2014 select a sheet \u2014</option>
-          ${sortedIds.map((id) => `<option value="${id}" ${db.base === id ? "selected" : ""}>${h(db.tables[id].name)}</option>`).join("")}
-        </select>
-      </div>
-      ${baseColChipsHtml}
-    </div>
-    <div class="pl-h-arrow"><div class="pl-h-line"></div><div class="pl-h-head"></div></div>
-    <div class="pl-stage">
-      <div class="pl-stage-label">Include rows from ${renderTip("Add sheets with the same columns to get more rows. Like stacking spreadsheets on top of each other.")}</div>
-      ${stackSheetsHtml}
-    </div>
-  </div>`;
+  function StackSheets({ sortedIds, usedAsLookup, usedAsStack }) {
     if (!db.base || !db.tables[db.base]) {
-      pl.innerHTML = html;
-      return;
+      return /* @__PURE__ */ u3("span", { style: "font-size:0.76rem;color:var(--muted)", children: [
+        "\u2190",
+        " Pick a sheet first"
+      ] });
     }
-    html += _plArrow("base");
-    (db.lookups || []).forEach((lk, i3) => {
-      html += _plLookupStage(lk, i3, sortedIds, usedAsLookup, usedAsStack, layoutColMap, layoutMode);
-      html += _plArrow(`lk${i3}`);
-    });
-    (db.calcStages || []).forEach((calc, i3) => {
-      html += _plCalcStage(calc, i3);
-      html += _plArrow(`calc${i3}`);
-    });
-    html += `<div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;padding:2px 0 8px">
-    <div class="pl-add-btn" onclick="addLookup()">\uFF0B Look up columns from another sheet</div>
-    <div class="pl-add-btn" onclick="addCalcStage()">\uFF0B Add a calculated column from existing sheets</div>
-  </div>`;
-    pl.innerHTML = html;
-    const qs = (sel) => pl.querySelectorAll(sel);
-    const addBtn = pl.querySelector("#plStackAddBtn");
-    const addSel = pl.querySelector("#plStackSel");
-    if (addBtn && addSel) {
-      addBtn.addEventListener("click", () => {
-        addSel.style.cssText = "position:absolute;opacity:1;pointer-events:auto;width:auto;height:auto";
-        const r3 = addBtn.getBoundingClientRect();
-        addSel.style.top = r3.bottom + window.scrollY + 2 + "px";
-        addSel.style.left = r3.left + "px";
-        document.body.appendChild(addSel);
-        addSel.focus();
-        addSel.addEventListener("blur", () => {
-          addSel.style.cssText = "position:absolute;opacity:0;pointer-events:none;width:0;height:0";
-          pl.querySelector("#plStackSheets")?.appendChild(addSel);
+    const stackAvail = sortedIds.filter((id) => id !== db.base && !usedAsStack.has(id) && !usedAsLookup.has(id));
+    return /* @__PURE__ */ u3("div", { class: "pl-stack-sheets", children: [
+      (db.stacks || []).filter((id) => db.tables[id]).map((id) => /* @__PURE__ */ u3("span", { class: "pl-stack-chip", style: `border-left:3px solid ${getTableColor(id)}`, children: [
+        db.tables[id].name,
+        /* @__PURE__ */ u3("span", { class: "rm", onClick: () => removeStack(id), children: "\xD7" })
+      ] })),
+      stackAvail.length > 0 && /* @__PURE__ */ u3(
+        "select",
+        {
+          style: "position:absolute;opacity:0;pointer-events:none;width:0;height:0",
+          onChange: (e3) => {
+            addStack(e3.target.value);
+            e3.target.value = "";
+          },
+          children: [
+            /* @__PURE__ */ u3("option", { value: "", children: [
+              "pick a sheet",
+              "\u2026"
+            ] }),
+            stackAvail.map((id) => /* @__PURE__ */ u3("option", { value: id, children: db.tables[id].name }))
+          ]
+        }
+      ),
+      stackAvail.length > 0 && /* @__PURE__ */ u3("div", { class: "pl-add-btn", onClick: (e3) => {
+        const btn = e3.currentTarget;
+        const sel = btn.nextElementSibling;
+        if (!sel) return;
+        sel.style.cssText = "position:absolute;opacity:1;pointer-events:auto;width:auto;height:auto";
+        const r3 = btn.getBoundingClientRect();
+        sel.style.top = r3.bottom + window.scrollY + 2 + "px";
+        sel.style.left = r3.left + "px";
+        document.body.appendChild(sel);
+        sel.focus();
+        sel.addEventListener("blur", () => {
+          sel.style.cssText = "position:absolute;opacity:0;pointer-events:none;width:0;height:0";
+          btn.parentElement?.appendChild(sel);
         }, { once: true });
-      });
-    }
-    qs("[data-rmstack]").forEach((el) => {
-      el.addEventListener("click", () => removeStack(el.dataset.rmstack));
-    });
-    qs("[data-rmlookup]").forEach((el) => {
-      el.addEventListener("click", () => removeLookup(+el.dataset.rmlookup));
-    });
-    qs("[data-rmcalc]").forEach((el) => {
-      el.addEventListener("click", () => removeCalcStage(+el.dataset.rmcalc));
-    });
-    qs("[data-rmlkp]").forEach((el) => {
-      el.addEventListener("click", () => {
-        const lk = db.lookups[+el.dataset.li];
-        if (!lk || !Array.isArray(lk.keyPairs) || lk.keyPairs.length <= 1) return;
-        lk.keyPairs.splice(+el.dataset.lkp, 1);
-        _afterCombineChange();
-      });
-    });
-    qs("[data-addlkp]").forEach((el) => {
-      el.addEventListener("click", () => {
-        const lk = db.lookups[+el.dataset.addlkp];
-        if (!lk) return;
-        if (!Array.isArray(lk.keyPairs)) lk.keyPairs = [];
-        lk.keyPairs.push({ left: "", right: "" });
-        _afterCombineChange();
-      });
-    });
-    qs("[data-li]").forEach((el) => {
-      el.addEventListener("change", (e3) => {
-        const t3 = e3.target;
-        const i3 = +t3.dataset.li;
-        const lp = t3.dataset.lp;
-        if (!lp) return;
-        const lk = db.lookups[i3];
-        const inp = t3;
-        const handler = lookupPropHandlers[lp];
-        if (handler) {
-          handler(lk, inp, i3, el);
-          _afterCombineChange();
-        }
-      });
-    });
-    qs("[data-ci]").forEach((el) => {
-      el.addEventListener("change", (e3) => {
-        const t3 = e3.target;
-        const i3 = +t3.dataset.ci;
-        const cp = t3.dataset.cp;
-        if (!cp) return;
-        const c3 = db.calcStages?.[i3];
-        if (!c3) return;
-        const inp = t3;
-        const handler = calcPropHandlers[cp];
-        if (handler) {
-          handler(c3, inp, i3);
-          _afterCombineChange();
-        }
-      });
-    });
-    qs("[data-cond]").forEach((el) => {
-      el.addEventListener("change", (e3) => {
-        const t3 = e3.target;
-        const i3 = +t3.dataset.ci;
-        const j4 = +t3.dataset.cond;
-        const cp = t3.dataset.cp;
-        if (!cp) return;
-        const c3 = db.calcStages?.[i3];
-        if (!c3 || c3.mode !== "compare") return;
-        const compare = c3.compare;
-        if (!compare?.conditions?.[j4]) return;
-        const inp = t3;
-        const handler = condPropHandlers[cp];
-        if (handler) {
-          handler(compare.conditions[j4], inp);
-          _afterCombineChange();
-        }
-      });
-    });
-    qs("[data-lcc]").forEach((el) => {
-      el.addEventListener("click", () => {
-        const i3 = +el.dataset.li;
-        const col = el.dataset.lcc;
-        const lk = db.lookups[i3];
-        const colMap = buildColSourceMap();
-        const isLayoutVisible = _isSourceVisibleInLayout(lk.rightId, col, colMap, db.aggMode || "none");
-        if (isLayoutVisible) _hideLookupLayoutAliasesSafely(lk.rightId, col, i3);
-        else _showLayoutAliasesForSource(lk.rightId, col);
-        _afterCombineChange();
-      });
-    });
-    qs("[data-bcc]").forEach((el) => {
-      el.addEventListener("click", () => {
-        const col = el.dataset.bcc;
-        const colMap = buildColSourceMap();
-        const isLayoutVisible = _isSourceVisibleInLayout(db.base, col, colMap, db.aggMode || "none");
-        if (isLayoutVisible) _hideLayoutAliasesForSource(db.base, col);
-        else _showLayoutAliasesForSource(db.base, col);
-        _afterCombineChange();
-      });
-    });
-    qs("[data-ccc]").forEach((el) => {
-      el.addEventListener("click", () => {
-        const i3 = +el.dataset.ci;
-        const c3 = db.calcStages?.[i3];
-        const alias = (c3?.alias || "").trim();
-        if (!alias) return;
-        if (!db.selCols) db.selCols = new Set(projectedCols());
-        const s3 = db.selCols;
-        if (s3.has(alias)) s3.delete(alias);
-        else s3.add(alias);
-        _afterCombineChange();
-      });
-    });
-    delegate(pl, "[data-bcc]", "contextmenu", (el, e3) => {
-      e3.preventDefault();
-      showContextMenu(e3.clientX, e3.clientY, [
-        { label: "Rename", action: () => renameSourceCol(db.base, el.dataset.bcc, () => _afterCombineChange()) }
-      ]);
-    });
-    delegate(pl, "[data-lcc]", "contextmenu", (el, e3) => {
-      e3.preventDefault();
-      const lk = db.lookups[+el.dataset.li];
-      if (!lk?.rightId) return;
-      showContextMenu(e3.clientX, e3.clientY, [
-        { label: "Rename", action: () => renameSourceCol(lk.rightId, el.dataset.lcc, () => _afterCombineChange()) }
-      ]);
-    });
-    delegate(pl, "[data-ccc]", "contextmenu", (el, e3) => {
-      e3.preventDefault();
-      const c3 = db.calcStages?.[+el.dataset.ci];
-      const alias = (c3?.alias || "").trim();
-      if (!alias) return;
-      showContextMenu(e3.clientX, e3.clientY, [
-        { label: "Rename", action: () => {
-          const target = resolveRenameTarget(alias);
-          if (!target) return;
-          showRenameModal(target, () => _afterCombineChange());
-        } }
-      ]);
-    });
-    pl.querySelector("[data-bc-all]")?.addEventListener("click", () => {
-      _showLayoutAliasesForSource(db.base);
-      _afterCombineChange();
-    });
-    pl.querySelector("[data-bc-none]")?.addEventListener("click", () => {
-      _hideLayoutAliasesForSource(db.base);
-      _afterCombineChange();
-    });
-    qs("[data-lk-all]").forEach((el) => {
-      el.addEventListener("click", () => selectAllLookupCols(+el.dataset.lkAll));
-    });
-    qs("[data-lk-none]").forEach((el) => {
-      el.addEventListener("click", () => selectNoneLookupCols(+el.dataset.lkNone));
-    });
-    qs("[data-preview]").forEach((el) => {
-      el.addEventListener("click", () => togglePreview(el.dataset.preview));
-    });
+      }, children: [
+        "\uFF0B",
+        " Include"
+      ] })
+    ] });
   }
-  function _plArrow(key) {
-    const isOpen = _previewOpen.has(key);
-    return `<div class="pl-arrow">
-    <div class="pl-arrow-line"></div>
-    <div class="pl-arrow-meta">
-      <button class="pl-preview-btn" data-preview="${key}">${isOpen ? "\u25B2 Hide preview" : "\u25BC Preview"}</button>
-    </div>
-    <div class="pl-arrow-line"></div>
-    <div class="pl-arrow-head"></div>
-    ${isOpen ? `<div class="pl-mini-preview" id="preview_${key}">${_buildPreviewHTML(key)}</div>` : ""}
-  </div>`;
+  function BaseStage({ sortedIds, usedAsLookup, usedAsStack, layoutColMap, layoutMode }) {
+    const allCols = db.base && db.tables[db.base] ? db.tables[db.base].cols : [];
+    const [ctxMenu, setCtxMenu] = d2(null);
+    const [renameTarget, setRenameTarget] = d2(null);
+    return /* @__PURE__ */ u3(S, { children: [
+      /* @__PURE__ */ u3("div", { class: "pl-top-pair", children: [
+        /* @__PURE__ */ u3("div", { class: "pl-stage", children: [
+          /* @__PURE__ */ u3("div", { class: "pl-stage-label", children: "Start from" }),
+          /* @__PURE__ */ u3("div", { class: "pl-base-row", children: /* @__PURE__ */ u3("select", { value: db.base || "", onChange: (e3) => onBaseChange(e3.target.value), children: [
+            /* @__PURE__ */ u3("option", { value: "", children: [
+              "\u2014",
+              " select a sheet ",
+              "\u2014"
+            ] }),
+            sortedIds.map((id) => /* @__PURE__ */ u3("option", { value: id, children: db.tables[id].name }))
+          ] }) }),
+          db.base && db.tables[db.base] && /* @__PURE__ */ u3("div", { class: "pl-lookup-cols", style: "margin-top:6px", children: [
+            /* @__PURE__ */ u3("span", { style: "font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center", children: "Columns:" }),
+            /* @__PURE__ */ u3(Tip, { text: "Right-click any chip to rename it." }),
+            allCols.map((c3) => {
+              const isLayoutVisible = _isSourceVisibleInLayout(db.base, c3, layoutColMap, layoutMode);
+              const color = getTableColor(db.base);
+              const chipStyle = `background:${color};border-color:${color};color:${chipFgColor(color)}`;
+              return /* @__PURE__ */ u3(
+                Chip,
+                {
+                  col: c3,
+                  label: colUserLabel(db.base, c3),
+                  selected: true,
+                  draggable: false,
+                  chipClass: "pl-col-chip",
+                  className: isLayoutVisible ? "" : "pl-col-chip-layout-hidden",
+                  tooltip: _sampleTipFor(db.base, c3, ["Click to show/hide this column in the report layout."]),
+                  dataAttrs: { "data-bcc": c3 },
+                  inlineStyle: chipStyle,
+                  onClick: () => {
+                    const colMap = buildColSourceMap();
+                    const visible = _isSourceVisibleInLayout(db.base, c3, colMap, db.aggMode || "none");
+                    if (visible) _hideLayoutAliasesForSource(db.base, c3);
+                    else _showLayoutAliasesForSource(db.base, c3);
+                    _afterCombineChange();
+                  },
+                  onContextMenu: (e3) => {
+                    e3.preventDefault();
+                    const colMap = buildColSourceMap();
+                    let alias = "";
+                    for (const [a3, src] of colMap.entries()) {
+                      if (src && src.kind !== "calc" && src.tid === db.base && src.col === c3) {
+                        alias = a3;
+                        break;
+                      }
+                    }
+                    if (!alias) return;
+                    setCtxMenu({
+                      x: e3.clientX,
+                      y: e3.clientY,
+                      items: [{ label: "Rename", action: () => setRenameTarget(resolveRenameTarget(alias)) }]
+                    });
+                  }
+                }
+              );
+            }),
+            /* @__PURE__ */ u3(
+              "button",
+              {
+                class: "btn btn-ghost",
+                style: "font-size:0.68rem;padding:2px 6px;flex-shrink:0",
+                onClick: () => {
+                  _showLayoutAliasesForSource(db.base);
+                  _afterCombineChange();
+                },
+                children: "All"
+              }
+            ),
+            /* @__PURE__ */ u3(
+              "button",
+              {
+                class: "btn btn-ghost",
+                style: "font-size:0.68rem;padding:2px 6px;flex-shrink:0",
+                onClick: () => {
+                  _hideLayoutAliasesForSource(db.base);
+                  _afterCombineChange();
+                },
+                children: "None"
+              }
+            )
+          ] })
+        ] }),
+        /* @__PURE__ */ u3("div", { class: "pl-h-arrow", children: [
+          /* @__PURE__ */ u3("div", { class: "pl-h-line" }),
+          /* @__PURE__ */ u3("div", { class: "pl-h-head" })
+        ] }),
+        /* @__PURE__ */ u3("div", { class: "pl-stage", children: [
+          /* @__PURE__ */ u3("div", { class: "pl-stage-label", children: [
+            "Include rows from ",
+            /* @__PURE__ */ u3(Tip, { text: "Add sheets with the same columns to get more rows. Like stacking spreadsheets on top of each other." })
+          ] }),
+          /* @__PURE__ */ u3(StackSheets, { sortedIds, usedAsLookup, usedAsStack })
+        ] })
+      ] }),
+      ctxMenu && /* @__PURE__ */ u3(ContextMenu, { x: ctxMenu.x, y: ctxMenu.y, items: ctxMenu.items, onClose: () => setCtxMenu(null) }),
+      renameTarget && /* @__PURE__ */ u3(RenameModal, { target: renameTarget, onDone: () => _afterCombineChange(), onClose: () => setRenameTarget(null) })
+    ] });
   }
-  function _plLookupStage(lk, i3, sortedIds, usedAsLookup, usedAsStack, layoutColMap, layoutMode) {
+  function PipelineArrow({ id }) {
+    const isOpen = _previewOpen.has(id);
+    return /* @__PURE__ */ u3("div", { class: "pl-arrow", children: [
+      /* @__PURE__ */ u3("div", { class: "pl-arrow-line" }),
+      /* @__PURE__ */ u3("div", { class: "pl-arrow-meta", children: /* @__PURE__ */ u3("button", { class: "pl-preview-btn", onClick: () => togglePreview(id), children: isOpen ? "\u25B2 Hide preview" : "\u25BC Preview" }) }),
+      /* @__PURE__ */ u3("div", { class: "pl-arrow-line" }),
+      /* @__PURE__ */ u3("div", { class: "pl-arrow-head" }),
+      isOpen && /* @__PURE__ */ u3("div", { class: "pl-mini-preview", dangerouslySetInnerHTML: { __html: _buildPreviewHTML(id) } })
+    ] });
+  }
+  function LookupStage({ lk, i: i3, sortedIds, usedAsLookup, usedAsStack, layoutColMap, layoutMode }) {
     const rt = lk.rightId && db.tables[lk.rightId];
     const leftCols = projectedColsUpToLookup(i3);
     const rightCols = rt ? rt.cols : [];
     if (!Array.isArray(lk.keyPairs) || !lk.keyPairs.length) lk.keyPairs = [{ left: "", right: "" }];
     const pairs = lk.keyPairs;
-    const sheetOpts = sortedIds.filter((id) => id !== db.base && (!usedAsLookup.has(id) || id === lk.rightId) && !usedAsStack.has(id)).map((id) => `<option value="${id}" ${lk.rightId === id ? "selected" : ""}>${h(db.tables[id].name)}</option>`).join("");
     const lkColorCls = lk.rightId ? getTableColorClass(lk.rightId) : "";
     const lkColMap = buildColSourceMap();
-    const leftOptsFor = (val) => leftCols.map((c3) => `<option value="${h(c3)}" ${val === c3 ? "selected" : ""}>${h(colDisplayLabel(c3, lkColMap))}</option>`).join("");
-    const rightOptsFor = (val) => rightCols.map((c3) => `<option value="${h(c3)}" ${val === c3 ? "selected" : ""}>${h(`${db.tables[lk.rightId]?.name || lk.rightId} \u2192 ${colUserLabel(lk.rightId, c3)}`)}</option>`).join("");
-    const keyPairsHTML = pairs.map((pair, pi) => `
-    <div class="pl-key-pair">
-      <span class="pl-key-pair-label">${pi === 0 ? "Where" : "AND"}</span>
-      <select data-li="${i3}" data-lkp="${pi}" data-lp="kpLeft">
-        <option value="">\u2014 column \u2014</option>${leftOptsFor(pair.left)}
-      </select>
-      <span class="pl-lookup-eq">=</span>
-      <select data-li="${i3}" data-lkp="${pi}" data-lp="kpRight">
-        <option value="">\u2014 column \u2014</option>${rightOptsFor(pair.right)}
-      </select>
-      ${pairs.length > 1 ? `<button class="pl-rm-kp" data-rmlkp="1" data-li="${i3}" data-lkp="${pi}" title="Remove this condition">\u2715</button>` : ""}
-    </div>`).join("");
-    const colChips = rt ? rt.cols.map((c3) => {
-      const isLayoutVisible = _isSourceVisibleInLayout(lk.rightId, c3, layoutColMap, layoutMode);
-      return renderChip({
-        col: c3,
-        label: colUserLabel(lk.rightId, c3),
-        selected: true,
-        draggable: false,
-        chipClass: "pl-col-chip",
-        colorClass: lkColorCls,
-        className: isLayoutVisible ? "" : "pl-col-chip-layout-hidden",
-        tooltip: _sampleTipFor(lk.rightId, c3, ["Click to show/hide this lookup column in the report layout."]),
-        dataAttrs: { "data-li": String(i3), "data-lcc": c3 }
-      });
-    }).join("") : "";
+    const [ctxMenu, setCtxMenu] = d2(null);
+    const [renameTarget, setRenameTarget] = d2(null);
     const lkEnabled = lk.enabled !== false;
     const lkV = getValidation().items[`lookup_${i3}`];
     const lkVBlocked = lkV && lkV.blocking;
     const lkVUnresolved = lkV && !lkV.resolved;
     const lkVMsg = lkVUnresolved && lkV.issues[0] ? lkV.issues[0].message : null;
-    return `<div class="pl-lookup-stage${lkVBlocked ? " pl-lookup-stage--invalid" : lkVUnresolved && !lkEnabled ? " pl-lookup-stage--disabled-issue" : ""} ${!lkEnabled ? "pl-stage-disabled" : ""}">
-    <div class="pl-stage-label">Look up columns from ${renderTip("Pull columns from another sheet by matching a shared value \u2014 like VLOOKUP. Use '+ AND' to match on multiple columns at once.")}
-      <label class="pl-enable-toggle" title="${lkEnabled ? "Disable this lookup (won't block report)" : "Enable this lookup"}"><input type="checkbox" data-li="${i3}" data-lp="enabled" ${lkEnabled ? "checked" : ""}><span class="pl-enable-label">${lkEnabled ? "Enabled" : "Disabled"}</span></label>
-    </div>
-    ${lkVMsg ? `<div class="pl-lookup-error">${lkVBlocked ? "\u26D4" : "\u26A0"} ${h(lkVMsg)}</div>` : ""}
-    <div class="pl-lookup-header">
-      <select data-li="${i3}" data-lp="rightId">
-        <option value="">\u2014 pick a sheet \u2014</option>
-        ${sheetOpts}
-      </select>
-      <button class="btn btn-danger" style="flex-shrink:0" data-rmlookup="${i3}">\u2715</button>
-    </div>
-    ${rt ? `
-    <div class="pl-lookup-keys">
-      ${keyPairsHTML}
-      <button class="btn btn-ghost pl-add-kp" data-addlkp="${i3}">\uFF0B AND \u2026</button>
-    </div>
-    <div class="pl-lookup-required">
-      <span style="flex-shrink:0">If no match:</span>
-      <label><input type="radio" name="lkreq_${i3}" data-li="${i3}" data-lp="required" value="0" ${!lk.required ? "checked" : ""}> Leave blank</label>
-      <label><input type="radio" name="lkreq_${i3}" data-li="${i3}" data-lp="required" value="1" ${lk.required ? "checked" : ""}> Skip row</label>
-      ${renderTip("Leave blank: keep all rows even if no match.\nSkip row: only keep rows that match.")}
-    </div>
-    <div class="pl-lookup-required">
-      <span style="flex-shrink:0">Duplicate keys:</span>
-      <label><input type="radio" name="lkdup_${i3}" data-li="${i3}" data-lp="dupMode" value="block" ${(lk.duplicatePolicy && lk.duplicatePolicy.mode) !== "combine" ? "checked" : ""}> Block (error)</label>
-      <label><input type="radio" name="lkdup_${i3}" data-li="${i3}" data-lp="dupMode" value="combine" ${(lk.duplicatePolicy && lk.duplicatePolicy.mode) === "combine" ? "checked" : ""}> Combine values</label>
-      ${renderTip("Block: the report cannot run if the same key appears more than once in the lookup sheet.\nCombine: concatenate matching values into a single cell, e.g. 'Tag1; Tag2'.")}
-    </div>
-    <div class="pl-lookup-cols">
-      <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Bring in:</span>
-      ${renderTip("Right-click any chip to rename it.")}
-      ${colChips}
-      <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-lk-all="${i3}">All</button>
-      <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-lk-none="${i3}">None</button>
-    </div>` : ""}
-  </div>`;
+    const stageClasses = [
+      "pl-lookup-stage",
+      lkVBlocked ? "pl-lookup-stage--invalid" : "",
+      lkVUnresolved && !lkEnabled ? "pl-lookup-stage--disabled-issue" : "",
+      !lkEnabled ? "pl-stage-disabled" : ""
+    ].filter(Boolean).join(" ");
+    const handleLookupChange = (prop, e3) => {
+      const inp = e3.target;
+      const handler = lookupPropHandlers[prop];
+      if (handler) {
+        handler(lk, inp, i3);
+        _afterCombineChange();
+      }
+    };
+    return /* @__PURE__ */ u3(S, { children: [
+      /* @__PURE__ */ u3("div", { class: stageClasses, children: [
+        /* @__PURE__ */ u3("div", { class: "pl-stage-label", children: [
+          "Look up columns from ",
+          /* @__PURE__ */ u3(Tip, { text: "Pull columns from another sheet by matching a shared value \u2014 like VLOOKUP. Use '+ AND' to match on multiple columns at once." }),
+          /* @__PURE__ */ u3("label", { class: "pl-enable-toggle", title: lkEnabled ? "Disable this lookup (won't block report)" : "Enable this lookup", children: [
+            /* @__PURE__ */ u3("input", { type: "checkbox", checked: lkEnabled, onChange: (e3) => handleLookupChange("enabled", e3) }),
+            /* @__PURE__ */ u3("span", { class: "pl-enable-label", children: lkEnabled ? "Enabled" : "Disabled" })
+          ] })
+        ] }),
+        lkVMsg && /* @__PURE__ */ u3("div", { class: "pl-lookup-error", children: [
+          lkVBlocked ? "\u26D4" : "\u26A0",
+          " ",
+          lkVMsg
+        ] }),
+        /* @__PURE__ */ u3("div", { class: "pl-lookup-header", children: [
+          /* @__PURE__ */ u3("select", { value: lk.rightId || "", onChange: (e3) => handleLookupChange("rightId", e3), children: [
+            /* @__PURE__ */ u3("option", { value: "", children: [
+              "\u2014",
+              " pick a sheet ",
+              "\u2014"
+            ] }),
+            sortedIds.filter((id) => id !== db.base && (!usedAsLookup.has(id) || id === lk.rightId) && !usedAsStack.has(id)).map((id) => /* @__PURE__ */ u3("option", { value: id, children: db.tables[id].name }))
+          ] }),
+          /* @__PURE__ */ u3("button", { class: "btn btn-danger", style: "flex-shrink:0", onClick: () => removeLookup(i3), children: "\u2715" })
+        ] }),
+        rt && /* @__PURE__ */ u3("div", { class: "pl-lookup-keys", children: [
+          pairs.map((pair, pi) => /* @__PURE__ */ u3("div", { class: "pl-key-pair", children: [
+            /* @__PURE__ */ u3("span", { class: "pl-key-pair-label", children: pi === 0 ? "Where" : "AND" }),
+            /* @__PURE__ */ u3("select", { value: pair.left || "", "data-lkp": String(pi), onChange: (e3) => handleLookupChange("kpLeft", e3), children: [
+              /* @__PURE__ */ u3("option", { value: "", children: [
+                "\u2014",
+                " column ",
+                "\u2014"
+              ] }),
+              leftCols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: colDisplayLabel(c3, lkColMap) }))
+            ] }),
+            /* @__PURE__ */ u3("span", { class: "pl-lookup-eq", children: "=" }),
+            /* @__PURE__ */ u3("select", { value: pair.right || "", "data-lkp": String(pi), onChange: (e3) => handleLookupChange("kpRight", e3), children: [
+              /* @__PURE__ */ u3("option", { value: "", children: [
+                "\u2014",
+                " column ",
+                "\u2014"
+              ] }),
+              rightCols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: `${db.tables[lk.rightId]?.name || lk.rightId} \u2192 ${colUserLabel(lk.rightId, c3)}` }))
+            ] }),
+            pairs.length > 1 && /* @__PURE__ */ u3("button", { class: "pl-rm-kp", title: "Remove this condition", onClick: () => {
+              lk.keyPairs.splice(pi, 1);
+              _afterCombineChange();
+            }, children: "\u2715" })
+          ] })),
+          /* @__PURE__ */ u3("button", { class: "btn btn-ghost pl-add-kp", onClick: () => {
+            if (!Array.isArray(lk.keyPairs)) lk.keyPairs = [];
+            lk.keyPairs.push({ left: "", right: "" });
+            _afterCombineChange();
+          }, children: [
+            "\uFF0B",
+            " AND ",
+            "\u2026"
+          ] })
+        ] }),
+        rt && /* @__PURE__ */ u3("div", { class: "pl-lookup-required", children: [
+          /* @__PURE__ */ u3("span", { style: "flex-shrink:0", children: "If no match:" }),
+          /* @__PURE__ */ u3("label", { children: [
+            /* @__PURE__ */ u3("input", { type: "radio", name: `lkreq_${i3}`, value: "0", checked: !lk.required, onChange: (e3) => handleLookupChange("required", e3) }),
+            " Leave blank"
+          ] }),
+          /* @__PURE__ */ u3("label", { children: [
+            /* @__PURE__ */ u3("input", { type: "radio", name: `lkreq_${i3}`, value: "1", checked: lk.required, onChange: (e3) => handleLookupChange("required", e3) }),
+            " Skip row"
+          ] }),
+          /* @__PURE__ */ u3(Tip, { text: "Leave blank: keep all rows even if no match.\\nSkip row: only keep rows that match." })
+        ] }),
+        rt && /* @__PURE__ */ u3("div", { class: "pl-lookup-required", children: [
+          /* @__PURE__ */ u3("span", { style: "flex-shrink:0", children: "Duplicate keys:" }),
+          /* @__PURE__ */ u3("label", { children: [
+            /* @__PURE__ */ u3("input", { type: "radio", name: `lkdup_${i3}`, value: "block", checked: (lk.duplicatePolicy && lk.duplicatePolicy.mode) !== "combine", onChange: (e3) => handleLookupChange("dupMode", e3) }),
+            " Block (error)"
+          ] }),
+          /* @__PURE__ */ u3("label", { children: [
+            /* @__PURE__ */ u3("input", { type: "radio", name: `lkdup_${i3}`, value: "combine", checked: (lk.duplicatePolicy && lk.duplicatePolicy.mode) === "combine", onChange: (e3) => handleLookupChange("dupMode", e3) }),
+            " Combine values"
+          ] }),
+          /* @__PURE__ */ u3(Tip, { text: "Block: the report cannot run if the same key appears more than once in the lookup sheet.\nCombine: concatenate matching values into a single cell, e.g. 'Tag1; Tag2'." })
+        ] }),
+        rt && /* @__PURE__ */ u3("div", { class: "pl-lookup-cols", children: [
+          /* @__PURE__ */ u3("span", { style: "font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center", children: "Bring in:" }),
+          /* @__PURE__ */ u3(Tip, { text: "Right-click any chip to rename it." }),
+          rt.cols.map((c3) => {
+            const isLayoutVisible = _isSourceVisibleInLayout(lk.rightId, c3, layoutColMap, layoutMode);
+            return /* @__PURE__ */ u3(
+              Chip,
+              {
+                col: c3,
+                label: colUserLabel(lk.rightId, c3),
+                selected: true,
+                draggable: false,
+                chipClass: "pl-col-chip",
+                colorClass: lkColorCls,
+                className: isLayoutVisible ? "" : "pl-col-chip-layout-hidden",
+                tooltip: _sampleTipFor(lk.rightId, c3, ["Click to show/hide this lookup column in the report layout."]),
+                dataAttrs: { "data-li": String(i3), "data-lcc": c3 },
+                onClick: () => {
+                  const colMap = buildColSourceMap();
+                  const visible = _isSourceVisibleInLayout(lk.rightId, c3, colMap, db.aggMode || "none");
+                  if (visible) _hideLookupLayoutAliasesSafely(lk.rightId, c3, i3);
+                  else _showLayoutAliasesForSource(lk.rightId, c3);
+                  _afterCombineChange();
+                },
+                onContextMenu: (e3) => {
+                  e3.preventDefault();
+                  if (!lk.rightId) return;
+                  const colMap = buildColSourceMap();
+                  let alias = "";
+                  for (const [a3, src] of colMap.entries()) {
+                    if (src && src.kind !== "calc" && src.tid === lk.rightId && src.col === c3) {
+                      alias = a3;
+                      break;
+                    }
+                  }
+                  if (!alias) return;
+                  setCtxMenu({
+                    x: e3.clientX,
+                    y: e3.clientY,
+                    items: [{ label: "Rename", action: () => setRenameTarget(resolveRenameTarget(alias)) }]
+                  });
+                }
+              }
+            );
+          }),
+          /* @__PURE__ */ u3(
+            "button",
+            {
+              class: "btn btn-ghost",
+              style: "font-size:0.68rem;padding:2px 6px;flex-shrink:0",
+              onClick: () => selectAllLookupCols(i3),
+              children: "All"
+            }
+          ),
+          /* @__PURE__ */ u3(
+            "button",
+            {
+              class: "btn btn-ghost",
+              style: "font-size:0.68rem;padding:2px 6px;flex-shrink:0",
+              onClick: () => selectNoneLookupCols(i3),
+              children: "None"
+            }
+          )
+        ] })
+      ] }),
+      ctxMenu && /* @__PURE__ */ u3(ContextMenu, { x: ctxMenu.x, y: ctxMenu.y, items: ctxMenu.items, onClose: () => setCtxMenu(null) }),
+      renameTarget && /* @__PURE__ */ u3(RenameModal, { target: renameTarget, onDone: () => _afterCombineChange(), onClose: () => setRenameTarget(null) })
+    ] });
   }
-  function _plCalcStage(calc, i3) {
+  function CalcStageComponent({ calc, i: i3 }) {
     const cols = projectedCols();
     const colMap = buildColSourceMap();
     const alias = (calc.alias || "").trim();
     const mode = calc.mode || "math";
+    const [ctxMenu, setCtxMenu] = d2(null);
+    const [renameTarget, setRenameTarget] = d2(null);
     const calcEnabled = calc.enabled !== false;
     const calcV = getValidation().items[`calc_${i3}`];
     const calcVBlocked = calcV && calcV.blocking;
     const calcVUnresolved = calcV && !calcV.resolved;
     const calcVMsg = calcVUnresolved && calcV.issues[0] ? calcV.issues[0].message : null;
-    const colOptsFor = (sel) => cols.filter((c3) => c3 !== alias).map((c3) => `<option value="${h(c3)}" ${sel === c3 ? "selected" : ""}>${h(colDisplayLabel(c3, colMap))}</option>`).join("");
+    const stageClasses = [
+      "pl-lookup-stage",
+      calcVBlocked ? "pl-lookup-stage--invalid" : "",
+      calcVUnresolved && !calcEnabled ? "pl-lookup-stage--disabled-issue" : "",
+      !calcEnabled ? "pl-stage-disabled" : ""
+    ].filter(Boolean).join(" ");
+    const handleCalcChange = (prop, e3) => {
+      const inp = e3.target;
+      const handler = calcPropHandlers[prop];
+      if (handler) {
+        handler(calc, inp, i3);
+        _afterCombineChange();
+      }
+    };
+    const handleCondChange = (j4, prop, e3) => {
+      const inp = e3.target;
+      const compare = calc.compare;
+      if (!compare?.conditions?.[j4]) return;
+      const handler = condPropHandlers[prop];
+      if (handler) {
+        handler(compare.conditions[j4], inp);
+        _afterCombineChange();
+      }
+    };
+    const colOptsFor = (sel) => cols.filter((c3) => c3 !== alias).map((c3) => `<option value="${c3.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")}" ${sel === c3 ? "selected" : ""}>${colDisplayLabel(c3, colMap).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</option>`).join("");
     const builderCtx = { calc, i: i3, cols, colOptsFor };
     const builderHtml = calcModeRenderers[mode](builderCtx);
-    return `<div class="pl-lookup-stage${calcVBlocked ? " pl-lookup-stage--invalid" : calcVUnresolved && !calcEnabled ? " pl-lookup-stage--disabled-issue" : ""} ${!calcEnabled ? "pl-stage-disabled" : ""}">
-    <div class="pl-stage-label">Calculated column ${renderTip("Create a virtual column from existing columns.\nMath: arithmetic, rolling averages, percentages.\nText: string operations.\nCompare: conditional logic.\nDate: extract date parts.")}
-      <label class="pl-enable-toggle" title="${calcEnabled ? "Disable this calculated column" : "Enable this calculated column"}"><input type="checkbox" data-ci="${i3}" data-cp="enabled" ${calcEnabled ? "checked" : ""}><span class="pl-enable-label">${calcEnabled ? "Enabled" : "Disabled"}</span></label>
-    </div>
-    ${calcVMsg ? `<div class="pl-lookup-error">${calcVBlocked ? "\u26D4" : "\u26A0"} ${h(calcVMsg)}</div>` : ""}
-    <div class="pl-lookup-header" style="gap:8px;flex-wrap:wrap">
-      <input type="text" data-ci="${i3}" data-cp="alias" placeholder="Output column name" value="${h(calc.alias || "")}" style="flex:1;min-width:180px">
-      <button class="btn btn-danger" style="flex-shrink:0" data-rmcalc="${i3}">\u2715</button>
-    </div>
-    <div class="tab-row" style="margin-top:8px">
-      <label class="tab-opt"><input type="radio" name="calcMode_${i3}" value="math" ${mode === "math" ? "checked" : ""} data-ci="${i3}" data-cp="mode"><span>Math</span></label>
-      <label class="tab-opt"><input type="radio" name="calcMode_${i3}" value="text" ${mode === "text" ? "checked" : ""} data-ci="${i3}" data-cp="mode"><span>Text</span></label>
-      <label class="tab-opt"><input type="radio" name="calcMode_${i3}" value="compare" ${mode === "compare" ? "checked" : ""} data-ci="${i3}" data-cp="mode"><span>Compare</span></label>
-      <label class="tab-opt"><input type="radio" name="calcMode_${i3}" value="date" ${mode === "date" ? "checked" : ""} data-ci="${i3}" data-cp="mode"><span>Date</span></label>
-    </div>
-    ${builderHtml}
-    ${alias ? `<div class="pl-lookup-cols" style="margin-top:8px">
-      <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Output:</span>
-      ${renderTip("Right-click the chip to rename this column. The alias input above will update.")}
-      ${renderChip({
-      col: alias,
-      label: colDisplayLabel(alias, colMap),
-      selected: _isAliasVisibleInLayout(alias, db.aggMode || "none"),
-      draggable: false,
-      chipClass: "pl-col-chip",
-      dataAttrs: { "data-ci": String(i3), "data-ccc": alias }
-    })}
-    </div>` : ""}
-  </div>`;
+    return /* @__PURE__ */ u3(S, { children: [
+      /* @__PURE__ */ u3("div", { class: stageClasses, children: [
+        /* @__PURE__ */ u3("div", { class: "pl-stage-label", children: [
+          "Calculated column ",
+          /* @__PURE__ */ u3(Tip, { text: "Create a virtual column from existing columns.\nMath: arithmetic, rolling averages, percentages.\nText: string operations.\nCompare: conditional logic.\nDate: extract date parts." }),
+          /* @__PURE__ */ u3("label", { class: "pl-enable-toggle", title: calcEnabled ? "Disable this calculated column" : "Enable this calculated column", children: [
+            /* @__PURE__ */ u3("input", { type: "checkbox", checked: calcEnabled, onChange: (e3) => handleCalcChange("enabled", e3) }),
+            /* @__PURE__ */ u3("span", { class: "pl-enable-label", children: calcEnabled ? "Enabled" : "Disabled" })
+          ] })
+        ] }),
+        calcVMsg && /* @__PURE__ */ u3("div", { class: "pl-lookup-error", children: [
+          calcVBlocked ? "\u26D4" : "\u26A0",
+          " ",
+          calcVMsg
+        ] }),
+        /* @__PURE__ */ u3("div", { class: "pl-lookup-header", style: "gap:8px;flex-wrap:wrap", children: [
+          /* @__PURE__ */ u3(
+            "input",
+            {
+              type: "text",
+              placeholder: "Output column name",
+              value: calc.alias || "",
+              style: "flex:1;min-width:180px",
+              onChange: (e3) => handleCalcChange("alias", e3)
+            }
+          ),
+          /* @__PURE__ */ u3("button", { class: "btn btn-danger", style: "flex-shrink:0", onClick: () => removeCalcStage(i3), children: "\u2715" })
+        ] }),
+        /* @__PURE__ */ u3("div", { class: "tab-row", style: "margin-top:8px", children: [
+          /* @__PURE__ */ u3("label", { class: "tab-opt", children: [
+            /* @__PURE__ */ u3("input", { type: "radio", name: `calcMode_${i3}`, value: "math", checked: mode === "math", onChange: (e3) => handleCalcChange("mode", e3) }),
+            /* @__PURE__ */ u3("span", { children: "Math" })
+          ] }),
+          /* @__PURE__ */ u3("label", { class: "tab-opt", children: [
+            /* @__PURE__ */ u3("input", { type: "radio", name: `calcMode_${i3}`, value: "text", checked: mode === "text", onChange: (e3) => handleCalcChange("mode", e3) }),
+            /* @__PURE__ */ u3("span", { children: "Text" })
+          ] }),
+          /* @__PURE__ */ u3("label", { class: "tab-opt", children: [
+            /* @__PURE__ */ u3("input", { type: "radio", name: `calcMode_${i3}`, value: "compare", checked: mode === "compare", onChange: (e3) => handleCalcChange("mode", e3) }),
+            /* @__PURE__ */ u3("span", { children: "Compare" })
+          ] }),
+          /* @__PURE__ */ u3("label", { class: "tab-opt", children: [
+            /* @__PURE__ */ u3("input", { type: "radio", name: `calcMode_${i3}`, value: "date", checked: mode === "date", onChange: (e3) => handleCalcChange("mode", e3) }),
+            /* @__PURE__ */ u3("span", { children: "Date" })
+          ] })
+        ] }),
+        /* @__PURE__ */ u3("div", { onChange: (e3) => {
+          const t3 = e3.target;
+          const ci = t3.dataset.ci;
+          const cp = t3.dataset.cp;
+          const condIdx = t3.dataset.cond;
+          if (!ci || !cp) return;
+          if (condIdx !== void 0) {
+            handleCondChange(+condIdx, cp, e3);
+          } else {
+            handleCalcChange(cp, e3);
+          }
+        }, dangerouslySetInnerHTML: { __html: builderHtml } }),
+        alias && /* @__PURE__ */ u3("div", { class: "pl-lookup-cols", style: "margin-top:8px", children: [
+          /* @__PURE__ */ u3("span", { style: "font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center", children: "Output:" }),
+          /* @__PURE__ */ u3(Tip, { text: "Right-click the chip to rename this column. The alias input above will update." }),
+          /* @__PURE__ */ u3(
+            Chip,
+            {
+              col: alias,
+              label: colDisplayLabel(alias, colMap),
+              selected: _isAliasVisibleInLayout(alias, db.aggMode || "none"),
+              draggable: false,
+              chipClass: "pl-col-chip",
+              dataAttrs: { "data-ci": String(i3), "data-ccc": alias },
+              onClick: () => {
+                if (!db.selCols) db.selCols = new Set(projectedCols());
+                const s3 = db.selCols;
+                if (s3.has(alias)) s3.delete(alias);
+                else s3.add(alias);
+                _afterCombineChange();
+              },
+              onContextMenu: (e3) => {
+                e3.preventDefault();
+                setCtxMenu({
+                  x: e3.clientX,
+                  y: e3.clientY,
+                  items: [{
+                    label: "Rename",
+                    action: () => {
+                      const target = resolveRenameTarget(alias);
+                      if (!target) return;
+                      setRenameTarget(target);
+                    }
+                  }]
+                });
+              }
+            }
+          )
+        ] })
+      ] }),
+      ctxMenu && /* @__PURE__ */ u3(ContextMenu, { x: ctxMenu.x, y: ctxMenu.y, items: ctxMenu.items, onClose: () => setCtxMenu(null) }),
+      renameTarget && /* @__PURE__ */ u3(RenameModal, { target: renameTarget, onDone: () => _afterCombineChange(), onClose: () => setRenameTarget(null) })
+    ] });
+  }
+  function Pipeline() {
+    const ids = Object.keys(db.tables);
+    const sortedIds = ids.sort((a3, b2) => db.tables[a3].name.localeCompare(db.tables[b2].name));
+    const usedAsLookup = new Set((db.lookups || []).map((l3) => l3.rightId).filter(Boolean));
+    const usedAsStack = new Set(db.stacks || []);
+    const layoutColMap = db.base && db.tables[db.base] ? buildColSourceMap() : /* @__PURE__ */ new Map();
+    const layoutMode = db.aggMode || "none";
+    return /* @__PURE__ */ u3("div", { children: [
+      /* @__PURE__ */ u3(BaseStage, { sortedIds, usedAsLookup, usedAsStack, layoutColMap, layoutMode }),
+      db.base && db.tables[db.base] && /* @__PURE__ */ u3(PipelineArrow, { id: "base" }),
+      (db.lookups || []).map((lk, i3) => /* @__PURE__ */ u3("div", { children: [
+        /* @__PURE__ */ u3(LookupStage, { lk, i: i3, sortedIds, usedAsLookup, usedAsStack, layoutColMap, layoutMode }),
+        /* @__PURE__ */ u3(PipelineArrow, { id: `lk${i3}` })
+      ] })),
+      (db.calcStages || []).map((calc, i3) => /* @__PURE__ */ u3("div", { children: [
+        /* @__PURE__ */ u3(CalcStageComponent, { calc, i: i3 }),
+        /* @__PURE__ */ u3(PipelineArrow, { id: `calc${i3}` })
+      ] })),
+      /* @__PURE__ */ u3("div", { style: "display:flex;justify-content:center;gap:8px;flex-wrap:wrap;padding:2px 0 8px", children: [
+        /* @__PURE__ */ u3("div", { class: "pl-add-btn", onClick: () => addLookup(), children: [
+          "\uFF0B",
+          " Look up columns from another sheet"
+        ] }),
+        /* @__PURE__ */ u3("div", { class: "pl-add-btn", onClick: () => addCalcStage(), children: [
+          "\uFF0B",
+          " Add a calculated column from existing sheets"
+        ] })
+      ] })
+    ] });
   }
 
-  // js/ui/views/output-card.ts
+  // js/ui/views/output-card.tsx
   function _buildTooltip(c3, src) {
     if (src?.kind === "calc") {
       const calc = db.calcStages?.[src.idx];
@@ -3879,8 +3965,75 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     }
     return "";
   }
-  function renderColChips() {
-    if (!db.base) return;
+  function _chipAtPoint(el, x3, y3, dragCol) {
+    const chips = [...el.querySelectorAll("[data-col]")].filter((c3) => c3.dataset.col !== dragCol);
+    if (!chips.length) return null;
+    const direct = document.elementFromPoint(x3, y3)?.closest("[data-col]");
+    if (direct && direct.dataset.col !== dragCol) return direct;
+    const sameRow = chips.filter((c3) => {
+      const r3 = c3.getBoundingClientRect();
+      return y3 >= r3.top && y3 <= r3.bottom;
+    });
+    const pool = sameRow.length ? sameRow : chips;
+    let best = null, bestDist = Infinity;
+    for (const chip of pool) {
+      const r3 = chip.getBoundingClientRect();
+      const cx = (r3.left + r3.right) / 2;
+      const cy = (r3.top + r3.bottom) / 2;
+      const d3 = sameRow.length ? Math.abs(x3 - cx) : Math.hypot(x3 - cx, y3 - cy);
+      if (d3 < bestDist) {
+        bestDist = d3;
+        best = chip;
+      }
+    }
+    return best;
+  }
+  function handleDblClick(col) {
+    const mode = db.aggMode || "none";
+    if (mode === "group") {
+      const idx = db.groupBy.indexOf(col);
+      if (idx >= 0) {
+        db.groupBy.splice(idx, 1);
+        if (db.groupBy.length === 0) {
+          db.aggregates = db.aggregates.filter((a3) => !a3.auto);
+        } else if (!db.aggregates.some((a3) => a3.col === col)) {
+          db.aggregates.push({ fn: smartDefaultFn(col), col, alias: "", auto: true });
+        }
+      } else {
+        db.groupBy.push(col);
+        db.aggregates = db.aggregates.filter((a3) => !(a3.auto && a3.col === col));
+        const allCols = projectedCols();
+        for (const c3 of allCols) {
+          if (!db.groupBy.includes(c3) && !db.aggregates.some((a3) => a3.col === c3)) {
+            db.aggregates.push({ fn: smartDefaultFn(c3), col: c3, alias: "", auto: true });
+          }
+        }
+      }
+      renderAggregation();
+    } else if (mode === "subtotals") {
+      const sb = db.subtotalBy || (db.subtotalBy = []);
+      const idx = sb.indexOf(col);
+      if (idx >= 0) {
+        sb.splice(idx, 1);
+        delete db.subtotalFns[col];
+      } else {
+        sb.push(col);
+      }
+      _syncSubtotalByToLayout();
+      renderAggregation();
+    } else {
+      if (!db.selCols) db.selCols = new Set(projectedCols());
+      const s3 = db.selCols;
+      if (s3.has(col)) s3.delete(col);
+      renderQueryBuilder();
+    }
+  }
+  function ColChips() {
+    const containerRef = A2(null);
+    const dragColRef = A2(null);
+    const [ctxMenu, setCtxMenu] = d2(null);
+    const [renameTarget, setRenameTarget] = d2(null);
+    if (!db.base) return null;
     const cols = projectedCols();
     const colMap = buildColSourceMap();
     const mode = db.aggMode || "none";
@@ -3903,169 +4056,37 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     const showBadges = mode === "group" && groupSet.size > 0;
     const selSet = db.selCols;
     const colOrder = db.colOrder;
-    $3("colChips").innerHTML = colOrder.map((c3) => {
-      const src = colMap.get(c3);
-      const colorCls = src ? getTableColorClass(src.tid) : "";
-      const label = colDisplayLabel(c3, colMap);
-      if (selSet && !selSet.has(c3)) return "";
-      const tip = _buildTooltip(c3, src);
-      if (mode === "group") {
-        const isOn2 = groupSet.has(c3);
-        const hasAgg = db.aggregates.some((a3) => a3.col === c3);
-        const isOrphan = showBadges && !isOn2 && !hasAgg;
-        const badge = isOrphan ? "\u26A0" : "";
-        const badgeTip = isOrphan ? "No calculation for this column \u2014 it will be dropped from results. Click \u26A0 to add one automatically." : "";
-        return renderChip({
-          col: c3,
-          label,
-          colorClass: colorCls,
-          selected: isOn2,
-          draggable: true,
-          tooltip: tip,
-          badge,
-          badgeTooltip: badgeTip,
-          className: isOrphan ? "chip-orphan" : ""
-        });
-      } else if (mode === "subtotals") {
-        const isOn2 = (db.subtotalBy || []).includes(c3);
-        return renderChip({ col: c3, label, colorClass: colorCls, selected: isOn2, draggable: true, tooltip: tip });
-      }
-      const isOn = selSet ? selSet.has(c3) : false;
-      return renderChip({ col: c3, label, colorClass: colorCls, selected: isOn, draggable: true, tooltip: tip });
-    }).join("");
-    const btnRow = $3("colBtnRow");
-    if (btnRow) btnRow.style.display = mode === "group" || mode === "subtotals" ? "none" : "";
-    const hint = $3("colCardHint");
-    if (hint) {
-      if (mode === "group") {
-        hint.textContent = "\u2014 double-click to group by \xB7 drag to reorder \xB7 right-click to rename";
-      } else if (mode === "subtotals") {
-        hint.textContent = "\u2014 double-click to group rows \xB7 drag to reorder \xB7 right-click to rename";
-      } else {
-        hint.textContent = "\u2014 double-click to show/hide \xB7 drag to reorder \xB7 right-click to rename";
-      }
-    }
-  }
-  if (typeof document !== "undefined") {
-    let _chipAtPoint = function(el, x3, y3) {
-      const chips = [...el.querySelectorAll("[data-col]")].filter((c3) => c3.dataset.col !== _dragCol);
-      if (!chips.length) return null;
-      const direct = document.elementFromPoint(x3, y3)?.closest("[data-col]");
-      if (direct && direct.dataset.col !== _dragCol) return direct;
-      const sameRow = chips.filter((c3) => {
-        const r3 = c3.getBoundingClientRect();
-        return y3 >= r3.top && y3 <= r3.bottom;
-      });
-      const pool = sameRow.length ? sameRow : chips;
-      let best = null, bestDist = Infinity;
-      for (const chip of pool) {
-        const r3 = chip.getBoundingClientRect();
-        const cx = (r3.left + r3.right) / 2;
-        const cy = (r3.top + r3.bottom) / 2;
-        const d3 = sameRow.length ? Math.abs(x3 - cx) : Math.hypot(x3 - cx, y3 - cy);
-        if (d3 < bestDist) {
-          bestDist = d3;
-          best = chip;
-        }
-      }
-      return best;
-    };
-    _chipAtPoint2 = _chipAtPoint;
-    const container = () => $3("colChips");
-    let _dragCol = null;
-    delegate(container(), "[data-autowarn]", "click", (badge, e3) => {
-      e3.stopPropagation();
-      const col = badge.dataset.autowarn;
-      if (!db.aggregates.some((a3) => a3.col === col)) {
-        db.aggregates.push({ fn: smartDefaultFn(col), col, alias: "", auto: true });
-      }
-      renderColChips();
-      renderAggregateItems(projectedCols());
-    });
-    delegate(container(), ".chip[data-col]", "dblclick", (chip) => {
-      const col = getChipCol(chip);
-      const mode = db.aggMode || "none";
-      if (mode === "group") {
-        const idx = db.groupBy.indexOf(col);
-        if (idx >= 0) {
-          db.groupBy.splice(idx, 1);
-          if (db.groupBy.length === 0) {
-            db.aggregates = db.aggregates.filter((a3) => !a3.auto);
-          } else if (!db.aggregates.some((a3) => a3.col === col)) {
-            db.aggregates.push({ fn: smartDefaultFn(col), col, alias: "", auto: true });
-          }
-        } else {
-          db.groupBy.push(col);
-          db.aggregates = db.aggregates.filter((a3) => !(a3.auto && a3.col === col));
-          const allCols = projectedCols();
-          for (const c3 of allCols) {
-            if (!db.groupBy.includes(c3) && !db.aggregates.some((a3) => a3.col === c3)) {
-              db.aggregates.push({ fn: smartDefaultFn(c3), col: c3, alias: "", auto: true });
-            }
-          }
-        }
-        renderAggregation();
-      } else if (mode === "subtotals") {
-        const sb = db.subtotalBy || (db.subtotalBy = []);
-        const idx = sb.indexOf(col);
-        if (idx >= 0) {
-          sb.splice(idx, 1);
-          delete db.subtotalFns[col];
-        } else {
-          sb.push(col);
-        }
-        _syncSubtotalByToLayout();
-        renderAggregation();
-      } else {
-        if (!db.selCols) db.selCols = new Set(projectedCols());
-        const s3 = db.selCols;
-        if (s3.has(col)) s3.delete(col);
-        renderQueryBuilder();
-      }
-    });
-    delegate(container(), ".chip[data-col]", "contextmenu", (chip, e3) => {
-      e3.preventDefault();
-      const alias = getChipCol(chip);
-      showContextMenu(e3.clientX, e3.clientY, [
-        {
-          label: "Rename",
-          action: () => {
-            const target = resolveRenameTarget(alias);
-            if (!target) return;
-            showRenameModal(target, () => {
-              renderQueryBuilder();
-              if (db.result) renderResults(db.result);
-            });
-          }
-        }
-      ]);
-    });
-    delegate(container(), "[data-col]", "dragstart", (chip, e3) => {
-      _dragCol = chip.dataset.col;
-      chip.classList.add("dragging");
+    const onDragStart = q2((col, e3) => {
+      dragColRef.current = col;
+      e3.target.classList.add("dragging");
       if (e3.dataTransfer) e3.dataTransfer.effectAllowed = "move";
-    });
-    delegate(container(), "[data-col]", "dragend", () => {
-      _dragCol = null;
-      container().querySelectorAll(".chip").forEach((c3) => c3.classList.remove("dragging", "drag-over"));
-    });
-    delegate(container(), "[data-col]", "dragover", (_chip, e3) => {
+    }, []);
+    const onDragEnd = q2(() => {
+      dragColRef.current = null;
+      containerRef.current?.querySelectorAll(".chip").forEach((c3) => c3.classList.remove("dragging", "drag-over"));
+    }, []);
+    const onDragOver = q2((e3) => {
       e3.preventDefault();
       if (e3.dataTransfer) e3.dataTransfer.dropEffect = "move";
-      const nearest = _chipAtPoint(container(), e3.clientX, e3.clientY);
-      container().querySelectorAll(".chip").forEach((c3) => c3.classList.remove("drag-over"));
+      const el = containerRef.current;
+      if (!el) return;
+      const nearest = _chipAtPoint(el, e3.clientX, e3.clientY, dragColRef.current);
+      el.querySelectorAll(".chip").forEach((c3) => c3.classList.remove("drag-over"));
       if (nearest) nearest.classList.add("drag-over");
-    });
-    delegate(container(), "[data-col]", "drop", (_chip, e3) => {
+    }, []);
+    const onDrop = q2((e3) => {
       e3.preventDefault();
-      const nearest = _chipAtPoint(container(), e3.clientX, e3.clientY);
-      if (!nearest || !_dragCol || nearest.dataset.col === _dragCol) return;
+      const el = containerRef.current;
+      if (!el) return;
+      const nearest = _chipAtPoint(el, e3.clientX, e3.clientY, dragColRef.current);
+      const dragCol = dragColRef.current;
+      if (!nearest || !dragCol || nearest.dataset.col === dragCol) return;
       if (!db.colOrder) db.colOrder = projectedCols();
-      const from = db.colOrder.indexOf(_dragCol);
+      const from = db.colOrder.indexOf(dragCol);
       const to = db.colOrder.indexOf(nearest.dataset.col);
       if (from < 0 || to < 0) return;
       db.colOrder.splice(from, 1);
-      db.colOrder.splice(to, 0, _dragCol);
+      db.colOrder.splice(to, 0, dragCol);
       _syncSubtotalByToLayout();
       renderQueryBuilder();
       if ((db.aggMode || "none") === "subtotals") {
@@ -4073,25 +4094,132 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
         const ordered = Array.isArray(db.colOrder) ? db.colOrder.filter((c3) => projected.includes(c3)) : projected;
         renderSubtotalsSection(ordered);
       }
-    });
+    }, []);
+    const hint = mode === "group" ? "\u2014 double-click to group by \xB7 drag to reorder \xB7 right-click to rename" : mode === "subtotals" ? "\u2014 double-click to group rows \xB7 drag to reorder \xB7 right-click to rename" : "\u2014 double-click to show/hide \xB7 drag to reorder \xB7 right-click to rename";
+    return /* @__PURE__ */ u3("div", { children: [
+      /* @__PURE__ */ u3(
+        "div",
+        {
+          ref: containerRef,
+          id: "colChips",
+          onDragOver,
+          onDrop,
+          children: colOrder.map((c3) => {
+            const src = colMap.get(c3);
+            const colorCls = src ? getTableColorClass(src.tid) : "";
+            const label = colDisplayLabel(c3, colMap);
+            if (selSet && !selSet.has(c3)) return null;
+            const tip = _buildTooltip(c3, src);
+            if (mode === "group") {
+              const isOn2 = groupSet.has(c3);
+              const hasAgg = db.aggregates.some((a3) => a3.col === c3);
+              const isOrphan = showBadges && !isOn2 && !hasAgg;
+              const badge = isOrphan ? "\u26A0" : "";
+              const badgeTip = isOrphan ? "No calculation for this column \u2014 it will be dropped from results. Click \u26A0 to add one automatically." : "";
+              return /* @__PURE__ */ u3(
+                Chip,
+                {
+                  col: c3,
+                  label,
+                  colorClass: colorCls,
+                  selected: isOn2,
+                  draggable: true,
+                  tooltip: tip,
+                  badge,
+                  badgeTooltip: badgeTip,
+                  className: isOrphan ? "chip-orphan" : "",
+                  onDblClick: () => handleDblClick(c3),
+                  onContextMenu: (e3) => {
+                    e3.preventDefault();
+                    setCtxMenu({ x: e3.clientX, y: e3.clientY, items: [{ label: "Rename", action: () => setRenameTarget(resolveRenameTarget(c3)) }] });
+                  },
+                  onDragStart: (e3) => onDragStart(c3, e3),
+                  onDragEnd
+                },
+                c3
+              );
+            } else if (mode === "subtotals") {
+              const isOn2 = (db.subtotalBy || []).includes(c3);
+              return /* @__PURE__ */ u3(
+                Chip,
+                {
+                  col: c3,
+                  label,
+                  colorClass: colorCls,
+                  selected: isOn2,
+                  draggable: true,
+                  tooltip: tip,
+                  onDblClick: () => handleDblClick(c3),
+                  onContextMenu: (e3) => {
+                    e3.preventDefault();
+                    setCtxMenu({ x: e3.clientX, y: e3.clientY, items: [{ label: "Rename", action: () => setRenameTarget(resolveRenameTarget(c3)) }] });
+                  },
+                  onDragStart: (e3) => onDragStart(c3, e3),
+                  onDragEnd
+                },
+                c3
+              );
+            }
+            const isOn = selSet ? selSet.has(c3) : false;
+            return /* @__PURE__ */ u3(
+              Chip,
+              {
+                col: c3,
+                label,
+                colorClass: colorCls,
+                selected: isOn,
+                draggable: true,
+                tooltip: tip,
+                onDblClick: () => handleDblClick(c3),
+                onContextMenu: (e3) => {
+                  e3.preventDefault();
+                  setCtxMenu({ x: e3.clientX, y: e3.clientY, items: [{ label: "Rename", action: () => setRenameTarget(resolveRenameTarget(c3)) }] });
+                },
+                onDragStart: (e3) => onDragStart(c3, e3),
+                onDragEnd
+              },
+              c3
+            );
+          })
+        }
+      ),
+      /* @__PURE__ */ u3("div", { id: "colCardHint", style: "font-size:0.72rem;color:var(--muted);margin-top:4px", children: hint }),
+      ctxMenu && /* @__PURE__ */ u3(
+        ContextMenu,
+        {
+          x: ctxMenu.x,
+          y: ctxMenu.y,
+          items: ctxMenu.items,
+          onClose: () => setCtxMenu(null)
+        }
+      ),
+      renameTarget && /* @__PURE__ */ u3(
+        RenameModal,
+        {
+          target: renameTarget,
+          onDone: () => {
+            renderQueryBuilder();
+            if (db.result) renderResults(db.result);
+          },
+          onClose: () => setRenameTarget(null)
+        }
+      )
+    ] });
   }
-  var _chipAtPoint2;
   function selectAllCols() {
     db.selCols = new Set(projectedCols());
-    renderColChips();
+    renderQueryBuilder();
   }
   if (typeof window !== "undefined") window.selectAllCols = selectAllCols;
   function selectNoneCols() {
     db.selCols = /* @__PURE__ */ new Set();
-    renderColChips();
+    renderQueryBuilder();
   }
   if (typeof window !== "undefined") window.selectNoneCols = selectNoneCols;
-  function renderMergeToggles(cols) {
-    const wrap = $3("mergeToggles");
-    if (!wrap) return;
-    const ulChk = $3("chkMergeGroupUnderline");
-    if (ulChk) ulChk.checked = !!db.mergeGroupUnderline;
-    const baseDisplayCols = (cols || []).filter((c3) => c3 !== "_rowno" && c3 !== "_row_type" && c3 !== "_isTotalsRow");
+  function MergeToggles() {
+    const cols = db.result?.cols || [];
+    if (!cols.length) return null;
+    const baseDisplayCols = cols.filter((c3) => c3 !== "_rowno" && c3 !== "_row_type" && c3 !== "_isTotalsRow");
     const visibleDisplayCols = db.selCols?.has ? baseDisplayCols.filter((c3) => db.selCols.has(c3)) : baseDisplayCols;
     const orderedFromLayout = Array.isArray(db.colOrder) ? db.colOrder.filter((c3) => visibleDisplayCols.includes(c3)) : [];
     const displayCols = [
@@ -4099,39 +4227,54 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
       ...visibleDisplayCols.filter((c3) => !orderedFromLayout.includes(c3))
     ];
     if (!displayCols.length) {
-      wrap.innerHTML = '<span style="font-size:0.76rem;color:var(--muted)">No result columns</span>';
-      return;
+      return /* @__PURE__ */ u3("span", { style: "font-size:0.76rem;color:var(--muted)", children: "No result columns" });
     }
     if (!db.mergedCols) db.mergedCols = [];
     const mergedSet = new Set(db.mergedCols);
     const colMap = buildColSourceMap();
-    wrap.innerHTML = "";
-    for (const c3 of displayCols) {
-      const label = colDisplayLabel(c3, colMap);
-      const checked = mergedSet.has(c3);
-      const lbl = document.createElement("label");
-      lbl.style.cssText = "display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.76rem;font-weight:normal;margin-top:4px";
-      const chk = document.createElement("input");
-      chk.type = "checkbox";
-      chk.checked = checked;
-      chk.addEventListener("change", () => {
-        if (chk.checked) {
-          if (!db.mergedCols.includes(c3)) db.mergedCols.push(c3);
-        } else {
-          db.mergedCols = db.mergedCols.filter((x3) => x3 !== c3);
+    const toggle = (c3, checked) => {
+      if (checked) {
+        if (!db.mergedCols.includes(c3)) db.mergedCols.push(c3);
+      } else {
+        db.mergedCols = db.mergedCols.filter((x3) => x3 !== c3);
+      }
+      if (db.result) renderResults(db.result);
+    };
+    return /* @__PURE__ */ u3("div", { id: "mergeToggles", children: displayCols.map((c3) => /* @__PURE__ */ u3("label", { style: "display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.76rem;font-weight:normal;margin-top:4px", children: [
+      /* @__PURE__ */ u3(
+        "input",
+        {
+          type: "checkbox",
+          checked: mergedSet.has(c3),
+          onChange: (e3) => toggle(c3, e3.target.checked)
         }
-        if (db.result) renderResults(db.result);
-      });
-      lbl.appendChild(chk);
-      lbl.appendChild(document.createTextNode(label));
-      wrap.appendChild(lbl);
-    }
+      ),
+      colDisplayLabel(c3, colMap)
+    ] }, c3)) });
   }
   function setMergeGroupUnderline(checked) {
     db.mergeGroupUnderline = !!checked;
     if (db.result) renderResults(db.result);
   }
   if (typeof window !== "undefined") window.setMergeGroupUnderline = setMergeGroupUnderline;
+  var _colChipsRoot = null;
+  var _mergeTogglesRoot = null;
+  function renderColChips() {
+    const el = document.getElementById("colChips");
+    if (!el) return;
+    if (!_colChipsRoot) {
+      _colChipsRoot = el.parentElement;
+    }
+    nn(/* @__PURE__ */ u3(ColChips, {}), _colChipsRoot);
+  }
+  function renderMergeToggles(cols) {
+    const el = document.getElementById("mergeToggles");
+    if (!el) return;
+    if (!_mergeTogglesRoot) {
+      _mergeTogglesRoot = el;
+    }
+    nn(/* @__PURE__ */ u3(MergeToggles, {}), _mergeTogglesRoot);
+  }
 
   // js/ui/aggregation.ts
   function _selColsToArray(selCols) {
@@ -4253,7 +4396,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
         const aggAddRow = document.getElementById("aggAddRow");
         const hasGroups = db.groupBy.length > 0;
         if (aggAddRow) aggAddRow.style.display = hasGroups ? "" : "none";
-        renderAggregateItems(cols);
+        renderAggregateItems2(cols);
       },
       getHint: () => "\u24D8 Results show one row per unique group. Columns marked \u26A0 will be dropped \u2014 click \u26A0 to add a calculation for them."
     },
@@ -4423,7 +4566,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     db.subtotalStrategy = value === "nested" ? "nested" : "combined";
   }
   if (typeof window !== "undefined") window.setSubtotalStrategy = setSubtotalStrategy;
-  function renderAggregateItems(cols) {
+  function renderAggregateItems2(cols) {
     const wrap = document.getElementById("aggItems");
     const colMap = buildColSourceMap();
     const selSet4 = db.selCols;
@@ -4461,12 +4604,12 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     </div>`;
     }).join("");
   }
-  if (typeof window !== "undefined") window.renderAggregateItems = renderAggregateItems;
+  if (typeof window !== "undefined") window.renderAggregateItems = renderAggregateItems2;
   function addAggregate() {
     const cols = projectedCols();
     const col = cols.find((c3) => !db.groupBy.includes(c3)) || cols[0] || "";
     db.aggregates.push({ fn: "SUM", col, alias: "", auto: false });
-    renderAggregateItems(cols);
+    renderAggregateItems2(cols);
   }
   if (typeof window !== "undefined") window.addAggregate = addAggregate;
   function removeAggregate(i3) {
@@ -4483,7 +4626,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
       if (ai === void 0 || !ap) return;
       db.aggregates[+ai][ap] = target.value;
       touchAggregate(+ai);
-      if (ap === "fn") renderAggregateItems(projectedCols());
+      if (ap === "fn") renderAggregateItems2(projectedCols());
     });
     document.getElementById("aggItems").addEventListener("input", (e3) => {
       const target = e3.target;
@@ -4499,7 +4642,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     });
   }
 
-  // js/ui/views/filter-sort-card.ts
+  // js/ui/views/filter-sort-card.tsx
   var FILTER_OPS = [
     "contains",
     "equals",
@@ -4514,250 +4657,285 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     "not empty"
   ];
   var NO_VAL_OPS = /* @__PURE__ */ new Set(["is empty", "not empty"]);
-  function _populateFilterDatalist(i3, alias) {
-    const dl2 = $3("fdl_" + i3);
-    if (!dl2 || !alias) {
-      if (dl2) dl2.innerHTML = "";
-      return;
+  function useDistinctValues(alias) {
+    const [values, setValues] = d2([]);
+    y2(() => {
+      if (!alias) {
+        setValues([]);
+        return;
+      }
+      const src = buildColSourceMap().get(alias);
+      if (!src || src.kind === "calc") {
+        setValues([]);
+        return;
+      }
+      try {
+        const rows = execQuery(
+          `SELECT DISTINCT ${quoteId(src.col)} FROM ${quoteId(src.tid)}
+         WHERE ${quoteId(src.col)} IS NOT NULL
+         ORDER BY ${quoteId(src.col)} LIMIT 100`
+        );
+        setValues(rows.map((r3) => String(Object.values(r3)[0]).trim()).filter(Boolean));
+      } catch {
+        setValues([]);
+      }
+    }, [alias]);
+    return values;
+  }
+  function FilterRow({ f: f4, i: i3, cols, colMap }) {
+    const noVal = NO_VAL_OPS.has(f4.op);
+    const vals = Array.isArray(f4.vals) ? f4.vals : [""];
+    const fEnabled = f4.enabled !== false;
+    const fV = getValidation().items[`filter_${i3}`];
+    const fBlocked = fV && fV.blocking;
+    const fUnresolved = fV && !fV.resolved;
+    const fIssueMsg = fUnresolved && fV.issues[0] ? fV.issues[0].message : null;
+    const distinct = useDistinctValues(f4.col);
+    const datalistId = "fdl_" + i3;
+    const update = (prop, value) => {
+      f4[prop] = value;
+      invalidateValidation();
+      renderFilters();
+    };
+    return /* @__PURE__ */ u3("div", { class: `filter-row${fBlocked ? " pl-lookup-stage--invalid" : fUnresolved && !fEnabled ? " pl-lookup-stage--disabled-issue" : ""} ${!fEnabled ? "pl-stage-disabled" : ""}`, children: [
+      fIssueMsg && /* @__PURE__ */ u3("div", { class: "pl-lookup-error", style: "width:100%;font-size:0.72rem;margin-bottom:3px", children: [
+        fBlocked ? "\u26D4" : "\u26A0",
+        " ",
+        fIssueMsg
+      ] }),
+      /* @__PURE__ */ u3("label", { class: "pl-enable-toggle", style: "margin-left:auto;order:99", title: fEnabled ? "Disable filter" : "Enable filter", children: [
+        /* @__PURE__ */ u3("input", { type: "checkbox", checked: fEnabled, onChange: (e3) => update("enabled", e3.target.checked) }),
+        /* @__PURE__ */ u3("span", { class: "pl-enable-label", children: fEnabled ? "" : "Off" })
+      ] }),
+      /* @__PURE__ */ u3("select", { value: f4.col, onChange: (e3) => {
+        f4.col = e3.target.value;
+        f4.vals = [""];
+        renderFilters();
+      }, children: [
+        /* @__PURE__ */ u3("option", { value: "", children: "Column\\u2026" }),
+        cols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: colDisplayLabel(c3, colMap) }, c3))
+      ] }),
+      /* @__PURE__ */ u3("select", { class: "fop", value: f4.op, onChange: (e3) => update("op", e3.target.value), children: FILTER_OPS.map((op) => /* @__PURE__ */ u3("option", { value: op, children: op }, op)) }),
+      /* @__PURE__ */ u3("span", { class: "filter-or-wrap", style: { display: noVal ? "none" : "flex", gap: "4px", alignItems: "center", flexWrap: "wrap" }, children: [
+        vals.map((v3, j4) => /* @__PURE__ */ u3("span", { style: "display:contents", children: [
+          j4 > 0 && /* @__PURE__ */ u3("span", { style: "font-size:0.7rem;color:var(--muted);padding:0 1px;flex-shrink:0", children: "OR" }),
+          /* @__PURE__ */ u3(
+            "input",
+            {
+              type: "text",
+              list: datalistId,
+              placeholder: "value",
+              value: v3,
+              style: "width:120px",
+              onInput: (e3) => {
+                if (!Array.isArray(f4.vals)) f4.vals = [""];
+                f4.vals[j4] = e3.target.value;
+              }
+            }
+          ),
+          j4 > 0 && /* @__PURE__ */ u3(
+            "button",
+            {
+              class: "btn btn-danger",
+              style: "padding:2px 5px;font-size:0.75rem;flex-shrink:0",
+              title: "Remove this OR value",
+              onClick: () => {
+                if (f4.vals.length > 1) {
+                  f4.vals.splice(j4, 1);
+                  renderFilters();
+                }
+              },
+              children: "\\u2715"
+            }
+          )
+        ] }, j4)),
+        /* @__PURE__ */ u3(
+          "button",
+          {
+            class: "btn btn-ghost",
+            style: "padding:2px 7px;font-size:0.76rem;flex-shrink:0",
+            title: "Add OR value",
+            onClick: () => {
+              if (!Array.isArray(f4.vals)) f4.vals = [""];
+              f4.vals.push("");
+              renderFilters();
+            },
+            children: "\\uFF0B"
+          }
+        ),
+        /* @__PURE__ */ u3("datalist", { id: datalistId, children: distinct.map((v3) => /* @__PURE__ */ u3("option", { value: v3 }, v3)) })
+      ] }),
+      /* @__PURE__ */ u3("button", { class: "btn btn-danger", onClick: () => {
+        db.filters.splice(i3, 1);
+        renderFilters();
+      }, children: "\\u2715" })
+    ] });
+  }
+  function Filters() {
+    const colMap = buildColSourceMap();
+    const cols = projectedCols();
+    if (!db.filters.length) {
+      return /* @__PURE__ */ u3("span", { style: "font-size:0.76rem;color:var(--muted)", children: "No filters \\u2014 all rows returned" });
     }
-    const src = buildColSourceMap().get(alias);
-    if (!src || src.kind === "calc") return;
-    try {
-      const rows = execQuery(
-        `SELECT DISTINCT ${quoteId(src.col)} FROM ${quoteId(src.tid)}
-       WHERE ${quoteId(src.col)} IS NOT NULL
-       ORDER BY ${quoteId(src.col)} LIMIT 100`
-      );
-      dl2.innerHTML = rows.map((r3) => {
-        const v3 = String(Object.values(r3)[0]).trim();
-        return v3 ? `<option value="${h(v3)}">` : "";
-      }).join("");
-    } catch (_3) {
-    }
+    return /* @__PURE__ */ u3("div", { id: "filterItems", children: db.filters.map((f4, i3) => /* @__PURE__ */ u3(FilterRow, { f: f4, i: i3, cols, colMap }, i3)) });
   }
   function addFilter() {
     db.filters.push({ col: "", op: "contains", val: "", vals: [""], enabled: true });
     renderFilters();
   }
   if (typeof window !== "undefined") window.addFilter = addFilter;
-  function removeFilter(i3) {
-    db.filters.splice(i3, 1);
-    renderFilters();
+  function SortRow({ s: s3, i: i3, cols, colMap }) {
+    const sEnabled = s3.enabled !== false;
+    const sV = getValidation().items[`sort_${i3}`];
+    const sBlocked = sV && sV.blocking;
+    const sUnresolved = sV && !sV.resolved;
+    const sIssueMsg = sUnresolved && sV.issues[0] ? sV.issues[0].message : null;
+    const update = (prop, value) => {
+      s3[prop] = value;
+      invalidateValidation();
+      renderSorts();
+    };
+    return /* @__PURE__ */ u3("div", { class: `sort-row${sBlocked ? " pl-lookup-stage--invalid" : sUnresolved && !sEnabled ? " pl-lookup-stage--disabled-issue" : ""} ${!sEnabled ? "pl-stage-disabled" : ""}`, children: [
+      sIssueMsg && /* @__PURE__ */ u3("div", { class: "pl-lookup-error", style: "width:100%;font-size:0.72rem;margin-bottom:3px", children: [
+        sBlocked ? "\u26D4" : "\u26A0",
+        " ",
+        sIssueMsg
+      ] }),
+      /* @__PURE__ */ u3("span", { class: "sort-level", children: [
+        i3 + 1,
+        "."
+      ] }),
+      /* @__PURE__ */ u3("select", { value: s3.col, style: "flex:1;min-width:0", onChange: (e3) => update("col", e3.target.value), children: [
+        /* @__PURE__ */ u3("option", { value: "", children: "\\u2014 column \\u2014" }),
+        cols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: colDisplayLabel(c3, colMap) }, c3))
+      ] }),
+      /* @__PURE__ */ u3("select", { value: s3.dir, style: "width:95px;flex-shrink:0", onChange: (e3) => update("dir", e3.target.value), children: [
+        /* @__PURE__ */ u3("option", { value: "ASC", children: "\\u2191 A \\u2192 Z" }),
+        /* @__PURE__ */ u3("option", { value: "DESC", children: "\\u2193 Z \\u2192 A" })
+      ] }),
+      /* @__PURE__ */ u3("label", { class: "pl-enable-toggle", title: sEnabled ? "Disable sort" : "Enable sort", children: [
+        /* @__PURE__ */ u3("input", { type: "checkbox", checked: sEnabled, onChange: (e3) => update("enabled", e3.target.checked) }),
+        /* @__PURE__ */ u3("span", { class: "pl-enable-label", children: sEnabled ? "" : "Off" })
+      ] }),
+      /* @__PURE__ */ u3("button", { class: "btn btn-danger", onClick: () => {
+        db.sorts.splice(i3, 1);
+        renderSorts();
+      }, children: "\\u2715" })
+    ] });
   }
-  function renderFilters() {
-    const colMap = buildColSourceMap();
-    const cols = projectedCols();
-    const wrap = $3("filterItems");
-    if (!db.filters.length) {
-      wrap.innerHTML = '<span style="font-size:0.76rem;color:var(--muted)">No filters \u2014 all rows returned</span>';
-      return;
-    }
-    wrap.innerHTML = db.filters.map((f4, i3) => {
-      const noVal = NO_VAL_OPS.has(f4.op);
-      const vals = Array.isArray(f4.vals) ? f4.vals : [""];
-      const fEnabled = f4.enabled !== false;
-      const fV = getValidation().items[`filter_${i3}`];
-      const fBlocked = fV && fV.blocking;
-      const fUnresolved = fV && !fV.resolved;
-      const fIssueMsg = fUnresolved && fV.issues[0] ? fV.issues[0].message : null;
-      const orValInputs = vals.map((v3, j4) => `
-      ${j4 > 0 ? '<span style="font-size:0.7rem;color:var(--muted);padding:0 1px;flex-shrink:0">OR</span>' : ""}
-      <input type="text" list="fdl_${i3}" placeholder="value" value="${h(v3)}"
-             data-fi="${i3}" data-vi="${j4}" data-fp="val" style="width:120px">
-      ${j4 > 0 ? `<button class="btn btn-danger" style="padding:2px 5px;font-size:0.75rem;flex-shrink:0" data-rmval="${j4}" data-fi="${i3}" title="Remove this OR value">\u2715</button>` : ""}
-    `).join("");
-      return `
-    <div class="filter-row${fBlocked ? " pl-lookup-stage--invalid" : fUnresolved && !fEnabled ? " pl-lookup-stage--disabled-issue" : ""} ${!fEnabled ? "pl-stage-disabled" : ""}">
-      ${fIssueMsg ? `<div class="pl-lookup-error" style="width:100%;font-size:0.72rem;margin-bottom:3px">${fBlocked ? "\u26D4" : "\u26A0"} ${h(fIssueMsg)}</div>` : ""}
-      <label class="pl-enable-toggle" style="margin-left:auto;order:99" title="${fEnabled ? "Disable filter" : "Enable filter"}"><input type="checkbox" data-fi="${i3}" data-fp="enabled" ${fEnabled ? "checked" : ""}><span class="pl-enable-label">${fEnabled ? "" : "Off"}</span></label>
-      <select data-fi="${i3}" data-fp="col">
-        <option value="">Column\u2026</option>
-        ${cols.map((c3) => `<option value="${h(c3)}" ${f4.col === c3 ? "selected" : ""}>${h(colDisplayLabel(c3, colMap))}</option>`).join("")}
-      </select>
-      <select class="fop" data-fi="${i3}" data-fp="op">
-        ${FILTER_OPS.map((op) => `<option value="${op}" ${f4.op === op ? "selected" : ""}>${op}</option>`).join("")}
-      </select>
-      <span class="filter-or-wrap" style="display:${noVal ? "none" : "flex"};gap:4px;align-items:center;flex-wrap:wrap">
-        ${orValInputs}
-        <button class="btn btn-ghost" style="padding:2px 7px;font-size:0.76rem;flex-shrink:0" data-addorval="${i3}" title="Add OR value">\uFF0B</button>
-        <datalist id="fdl_${i3}"></datalist>
-      </span>
-      <button class="btn btn-danger" data-rmf="${i3}">\u2715</button>
-    </div>`;
-    }).join("");
-    db.filters.forEach((f4, i3) => {
-      if (f4.col) _populateFilterDatalist(i3, f4.col);
-    });
-  }
-  if (typeof document !== "undefined") {
-    delegate($3("filterItems"), "[data-fi]", "change", (el) => {
-      const { fi, fp } = el.dataset;
-      if (fi === void 0 || !fp) return;
-      const f4 = db.filters[+fi];
-      if (!f4) return;
-      if (fp === "enabled") {
-        f4.enabled = el.checked;
-        invalidateValidation();
-        renderFilters();
-        return;
-      }
-      const i3 = +fi;
-      if (fp === "col") {
-        f4.col = el.value;
-        f4.vals = [""];
-        renderFilters();
-        if (f4.col) _populateFilterDatalist(i3, f4.col);
-      } else if (fp === "op") {
-        f4.op = el.value;
-        const orWrap = el.closest(".filter-row").querySelector(".filter-or-wrap");
-        if (orWrap) orWrap.style.display = NO_VAL_OPS.has(el.value) ? "none" : "flex";
-      }
-    });
-    delegate($3("filterItems"), "[data-fi][data-vi]", "input", (el) => {
-      const { fi, vi, fp } = el.dataset;
-      if (fi !== void 0 && fp === "val" && vi !== void 0) {
-        const f4 = db.filters[+fi];
-        if (f4) {
-          if (!Array.isArray(f4.vals)) f4.vals = [""];
-          f4.vals[+vi] = el.value;
-        }
-      }
-    });
-    delegate($3("filterItems"), "[data-rmf]", "click", (el) => {
-      removeFilter(+el.dataset.rmf);
-    });
-    delegate($3("filterItems"), "[data-addorval]", "click", (el) => {
-      const i3 = +el.dataset.addorval;
-      const f4 = db.filters[i3];
-      if (!f4) return;
-      if (!Array.isArray(f4.vals)) f4.vals = [""];
-      f4.vals.push("");
-      renderFilters();
-      if (f4.col) _populateFilterDatalist(i3, f4.col);
-    });
-    delegate($3("filterItems"), "[data-rmval]", "click", (el) => {
-      const i3 = +el.dataset.fi;
-      const j4 = +el.dataset.rmval;
-      const f4 = db.filters[i3];
-      if (!f4) return;
-      if (!Array.isArray(f4.vals)) f4.vals = [""];
-      if (f4.vals.length <= 1) return;
-      f4.vals.splice(j4, 1);
-      renderFilters();
-      if (f4.col) _populateFilterDatalist(i3, f4.col);
-    });
-  }
-  function renderSorts() {
+  function Sorts() {
     const selCols = db.selCols;
     const colOrder = db.colOrder || projectedCols();
     const cols = colOrder.filter((c3) => !selCols || selCols.has(c3));
     const colMap = buildColSourceMap();
-    const wrap = $3("sortItems");
-    if (!wrap) return;
     if (!db.sorts.length) {
-      wrap.innerHTML = '<span style="font-size:0.76rem;color:var(--muted)">No sort \u2014 rows returned in natural order</span>';
-      return;
+      return /* @__PURE__ */ u3("span", { style: "font-size:0.76rem;color:var(--muted)", children: "No sort \\u2014 rows returned in natural order" });
     }
-    wrap.innerHTML = db.sorts.map((s3, i3) => {
-      const sEnabled = s3.enabled !== false;
-      const sV = getValidation().items[`sort_${i3}`];
-      const sBlocked = sV && sV.blocking;
-      const sUnresolved = sV && !sV.resolved;
-      const sIssueMsg = sUnresolved && sV.issues[0] ? sV.issues[0].message : null;
-      return `
-    <div class="sort-row${sBlocked ? " pl-lookup-stage--invalid" : sUnresolved && !sEnabled ? " pl-lookup-stage--disabled-issue" : ""} ${!sEnabled ? "pl-stage-disabled" : ""}">
-      ${sIssueMsg ? `<div class="pl-lookup-error" style="width:100%;font-size:0.72rem;margin-bottom:3px">${sBlocked ? "\u26D4" : "\u26A0"} ${h(sIssueMsg)}</div>` : ""}
-      <span class="sort-level">${i3 + 1}.</span>
-      <select data-si="${i3}" data-sp="col" style="flex:1;min-width:0">
-        <option value="">\u2014 column \u2014</option>
-        ${cols.map((c3) => `<option value="${h(c3)}" ${s3.col === c3 ? "selected" : ""}>${h(colDisplayLabel(c3, colMap))}</option>`).join("")}
-      </select>
-      <select data-si="${i3}" data-sp="dir" style="width:95px;flex-shrink:0">
-        <option value="ASC"  ${s3.dir === "ASC" ? "selected" : ""}>\u2191 A \u2192 Z</option>
-        <option value="DESC" ${s3.dir === "DESC" ? "selected" : ""}>\u2193 Z \u2192 A</option>
-      </select>
-      <label class="pl-enable-toggle" title="${sEnabled ? "Disable sort" : "Enable sort"}"><input type="checkbox" data-si="${i3}" data-sp="enabled" ${sEnabled ? "checked" : ""}><span class="pl-enable-label">${sEnabled ? "" : "Off"}</span></label>
-      <button class="btn btn-danger" data-rmsort="${i3}">\u2715</button>
-    </div>`;
-    }).join("");
+    return /* @__PURE__ */ u3("div", { id: "sortItems", children: db.sorts.map((s3, i3) => /* @__PURE__ */ u3(SortRow, { s: s3, i: i3, cols, colMap }, i3)) });
   }
   function addSort() {
     db.sorts.push({ col: "", dir: "ASC", enabled: true });
     renderSorts();
   }
   if (typeof window !== "undefined") window.addSort = addSort;
-  function removeSort(i3) {
-    db.sorts.splice(i3, 1);
-    renderSorts();
+  var _filtersRoot = null;
+  var _sortsRoot = null;
+  function renderFilters() {
+    const el = document.getElementById("filterItems");
+    if (!el) return;
+    if (!_filtersRoot) _filtersRoot = el;
+    nn(/* @__PURE__ */ u3(Filters, {}), _filtersRoot);
   }
-  if (typeof document !== "undefined") {
-    delegate($3("sortItems"), "[data-si]", "change", (el) => {
-      const { si, sp } = el.dataset;
-      if (si !== void 0 && sp === "enabled") {
-        db.sorts[+si].enabled = el.checked;
-        invalidateValidation();
-        renderSorts();
-        return;
-      }
-      if (si !== void 0 && sp) db.sorts[+si][sp] = el.value;
-    });
-    delegate($3("sortItems"), "[data-rmsort]", "click", (el) => {
-      removeSort(+el.dataset.rmsort);
-    });
+  function renderSorts() {
+    const el = document.getElementById("sortItems");
+    if (!el) return;
+    if (!_sortsRoot) _sortsRoot = el;
+    nn(/* @__PURE__ */ u3(Sorts, {}), _sortsRoot);
   }
 
-  // js/ui/views/query-builder.ts
-  function renderQueryBuilder() {
-    invalidateValidation();
+  // js/ui/views/query-builder.tsx
+  function QueryBuilder() {
     const ids = Object.keys(db.tables).sort((a3, b2) => db.tables[a3].name.localeCompare(db.tables[b2].name));
-    const qEmpty = $3("qEmpty");
-    const qBuilder = $3("qBuilder");
-    if (qEmpty) qEmpty.style.display = ids.length ? "none" : "";
-    if (qBuilder) qBuilder.style.display = ids.length ? "grid" : "none";
-    if (!ids.length) return;
     const hasBase = !!db.base && !!db.tables[db.base];
     const hasBaseConfigured = !!db.base;
-    ["colCard", "filterSortCard"].forEach((id) => {
-      const el = $3(id);
-      if (el) el.style.display = hasBase ? "" : "none";
+    y2(() => {
+      if (hasBase) {
+        renderAggregation();
+      }
     });
-    const runRowEl = $3("runRow");
-    if (runRowEl) runRowEl.style.display = hasBaseConfigured ? "" : "none";
+    if (!ids.length) {
+      return /* @__PURE__ */ u3("div", { id: "qEmpty", children: /* @__PURE__ */ u3("div", { class: "empty", children: [
+        /* @__PURE__ */ u3("div", { class: "empty-icon", children: "\u{1F4C2}" }),
+        /* @__PURE__ */ u3("div", { children: "Load a spreadsheet to get started" })
+      ] }) });
+    }
+    let statusPill = null;
+    let runDisabled = false;
     if (hasBaseConfigured) {
       const v3 = getValidation();
       const blocked = v3.reportStatus === "blocked";
       const items = Object.values(v3.items);
       const issueCount = items.filter((it) => it.blocking).length;
-      const pill = $3("reportStatusPill");
-      const runBtn = $3("runBtn");
-      if (pill) {
-        pill.style.display = "";
-        if (blocked) {
-          pill.textContent = `\u26A0 Blocked (${issueCount} issue${issueCount !== 1 ? "s" : ""})`;
-          pill.style.background = "rgba(200,60,60,0.18)";
-          pill.style.color = "#e07070";
-          pill.style.border = "1px solid rgba(200,60,60,0.35)";
-        } else {
-          pill.textContent = "\u2713 Healthy";
-          pill.style.background = "rgba(50,180,100,0.15)";
-          pill.style.color = "#6ec87e";
-          pill.style.border = "1px solid rgba(50,180,100,0.3)";
-        }
+      if (blocked) {
+        statusPill = { text: `\u26A0 Blocked (${issueCount} issue${issueCount !== 1 ? "s" : ""})`, bg: "rgba(200,60,60,0.18)", color: "#e07070", border: "1px solid rgba(200,60,60,0.35)" };
+      } else {
+        statusPill = { text: "\u2713 Healthy", bg: "rgba(50,180,100,0.15)", color: "#6ec87e", border: "1px solid rgba(50,180,100,0.3)" };
       }
-      if (runBtn) runBtn.disabled = blocked;
+      runDisabled = blocked;
     }
-    renderPipeline(ids);
-    if (!hasBase) return;
-    renderColChips();
-    renderFilters();
-    renderSorts();
-    renderAggregation();
-    try {
-      renderMergeToggles(projectedCols());
-    } catch (_3) {
-    }
+    return /* @__PURE__ */ u3("div", { id: "qBuilder", style: { display: ids.length ? "grid" : "none" }, children: [
+      /* @__PURE__ */ u3(Pipeline, {}),
+      hasBase && /* @__PURE__ */ u3("div", { id: "colCard", children: [
+        /* @__PURE__ */ u3("div", { class: "qb-title", style: "margin-bottom:6px", children: [
+          "Report Layout",
+          /* @__PURE__ */ u3("span", { class: "tip", id: "colCardTip", "data-tip": "Choose which columns appear in your report and how they are summarized. Drag chips to reorder columns. Double-click a chip to hide/show it.", children: "?" })
+        ] }),
+        /* @__PURE__ */ u3(ColChips, {}),
+        /* @__PURE__ */ u3("div", { id: "aggSection" }),
+        /* @__PURE__ */ u3("div", { id: "totalsSection" }),
+        /* @__PURE__ */ u3("div", { id: "subtotalsSection" })
+      ] }),
+      hasBase && /* @__PURE__ */ u3("div", { id: "filterSortCard", children: [
+        /* @__PURE__ */ u3("div", { class: "qb-title", style: "margin-bottom:6px", children: "Sort & Filter" }),
+        /* @__PURE__ */ u3("div", { style: "margin-bottom:8px", children: [
+          /* @__PURE__ */ u3("div", { style: "font-size:0.76rem;margin-bottom:4px", children: "Sort By" }),
+          /* @__PURE__ */ u3(Sorts, {}),
+          /* @__PURE__ */ u3("button", { class: "btn btn-ghost", style: "font-size:0.72rem;margin-top:4px", onClick: addSort2, children: "+ Add sort" })
+        ] }),
+        /* @__PURE__ */ u3("div", { style: "margin-bottom:8px", children: [
+          /* @__PURE__ */ u3("div", { style: "font-size:0.76rem;margin-bottom:4px", children: "Filters" }),
+          /* @__PURE__ */ u3(Filters, {}),
+          /* @__PURE__ */ u3("button", { class: "btn btn-ghost", style: "font-size:0.72rem;margin-top:4px", onClick: addFilter2, children: "+ Add filter" })
+        ] }),
+        /* @__PURE__ */ u3("div", { children: [
+          /* @__PURE__ */ u3("div", { style: "font-size:0.76rem;margin-bottom:4px", children: "Merge duplicate cells" }),
+          /* @__PURE__ */ u3(MergeToggles, {})
+        ] })
+      ] }),
+      hasBaseConfigured && /* @__PURE__ */ u3("div", { id: "runRow", style: "display:flex;align-items:center;gap:8px;padding:8px 0", children: [
+        /* @__PURE__ */ u3("span", { id: "reportStatusPill", style: {
+          display: "",
+          background: statusPill?.bg || "",
+          color: statusPill?.color || "",
+          border: statusPill?.border || "",
+          fontSize: "0.72rem",
+          padding: "2px 8px",
+          borderRadius: "10px"
+        }, children: statusPill?.text || "" }),
+        /* @__PURE__ */ u3("button", { id: "runBtn", class: "btn btn-primary", disabled: runDisabled, onClick: runQuery, children: "Run Report" }),
+        /* @__PURE__ */ u3("span", { id: "runStatus", style: "font-size:0.72rem;color:var(--muted)" })
+      ] })
+    ] });
   }
-  function onBaseChange2(val) {
+  function addSort2() {
+    db.sorts.push({ col: "", dir: "ASC", enabled: true });
+    renderQueryBuilder();
+  }
+  function addFilter2() {
+    db.filters.push({ col: "", op: "contains", val: "", vals: [""], enabled: true });
+    renderQueryBuilder();
+  }
+  function onBaseChange(val) {
     db.base = val;
     db.baseCols = null;
     db.stacks = [];
@@ -4769,13 +4947,9 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     renderQueryBuilder();
   }
   function togglePreview(key) {
-    if (_previewOpen.has(key)) {
-      _previewOpen.delete(key);
-    } else {
-      _previewOpen.add(key);
-    }
-    const ids = Object.keys(db.tables).sort((a3, b2) => db.tables[a3].name.localeCompare(db.tables[b2].name));
-    renderPipeline(ids);
+    if (_previewOpen.has(key)) _previewOpen.delete(key);
+    else _previewOpen.add(key);
+    renderQueryBuilder();
   }
   function _buildPreviewSQL(key) {
     const spec = {
@@ -4843,16 +5017,16 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
       const cols = Object.keys(rows[0]);
       const pvMap = buildColSourceMap();
       return `<table>
-      <thead><tr>${cols.map((c3) => `<th title="${h(c3)}">${h(colDisplayLabel(c3, pvMap))}</th>`).join("")}</tr></thead>
+      <thead><tr>${cols.map((c3) => `<th title="${c3}">${colDisplayLabel(c3, pvMap)}</th>`).join("")}</tr></thead>
       <tbody>${rows.map(
-        (r3) => `<tr>${cols.map((c3) => `<td title="${h(String(r3[c3] ?? ""))}">${h(String(r3[c3] ?? ""))}</td>`).join("")}</tr>`
+        (r3) => `<tr>${cols.map((c3) => `<td title="${String(r3[c3] ?? "")}">${String(r3[c3] ?? "")}</td>`).join("")}</tr>`
       ).join("")}</tbody>
     </table>`;
     } catch (ex) {
-      return `<em style="color:var(--red);font-size:0.72rem">Error: ${h(ex.message)}</em>`;
+      return `<em style="color:var(--red);font-size:0.72rem">Error: ${ex.message}</em>`;
     }
   }
-  function addStack2(id) {
+  function addStack(id) {
     if (!id || !db.tables[id] || id === db.base) return;
     if (!db.stacks.includes(id)) db.stacks.push(id);
     _afterCombineChange();
@@ -4861,13 +5035,13 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     db.stacks = db.stacks.filter((s3) => s3 !== id);
     _afterCombineChange();
   }
-  function addLookup2() {
+  function addLookup() {
     if (!db.base) return;
     if (!db.lookups) db.lookups = [];
     db.lookups.push({ rightId: "", keyPairs: [{ left: "", right: "" }], cols: [], required: false, enabled: true, duplicatePolicy: { mode: "block" } });
     _afterCombineChange();
   }
-  function addCalcStage2() {
+  function addCalcStage() {
     if (!db.base) return;
     if (!db.calcStages) db.calcStages = [];
     db.calcStages.push({
@@ -4915,7 +5089,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
       toast("No output columns selected \u2014 click All or pick at least one column.", "err");
       return;
     }
-    const status = $3("runStatus");
+    const status = document.getElementById("runStatus");
     status.textContent = "Running\u2026";
     setTimeout(() => {
       try {
@@ -4924,12 +5098,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
         const displayRows = resultSet.rows.filter((r3) => !r3._row_type);
         const hasTotals = !!resultSet.metadata.totalsRow;
         const hasSubs = !!resultSet.metadata.hasSubtotals;
-        db.result = {
-          rows: resultSet.rows,
-          totalsRow: resultSet.metadata.totalsRow || null,
-          cols: resultSet.columns,
-          hasSubtotals: hasSubs
-        };
+        db.result = { rows: resultSet.rows, totalsRow: resultSet.metadata.totalsRow || null, cols: resultSet.columns, hasSubtotals: hasSubs };
         let statusText = displayRows.length.toLocaleString() + " rows";
         if (hasTotals) statusText += " + grand total";
         if (hasSubs) statusText += " (subtotals)";
@@ -4939,17 +5108,36 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
       } catch (ex) {
         status.textContent = "Error";
         toast("Query error: " + ex.message, "err");
-        console.error(ex.message);
       }
     }, 20);
   }
-  if (typeof window !== "undefined") window.onBaseChange = onBaseChange2;
-  if (typeof window !== "undefined") window.addStack = addStack2;
-  if (typeof window !== "undefined") window.addLookup = addLookup2;
-  if (typeof window !== "undefined") window.addCalcStage = addCalcStage2;
+  var _root = null;
+  function renderQueryBuilder() {
+    invalidateValidation();
+    if (!_root) {
+      _root = document.getElementById("qBuilder") || document.getElementById("qEmpty")?.parentElement || document.body;
+    }
+    nn(/* @__PURE__ */ u3(QueryBuilder, {}), _root);
+  }
+  if (typeof window !== "undefined") window.onBaseChange = onBaseChange;
+  if (typeof window !== "undefined") window.addStack = addStack;
+  if (typeof window !== "undefined") window.addLookup = addLookup;
+  if (typeof window !== "undefined") window.addCalcStage = addCalcStage;
   if (typeof window !== "undefined") window.runQuery = runQuery;
 
   // js/ui/grid.ts
+  function openRenameModal(target, onDone) {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const cleanup = () => {
+      nn(null, host);
+      host.remove();
+    };
+    nn(
+      RenameModal({ target, onDone, onClose: cleanup }),
+      host
+    );
+  }
   var gridResult = null;
   var gridPreview = null;
   function refreshResultGridLayout() {
@@ -4983,10 +5171,10 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     }
   }
   function renderResults(result) {
-    const wrap = $3("resultsWrap");
-    const meta = $3("resultsMeta");
-    const btnXlsx = $3("btnExpXlsx");
-    const btnCsv = $3("btnExpCsv");
+    const wrap = document.getElementById("resultsWrap");
+    const meta = document.getElementById("resultsMeta");
+    const btnXlsx = document.getElementById("btnExpXlsx");
+    const btnCsv = document.getElementById("btnExpCsv");
     const { rows, totalsRow, cols } = result;
     const hasData = rows.length > 0 || totalsRow !== null;
     btnXlsx.style.display = hasData ? "" : "none";
@@ -5030,7 +5218,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
       onColumnResized: () => _saveResultColState(),
       onColumnVisible: () => _saveResultColState()
     };
-    const el = $3("resGrid");
+    const el = document.getElementById("resGrid");
     gridResult = agGrid.createGrid(el, options);
     requestAnimationFrame(() => requestAnimationFrame(() => refreshResultGridLayout()));
     if (db.colState) {
@@ -5043,7 +5231,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     if (gridResult) db.colState = gridResult.getColumnState();
   }
   function renderPreviewDropdown() {
-    const sel = $3("previewSel");
+    const sel = document.getElementById("previewSel");
     if (!sel) return;
     const prev = sel.value;
     const ids = Object.keys(db.tables);
@@ -5051,9 +5239,9 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     if (db.tables[prev]) sel.value = prev;
   }
   function loadPreview() {
-    const id = $3("previewSel").value;
-    const wrap = $3("previewWrap");
-    const meta = $3("previewMeta");
+    const id = document.getElementById("previewSel").value;
+    const wrap = document.getElementById("previewWrap");
+    const meta = document.getElementById("previewMeta");
     if (gridPreview) {
       gridPreview.destroy();
       gridPreview = null;
@@ -5109,7 +5297,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
         return btn;
       }
     };
-    const el = $3("prevGrid");
+    const el = document.getElementById("prevGrid");
     gridPreview = agGrid.createGrid(el, {
       rowData: rows,
       columnDefs: [excludeColDef, ...makePreviewCols(id, t3.cols)],
@@ -5168,7 +5356,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
       const doRename = () => {
         const target = resolveRenameTarget(c3);
         if (!target) return;
-        showRenameModal(target, () => {
+        openRenameModal(target, () => {
           renderQueryBuilder();
           if (db.result) renderResults(db.result);
         });
@@ -5207,11 +5395,20 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
       const renamed = db.columnLabels?.[tid]?.[c3];
       const label = renamed || c3;
       const doRename = () => {
-        renameSourceCol(tid, c3, () => {
-          renderQueryBuilder();
-          if (db.result) renderResults(db.result);
-          loadPreview();
-        });
+        const colMap = buildColSourceMap();
+        for (const [alias, src] of colMap.entries()) {
+          if (src && src.kind !== "calc" && src.tid === tid && src.col === c3) {
+            const target = resolveRenameTarget(alias);
+            if (target) {
+              openRenameModal(target, () => {
+                renderQueryBuilder();
+                if (db.result) renderResults(db.result);
+                loadPreview();
+              });
+            }
+            return;
+          }
+        }
       };
       const doClear = renamed ? () => {
         setColLabel(tid, c3, c3);
@@ -5364,8 +5561,8 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     if (!headers || !headers.length || !mergeHeaderSet || mergeHeaderSet.size === 0) return;
     const xlsxUtils = XLSX.utils;
     const merges = [];
-    headers.forEach((h5, cIdx) => {
-      if (!mergeHeaderSet.has(h5)) return;
+    headers.forEach((h4, cIdx) => {
+      if (!mergeHeaderSet.has(h4)) return;
       const leftGateHeaders = headers.slice(0, cIdx).filter((lh) => mergeHeaderSet.has(lh));
       const gateByLeft = leftGateHeaders.length > 0;
       let i3 = 0;
@@ -5374,13 +5571,13 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
           i3++;
           continue;
         }
-        const v3 = cleanRows[i3]?.[h5];
+        const v3 = cleanRows[i3]?.[h4];
         if (v3 == null || String(v3) === "") {
           i3++;
           continue;
         }
         let j4 = i3 + 1;
-        while (j4 < cleanRows.length && (rowKinds[j4] ?? 0) === 0 && cleanRows[j4]?.[h5] === v3) {
+        while (j4 < cleanRows.length && (rowKinds[j4] ?? 0) === 0 && cleanRows[j4]?.[h4] === v3) {
           if (gateByLeft && leftGateHeaders.some((lh) => cleanRows[j4]?.[lh] !== cleanRows[j4 - 1]?.[lh])) {
             break;
           }
@@ -5425,8 +5622,8 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
         const prev = mergeUnderlineStartByRow.get(sheetRow);
         mergeUnderlineStartByRow.set(sheetRow, prev == null ? colIdx : Math.min(prev, colIdx));
       };
-      headers.forEach((h5, cIdx) => {
-        if (!mergeHeaderSet.has(h5)) return;
+      headers.forEach((h4, cIdx) => {
+        if (!mergeHeaderSet.has(h4)) return;
         const leftGateHeaders = headers.slice(0, cIdx).filter((lh) => mergeHeaderSet.has(lh));
         let i3 = 0;
         while (i3 < cleanRows.length) {
@@ -5434,22 +5631,22 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
             i3++;
             continue;
           }
-          const v3 = cleanRows[i3]?.[h5];
+          const v3 = cleanRows[i3]?.[h4];
           if (v3 == null || String(v3) === "") {
             i3++;
             continue;
           }
           let j4 = i3 + 1;
-          while (j4 < cleanRows.length && (rowKinds[j4] ?? 0) === 0 && cleanRows[j4]?.[h5] === v3) {
+          while (j4 < cleanRows.length && (rowKinds[j4] ?? 0) === 0 && cleanRows[j4]?.[h4] === v3) {
             if (leftGateHeaders.some((lh) => cleanRows[j4]?.[lh] !== cleanRows[j4 - 1]?.[lh])) break;
             j4++;
           }
           const span = j4 - i3;
           if (span > 1) {
-            let p3 = mergeParticipation.get(h5);
+            let p3 = mergeParticipation.get(h4);
             if (!p3) {
               p3 = /* @__PURE__ */ new Set();
-              mergeParticipation.set(h5, p3);
+              mergeParticipation.set(h4, p3);
             }
             for (let r3 = i3; r3 < j4; r3++) p3.add(r3);
             addUnderline(j4 - 1, cIdx);
@@ -5554,11 +5751,11 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     }
     ws["!autofilter"] = { ref };
     ws["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft", state: "frozen" };
-    ws["!cols"] = headers.map((h5) => {
-      let maxLen = String(h5 || "").length;
+    ws["!cols"] = headers.map((h4) => {
+      let maxLen = String(h4 || "").length;
       const sample = Math.min(cleanRows.length, WIDTH_SAMPLE_ROWS);
       for (let i3 = 0; i3 < sample; i3++) {
-        const v3 = cleanRows[i3]?.[h5];
+        const v3 = cleanRows[i3]?.[h4];
         if (v3 == null) continue;
         maxLen = Math.max(maxLen, String(v3).length);
       }
@@ -6077,13 +6274,13 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     _showNextModal();
   }
   if (typeof window !== "undefined") window.confirmModal = confirmModal;
-  function closeModal2() {
+  function closeModal() {
     if (!_modalQueue.length) return;
     _modalQueue.shift();
     document.getElementById("sheetModal").style.display = "none";
     _showNextModal();
   }
-  if (typeof window !== "undefined") window.closeModal = closeModal2;
+  if (typeof window !== "undefined") window.closeModal = closeModal;
   (function() {
     const overlay = document.getElementById("dropOverlay");
     let dragDepth = 0;
@@ -6346,7 +6543,7 @@ Row contents \u2192 ${previewStr}`,
     });
     document.body.appendChild(tipBox);
     document.addEventListener("mouseover", (e3) => {
-      if (isContextMenuOpen()) return;
+      if (document.querySelector(".ctx-menu")) return;
       const src = e3.target.closest("[data-tip]");
       if (!src) return;
       tipBox.textContent = src.dataset.tip;
