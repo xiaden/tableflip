@@ -53,62 +53,62 @@
     const calcStages = ctx.calcStages;
     const map = /* @__PURE__ */ new Map();
     if (!base || !db.tables[base]) return map;
-    db.tables[base].cols.forEach((c2) => map.set(c2, { tid: base, col: c2 }));
+    db.tables[base].cols.forEach((c3) => map.set(c3, { tid: base, col: c3 }));
     for (const lk of lookups || []) {
       if (lk.enabled === false) continue;
       if (!lk.rightId || !db.tables[lk.rightId]) continue;
-      const pairs = Array.isArray(lk.keyPairs) ? lk.keyPairs.filter((p2) => p2.left && p2.right) : [];
+      const pairs = Array.isArray(lk.keyPairs) ? lk.keyPairs.filter((p3) => p3.left && p3.right) : [];
       if (!pairs.length) continue;
       const rt = db.tables[lk.rightId];
       const prefix = tablePrefix(rt.name);
-      rt.cols.forEach((c2) => {
-        const alias = map.has(c2) ? prefix + c2 : c2;
-        if (!map.has(alias)) map.set(alias, { tid: lk.rightId, col: c2 });
+      rt.cols.forEach((c3) => {
+        const alias = map.has(c3) ? prefix + c3 : c3;
+        if (!map.has(alias)) map.set(alias, { tid: lk.rightId, col: c3 });
       });
     }
-    for (const [i2, calc] of (calcStages || []).entries()) {
+    for (const [i3, calc] of (calcStages || []).entries()) {
       if (calc?.enabled === false) continue;
       const alias = (calc?.alias || "").trim();
       if (!alias) continue;
       if (!calc.mode || !["math", "compare", "text", "date"].includes(calc.mode)) continue;
       let valid = false;
       if (calc.mode === "math") {
-        const m2 = calc.math;
-        const steps = m2 && Array.isArray(m2.steps) ? m2.steps : [];
-        const structValid = !!(m2 && m2.strategy === "stepChain" && steps.length > 0 && !steps[0].op && steps.every((s2) => s2 && ["column", "number", "text"].includes(s2.type)) && steps.slice(1).every((s2) => s2.op && ["+", "-", "*", "/", "%"].includes(s2.op)));
-        const colsExist = structValid && steps.filter((s2) => s2.type === "column" && s2.value).every((s2) => map.has(s2.value));
+        const m3 = calc.math;
+        const steps = m3 && Array.isArray(m3.steps) ? m3.steps : [];
+        const structValid = !!(m3 && m3.strategy === "stepChain" && steps.length > 0 && !steps[0].op && steps.every((s3) => s3 && ["column", "number", "text"].includes(s3.type)) && steps.slice(1).every((s3) => s3.op && ["+", "-", "*", "/", "%"].includes(s3.op)));
+        const colsExist = structValid && steps.filter((s3) => s3.type === "column" && s3.value).every((s3) => map.has(s3.value));
         valid = structValid && colsExist;
       } else if (calc.mode === "compare") {
-        const c2 = calc.compare;
-        const conds = Array.isArray(c2?.conditions) ? c2.conditions : [];
-        valid = !!(c2 && conds.length > 0 && c2.trueValue && c2.falseValue && conds.every((cond) => cond.col && ["=", "!=", ">", ">=", "<", "<="].includes(cond.op)) && conds.some((cond) => map.has(cond.col)) && ["column", "number", "text"].includes(c2.trueValue.type) && ["column", "number", "text"].includes(c2.falseValue.type));
+        const c3 = calc.compare;
+        const conds = Array.isArray(c3?.conditions) ? c3.conditions : [];
+        valid = !!(c3 && conds.length > 0 && c3.trueValue && c3.falseValue && conds.every((cond) => cond.col && ["=", "!=", ">", ">=", "<", "<="].includes(cond.op)) && conds.some((cond) => map.has(cond.col)) && ["column", "number", "text"].includes(c3.trueValue.type) && ["column", "number", "text"].includes(c3.falseValue.type));
       } else if (calc.mode === "text") {
-        const t2 = calc.text;
-        if (t2 && ["combine", "left", "right", "substring"].includes(t2.operation)) {
-          if (t2.operation === "combine") {
-            const parts = Array.isArray(t2.parts) ? t2.parts : [];
-            const structValid = parts.length > 0 && parts.every((p2) => p2 && ["column", "number", "text"].includes(p2.type));
-            const colsExist = structValid && parts.filter((p2) => p2.type === "column" && p2.value).every((p2) => map.has(p2.value));
+        const t3 = calc.text;
+        if (t3 && ["combine", "left", "right", "substring"].includes(t3.operation)) {
+          if (t3.operation === "combine") {
+            const parts = Array.isArray(t3.parts) ? t3.parts : [];
+            const structValid = parts.length > 0 && parts.every((p3) => p3 && ["column", "number", "text"].includes(p3.type));
+            const colsExist = structValid && parts.filter((p3) => p3.type === "column" && p3.value).every((p3) => map.has(p3.value));
             valid = structValid && colsExist;
           } else {
-            const src = t2.source;
+            const src = t3.source;
             const structValid = !!(src && ["column", "text"].includes(src.type));
             const colExists = structValid && src.type !== "column" ? true : map.has(src.value);
             valid = structValid && colExists;
           }
         }
       } else if (calc.mode === "date") {
-        const d2 = calc.date;
-        if (d2 && d2.operation === "extract") {
-          const src = d2.source;
+        const d3 = calc.date;
+        if (d3 && d3.operation === "extract") {
+          const src = d3.source;
           const structValid = !!(src && src.type === "column");
           const colExists = structValid && map.has(src.value);
-          valid = structValid && colExists && ["year", "month", "day", "dow", "week", "quarter", "julian"].includes(d2.part);
+          valid = structValid && colExists && ["year", "month", "day", "dow", "week", "quarter", "julian"].includes(d3.part);
         }
       }
       if (!valid) continue;
       if (map.has(alias)) continue;
-      map.set(alias, { kind: "calc", mode: calc.mode, idx: i2, calc });
+      map.set(alias, { kind: "calc", mode: calc.mode, idx: i3, calc });
     }
     return map;
   }
@@ -122,13 +122,13 @@
     if (!base || !db.tables[base]) return [];
     const cols = [...db.tables[base].cols];
     const colSet = new Set(cols);
-    for (let i2 = 0; i2 < upTo; i2++) {
-      const lk = (lookups || [])[i2];
+    for (let i3 = 0; i3 < upTo; i3++) {
+      const lk = (lookups || [])[i3];
       if (!lk || lk.enabled === false || !lk.rightId || !db.tables[lk.rightId]) continue;
       const rt = db.tables[lk.rightId];
       const prefix = tablePrefix(rt.name);
-      rt.cols.forEach((c2) => {
-        const alias = colSet.has(c2) ? prefix + c2 : c2;
+      rt.cols.forEach((c3) => {
+        const alias = colSet.has(c3) ? prefix + c3 : c3;
         if (!colSet.has(alias)) {
           cols.push(alias);
           colSet.add(alias);
@@ -156,7 +156,7 @@
     const colMap = /* @__PURE__ */ new Map();
     const baseCols = base ? tableColumns(base) : null;
     if (baseCols) {
-      baseCols.forEach((c2) => colMap.set(c2, { tid: base, col: c2 }));
+      baseCols.forEach((c3) => colMap.set(c3, { tid: base, col: c3 }));
     }
     const lookupBoundaries = [new Map(colMap)];
     for (const lk of lookups) {
@@ -169,62 +169,62 @@
         lookupBoundaries.push(new Map(colMap));
         continue;
       }
-      const pairs = Array.isArray(lk.keyPairs) ? lk.keyPairs.filter((p2) => p2.left && p2.right) : [];
+      const pairs = Array.isArray(lk.keyPairs) ? lk.keyPairs.filter((p3) => p3.left && p3.right) : [];
       if (!pairs.length) {
         lookupBoundaries.push(new Map(colMap));
         continue;
       }
       const rName = tableName(lk.rightId);
       const prefix = tablePrefix(rName);
-      rtCols.forEach((c2) => {
-        const alias = colMap.has(c2) ? prefix + c2 : c2;
-        if (!colMap.has(alias)) colMap.set(alias, { tid: lk.rightId, col: c2 });
+      rtCols.forEach((c3) => {
+        const alias = colMap.has(c3) ? prefix + c3 : c3;
+        if (!colMap.has(alias)) colMap.set(alias, { tid: lk.rightId, col: c3 });
       });
       lookupBoundaries.push(new Map(colMap));
     }
-    for (const [i2, calc] of calcStages.entries()) {
+    for (const [i3, calc] of calcStages.entries()) {
       if (calc?.enabled === false) continue;
       const alias = (calc?.alias || "").trim();
       if (!alias) continue;
       if (!calc.mode || !["math", "compare", "text", "date"].includes(calc.mode)) continue;
       let valid = false;
       if (calc.mode === "math") {
-        const m2 = calc.math;
-        const steps = m2 && Array.isArray(m2.steps) ? m2.steps : [];
-        const structValid = !!(m2 && m2.strategy === "stepChain" && steps.length > 0 && !steps[0].op && steps.every((s2) => s2 && ["column", "number", "text"].includes(s2.type)) && steps.slice(1).every((s2) => s2.op && ["+", "-", "*", "/", "%"].includes(s2.op)));
-        const colsExist = structValid && steps.filter((s2) => s2.type === "column" && s2.value).every((s2) => colMap.has(s2.value));
+        const m3 = calc.math;
+        const steps = m3 && Array.isArray(m3.steps) ? m3.steps : [];
+        const structValid = !!(m3 && m3.strategy === "stepChain" && steps.length > 0 && !steps[0].op && steps.every((s3) => s3 && ["column", "number", "text"].includes(s3.type)) && steps.slice(1).every((s3) => s3.op && ["+", "-", "*", "/", "%"].includes(s3.op)));
+        const colsExist = structValid && steps.filter((s3) => s3.type === "column" && s3.value).every((s3) => colMap.has(s3.value));
         valid = structValid && colsExist;
       } else if (calc.mode === "compare") {
-        const c2 = calc.compare;
-        const conds = Array.isArray(c2?.conditions) ? c2.conditions : [];
-        valid = !!(c2 && conds.length > 0 && c2.trueValue && c2.falseValue && conds.every((cond) => cond.col && ["=", "!=", ">", ">=", "<", "<="].includes(cond.op)) && conds.some((cond) => colMap.has(cond.col)) && ["column", "number", "text"].includes(c2.trueValue.type) && ["column", "number", "text"].includes(c2.falseValue.type));
+        const c3 = calc.compare;
+        const conds = Array.isArray(c3?.conditions) ? c3.conditions : [];
+        valid = !!(c3 && conds.length > 0 && c3.trueValue && c3.falseValue && conds.every((cond) => cond.col && ["=", "!=", ">", ">=", "<", "<="].includes(cond.op)) && conds.some((cond) => colMap.has(cond.col)) && ["column", "number", "text"].includes(c3.trueValue.type) && ["column", "number", "text"].includes(c3.falseValue.type));
       } else if (calc.mode === "text") {
-        const t2 = calc.text;
-        if (t2 && ["combine", "left", "right", "substring"].includes(t2.operation)) {
-          if (t2.operation === "combine") {
-            const parts = Array.isArray(t2.parts) ? t2.parts : [];
-            const structValid = parts.length > 0 && parts.every((p2) => p2 && ["column", "number", "text"].includes(p2.type));
-            const colsExist = structValid && parts.filter((p2) => p2.type === "column" && p2.value).every((p2) => colMap.has(p2.value));
+        const t3 = calc.text;
+        if (t3 && ["combine", "left", "right", "substring"].includes(t3.operation)) {
+          if (t3.operation === "combine") {
+            const parts = Array.isArray(t3.parts) ? t3.parts : [];
+            const structValid = parts.length > 0 && parts.every((p3) => p3 && ["column", "number", "text"].includes(p3.type));
+            const colsExist = structValid && parts.filter((p3) => p3.type === "column" && p3.value).every((p3) => colMap.has(p3.value));
             valid = structValid && colsExist;
           } else {
-            const src = t2.source;
+            const src = t3.source;
             const structValid = !!(src && ["column", "text"].includes(src.type));
             const colExists = structValid && src.type !== "column" ? true : colMap.has(src.value);
             valid = structValid && colExists;
           }
         }
       } else if (calc.mode === "date") {
-        const d2 = calc.date;
-        if (d2 && d2.operation === "extract") {
-          const src = d2.source;
+        const d3 = calc.date;
+        if (d3 && d3.operation === "extract") {
+          const src = d3.source;
           const structValid = !!(src && src.type === "column");
           const colExists = structValid && colMap.has(src.value);
-          valid = structValid && colExists && ["year", "month", "day", "dow", "week", "quarter", "julian"].includes(d2.part);
+          valid = structValid && colExists && ["year", "month", "day", "dow", "week", "quarter", "julian"].includes(d3.part);
         }
       }
       if (!valid) continue;
       if (colMap.has(alias)) continue;
-      colMap.set(alias, { kind: "calc", mode: calc.mode, idx: i2, calc });
+      colMap.set(alias, { kind: "calc", mode: calc.mode, idx: i3, calc });
     }
     return { colMap, lookupBoundaries, reportSpec };
   }
@@ -246,33 +246,33 @@
     }
     const replaceInArray = (arr) => {
       if (!Array.isArray(arr)) return;
-      for (let i2 = 0; i2 < arr.length; i2++) {
-        if (arr[i2] === oldAlias) arr[i2] = newAlias;
+      for (let i3 = 0; i3 < arr.length; i3++) {
+        if (arr[i3] === oldAlias) arr[i3] = newAlias;
       }
     };
     replaceInArray(db.groupBy);
     replaceInArray(db.subtotalBy);
     replaceInArray(db.mergedCols);
-    for (const a2 of db.aggregates || []) {
-      if (a2.col === oldAlias) a2.col = newAlias;
+    for (const a3 of db.aggregates || []) {
+      if (a3.col === oldAlias) a3.col = newAlias;
     }
-    for (const f2 of db.filters || []) {
-      if (f2.col === oldAlias) f2.col = newAlias;
+    for (const f4 of db.filters || []) {
+      if (f4.col === oldAlias) f4.col = newAlias;
     }
-    for (const s2 of db.sorts || []) {
-      if (s2.col === oldAlias) s2.col = newAlias;
+    for (const s3 of db.sorts || []) {
+      if (s3.col === oldAlias) s3.col = newAlias;
     }
-    for (const c2 of db.calcStages || []) {
-      if (c2.mode === "math" && c2.math && typeof c2.math === "object") {
-        const math = c2.math;
+    for (const c3 of db.calcStages || []) {
+      if (c3.mode === "math" && c3.math && typeof c3.math === "object") {
+        const math = c3.math;
         if (Array.isArray(math.steps)) {
           for (const step of math.steps) {
             if (step.type === "column" && step.value === oldAlias) step.value = newAlias;
           }
         }
       }
-      if (c2.mode === "compare" && c2.compare && typeof c2.compare === "object") {
-        const compare = c2.compare;
+      if (c3.mode === "compare" && c3.compare && typeof c3.compare === "object") {
+        const compare = c3.compare;
         if (Array.isArray(compare.conditions)) {
           for (const cond of compare.conditions) {
             if (cond.col === oldAlias) cond.col = newAlias;
@@ -285,8 +285,8 @@
           compare.falseValue.value = newAlias;
         }
       }
-      if (c2.mode === "text" && c2.text && typeof c2.text === "object") {
-        const text = c2.text;
+      if (c3.mode === "text" && c3.text && typeof c3.text === "object") {
+        const text = c3.text;
         if (Array.isArray(text.parts)) {
           for (const part of text.parts) {
             if (part.type === "column" && part.value === oldAlias) part.value = newAlias;
@@ -314,8 +314,8 @@
       const replaceInSel = (state) => {
         if (!state || !Array.isArray(state.selCols)) return;
         const sel = state.selCols;
-        for (let i2 = 0; i2 < sel.length; i2++) {
-          if (sel[i2] === oldAlias) sel[i2] = newAlias;
+        for (let i3 = 0; i3 < sel.length; i3++) {
+          if (sel[i3] === oldAlias) sel[i3] = newAlias;
         }
       };
       replaceInSel(as.none);
@@ -324,13 +324,13 @@
       const groupState = as.group;
       if (groupState && Array.isArray(groupState.groupBy)) {
         const gb = groupState.groupBy;
-        for (let i2 = 0; i2 < gb.length; i2++) {
-          if (gb[i2] === oldAlias) gb[i2] = newAlias;
+        for (let i3 = 0; i3 < gb.length; i3++) {
+          if (gb[i3] === oldAlias) gb[i3] = newAlias;
         }
       }
       if (groupState && Array.isArray(groupState.aggregates)) {
-        for (const a2 of groupState.aggregates) {
-          if (a2 && a2.col === oldAlias) a2.col = newAlias;
+        for (const a3 of groupState.aggregates) {
+          if (a3 && a3.col === oldAlias) a3.col = newAlias;
         }
       }
       const totalsState = as.totals;
@@ -346,8 +346,8 @@
       const subtotalsState = as.subtotals;
       if (subtotalsState && Array.isArray(subtotalsState.subtotalBy)) {
         const sb = subtotalsState.subtotalBy;
-        for (let i2 = 0; i2 < sb.length; i2++) {
-          if (sb[i2] === oldAlias) sb[i2] = newAlias;
+        for (let i3 = 0; i3 < sb.length; i3++) {
+          if (sb[i3] === oldAlias) sb[i3] = newAlias;
         }
       }
       if (subtotalsState?.subtotalFns && typeof subtotalsState.subtotalFns === "object") {
@@ -363,26 +363,26 @@
   }
 
   // js/core/utils.ts
-  function h(s2) {
-    return String(s2 ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  function h(s3) {
+    return String(s3 ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
   function stripExt(fn) {
     return fn.replace(/\.[^.]+$/, "");
   }
   function dl(blob, name) {
     const url = URL.createObjectURL(blob);
-    const a2 = Object.assign(document.createElement("a"), { href: url, download: name });
-    a2.click();
+    const a3 = Object.assign(document.createElement("a"), { href: url, download: name });
+    a3.click();
     URL.revokeObjectURL(url);
   }
   function getToastContainer() {
-    let c2 = document.getElementById("toast-container");
-    if (!c2) {
-      c2 = document.createElement("div");
-      c2.id = "toast-container";
-      document.body.appendChild(c2);
+    let c3 = document.getElementById("toast-container");
+    if (!c3) {
+      c3 = document.createElement("div");
+      c3.id = "toast-container";
+      document.body.appendChild(c3);
     }
-    return c2;
+    return c3;
   }
   function toast(msg, type) {
     const el = document.createElement("div");
@@ -443,7 +443,7 @@
   function getTableColor(tid) {
     if (db.tableColors[tid]) return db.tableColors[tid];
     const used = new Set(Object.values(db.tableColors));
-    const idx = TABLE_PALETTE.findIndex((c2) => !used.has(c2));
+    const idx = TABLE_PALETTE.findIndex((c3) => !used.has(c3));
     const col = idx >= 0 ? TABLE_PALETTE[idx] : TABLE_PALETTE[Object.keys(db.tableColors).length % TABLE_PALETTE.length];
     db.tableColors[tid] = col;
     return col;
@@ -455,13 +455,13 @@
   }
   function chipFgColor(bg) {
     if (!bg || typeof bg !== "string") return "#111";
-    const m2 = bg.trim().match(/^#([0-9a-f]{6})$/i);
-    if (!m2) return "#111";
-    const hex = m2[1];
-    const r2 = parseInt(hex.slice(0, 2), 16);
-    const g2 = parseInt(hex.slice(2, 4), 16);
+    const m3 = bg.trim().match(/^#([0-9a-f]{6})$/i);
+    if (!m3) return "#111";
+    const hex = m3[1];
+    const r3 = parseInt(hex.slice(0, 2), 16);
+    const g4 = parseInt(hex.slice(2, 4), 16);
     const b2 = parseInt(hex.slice(4, 6), 16);
-    const luminance = (0.299 * r2 + 0.587 * g2 + 0.114 * b2) / 255;
+    const luminance = (0.299 * r3 + 0.587 * g4 + 0.114 * b2) / 255;
     return luminance > 0.6 ? "#111" : "#fff";
   }
   function tableShortName(tid) {
@@ -566,18 +566,18 @@
   function quoteId(name) {
     return '"' + String(name).replace(/"/g, '""') + '"';
   }
-  function coerceForSQL(v2) {
-    if (v2 == null) return null;
-    if (v2 instanceof Date) return v2.toISOString().slice(0, 19);
-    if (typeof v2 === "boolean") return v2 ? 1 : 0;
-    if (typeof v2 === "number") return v2;
-    const s2 = String(v2).trim();
-    const n2 = Number(s2);
-    if (s2 !== "" && !isNaN(n2)) return n2;
-    return s2 || null;
+  function coerceForSQL(v3) {
+    if (v3 == null) return null;
+    if (v3 instanceof Date) return v3.toISOString().slice(0, 19);
+    if (typeof v3 === "boolean") return v3 ? 1 : 0;
+    if (typeof v3 === "number") return v3;
+    const s3 = String(v3).trim();
+    const n2 = Number(s3);
+    if (s3 !== "" && !isNaN(n2)) return n2;
+    return s3 || null;
   }
   function createTable(sqlName, cols) {
-    const defs = cols.map((c2) => quoteId(c2)).join(", ");
+    const defs = cols.map((c3) => quoteId(c3)).join(", ");
     _sqlDb().run(`CREATE TABLE IF NOT EXISTS ${quoteId(sqlName)} (${defs})`);
   }
   function insertRows(sqlName, cols, data) {
@@ -588,16 +588,16 @@
     try {
       const stmt = _sqlDb().prepare(sql);
       for (const row of data) {
-        stmt.run(cols.map((c2) => coerceForSQL(row[c2])));
+        stmt.run(cols.map((c3) => coerceForSQL(row[c3])));
       }
       stmt.free();
       _sqlDb().run("COMMIT");
-    } catch (e2) {
+    } catch (e3) {
       try {
         _sqlDb().run("ROLLBACK");
-      } catch (_2) {
+      } catch (_3) {
       }
-      throw e2;
+      throw e3;
     }
   }
   function execQuery(sql, params) {
@@ -608,21 +608,21 @@
       while (stmt.step()) rows.push(stmt.getAsObject());
       stmt.free();
       return rows;
-    } catch (e2) {
-      throw new Error(e2.message + "\n\nQuery:\n" + sql);
+    } catch (e3) {
+      throw new Error(e3.message + "\n\nQuery:\n" + sql);
     }
   }
   function dropTable(sqlName) {
     try {
       _sqlDb().run(`DROP TABLE IF EXISTS ${quoteId(sqlName)}`);
-    } catch (_2) {
+    } catch (_3) {
     }
   }
   function tableRowCount(sqlName) {
     try {
-      const r2 = _sqlDb().exec(`SELECT COUNT(*) FROM ${quoteId(sqlName)}`);
-      return r2[0]?.values[0]?.[0] ?? 0;
-    } catch (_2) {
+      const r3 = _sqlDb().exec(`SELECT COUNT(*) FROM ${quoteId(sqlName)}`);
+      return r3[0]?.values[0]?.[0] ?? 0;
+    } catch (_3) {
       return 0;
     }
   }
@@ -658,12 +658,12 @@
 
   // js/report/result-set.ts
   function buildResultSet(columns, rows, metadata) {
-    const r2 = Array.isArray(rows) ? rows : [];
+    const r3 = Array.isArray(rows) ? rows : [];
     return {
       columns: Array.isArray(columns) ? columns : [],
-      rows: r2,
+      rows: r3,
       metadata: Object.assign({
-        rowCount: r2.length,
+        rowCount: r3.length,
         generatedAt: Date.now(),
         aggMode: "none",
         displayCols: null
@@ -673,7 +673,7 @@
 
   // js/query/sql-where.ts
   function renderWhereClause(colRef, op, val, params, opts) {
-    const likeEsc = (v2) => v2.replace(/%/g, "\\%").replace(/_/g, "\\_");
+    const likeEsc = (v3) => v3.replace(/%/g, "\\%").replace(/_/g, "\\_");
     const txt = `CAST(${colRef} AS TEXT)`;
     const num = `CAST(${colRef} AS REAL)`;
     const numericHint = !!(opts && opts.numericHint);
@@ -766,41 +766,41 @@
   function _renderCalcExpr(alias, colMap, plan, baseTid, _trail) {
     if (!_trail) _trail = /* @__PURE__ */ new Set();
     if (_trail.has(alias)) return "NULL";
-    const s2 = colMap.get(alias);
-    if (!s2) return quoteId(alias);
-    if (s2.kind !== "calc") {
-      const tid = s2.tid === plan.source.base ? baseTid : s2.tid;
-      return `${tid === "_base" ? "_base" : quoteId(tid)}.${quoteId(s2.col)}`;
+    const s3 = colMap.get(alias);
+    if (!s3) return quoteId(alias);
+    if (s3.kind !== "calc") {
+      const tid = s3.tid === plan.source.base ? baseTid : s3.tid;
+      return `${tid === "_base" ? "_base" : quoteId(tid)}.${quoteId(s3.col)}`;
     }
     const trail = new Set(_trail);
     trail.add(alias);
-    const calc = s2.calc || (db.calcStages || [])[s2.idx];
+    const calc = s3.calc || (db.calcStages || [])[s3.idx];
     if (!calc) throw new Error(`Cannot render calc "${alias}": calc config not found`);
-    if (s2.mode === "math") {
+    if (s3.mode === "math") {
       return _renderModeMath(calc, alias, colMap, plan, baseTid, trail);
     }
-    if (s2.mode === "compare") {
+    if (s3.mode === "compare") {
       return _renderModeCompare(calc, alias, colMap, plan, baseTid, trail);
     }
-    if (s2.mode === "text") {
+    if (s3.mode === "text") {
       return _renderModeText(calc, alias, colMap, plan, baseTid, trail);
     }
-    if (s2.mode === "date") {
+    if (s3.mode === "date") {
       return _renderModeDate(calc, alias, colMap, plan, baseTid, trail);
     }
-    throw new Error(`Unknown calc mode "${s2.mode}" for "${alias}"`);
+    throw new Error(`Unknown calc mode "${s3.mode}" for "${alias}"`);
   }
   function _renderModeMath(calc, alias, colMap, plan, baseTid, trail) {
     const math = calc.math;
     const steps = math.steps;
     const toNum = _toNum;
-    const renderStepVal = (step, t2) => {
+    const renderStepVal = (step, t3) => {
       if (step.type === "number") {
         const n2 = parseFloat(step.value || "");
         return Number.isFinite(n2) ? String(n2) : "0";
       }
       if (step.type === "column") {
-        const expr2 = _renderCalcExpr(step.value || "", colMap, plan, baseTid, t2);
+        const expr2 = _renderCalcExpr(step.value || "", colMap, plan, baseTid, t3);
         return toNum(expr2);
       }
       throw new Error(`Unsupported math step type "${step.type}" in calc "${alias}"`);
@@ -816,24 +816,24 @@
       return `${colExpr} * 100.0 / NULLIF(SUM(${colExpr}) OVER (), 0)`;
     }
     let expr = colExpr;
-    for (let i2 = 1; i2 < steps.length; i2++) {
-      const step = steps[i2];
-      const r2 = renderStepVal(step, trail);
+    for (let i3 = 1; i3 < steps.length; i3++) {
+      const step = steps[i3];
+      const r3 = renderStepVal(step, trail);
       switch (step.op) {
         case "+":
-          expr = `(${expr} + ${r2})`;
+          expr = `(${expr} + ${r3})`;
           break;
         case "-":
-          expr = `(${expr} - ${r2})`;
+          expr = `(${expr} - ${r3})`;
           break;
         case "*":
-          expr = `(${expr} * ${r2})`;
+          expr = `(${expr} * ${r3})`;
           break;
         case "/":
-          expr = `(CASE WHEN ${r2} = 0 THEN NULL ELSE ${expr} / ${r2} END)`;
+          expr = `(CASE WHEN ${r3} = 0 THEN NULL ELSE ${expr} / ${r3} END)`;
           break;
         case "%":
-          expr = `(CASE WHEN ${r2} = 0 THEN NULL ELSE ${expr} % ${r2} END)`;
+          expr = `(CASE WHEN ${r3} = 0 THEN NULL ELSE ${expr} % ${r3} END)`;
           break;
         default:
           throw new Error(`Unsupported math operator "${step.op}" in calc "${alias}"`);
@@ -867,7 +867,7 @@
     const text = calc.text;
     const op = text.operation;
     if (op === "combine") {
-      const parts = text.parts.map((p2) => _renderTextPart(p2, colMap, plan, baseTid, trail));
+      const parts = text.parts.map((p3) => _renderTextPart(p3, colMap, plan, baseTid, trail));
       return parts.join(" || ");
     }
     if (op === "left") {
@@ -896,20 +896,20 @@
       const DOW_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
       const DOW_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
       const monthCase = (names) => {
-        const branches = names.map((n2, j2) => `WHEN ${j2 + 1} THEN '${n2}'`).join(" ");
+        const branches = names.map((n2, j4) => `WHEN ${j4 + 1} THEN '${n2}'`).join(" ");
         return `(CASE CAST(strftime('%m', ${src}) AS INTEGER) ${branches} END)`;
       };
       const dowCase = (names) => {
-        const branches = names.map((n2, j2) => `WHEN ${j2} THEN '${n2}'`).join(" ");
+        const branches = names.map((n2, j4) => `WHEN ${j4} THEN '${n2}'`).join(" ");
         return `(CASE CAST(strftime('%w', ${src}) AS INTEGER) ${branches} END)`;
       };
       if (part === "quarter") {
         if (output === "short") {
-          const branches = [1, 2, 3, 4].map((q2) => `WHEN ${q2} THEN 'Q${q2}'`).join(" ");
+          const branches = [1, 2, 3, 4].map((q4) => `WHEN ${q4} THEN 'Q${q4}'`).join(" ");
           return `(CASE ((CAST(strftime('%m', ${src}) AS INTEGER) - 1) / 3 + 1) ${branches} END)`;
         }
         if (output === "text") {
-          const branches = [1, 2, 3, 4].map((q2) => `WHEN ${q2} THEN 'Quarter ${q2}'`).join(" ");
+          const branches = [1, 2, 3, 4].map((q4) => `WHEN ${q4} THEN 'Quarter ${q4}'`).join(" ");
           return `(CASE ((CAST(strftime('%m', ${src}) AS INTEGER) - 1) / 3 + 1) ${branches} END)`;
         }
         return `((CAST(strftime('%m', ${src}) AS INTEGER) - 1) / 3 + 1)`;
@@ -969,11 +969,11 @@
     const hasStacks = src.stacks && src.stacks.length > 0;
     const baseTid = hasStacks ? "_base" : base;
     function ref(alias) {
-      const s2 = colMap.get(alias);
-      if (!s2) return quoteId(alias);
-      if (s2.kind === "calc") return _renderCalcExpr(alias, colMap, plan, baseTid);
-      const tid = s2.tid === base ? baseTid : s2.tid;
-      return `${tid === "_base" ? "_base" : quoteId(tid)}.${quoteId(s2.col)}`;
+      const s3 = colMap.get(alias);
+      if (!s3) return quoteId(alias);
+      if (s3.kind === "calc") return _renderCalcExpr(alias, colMap, plan, baseTid);
+      const tid = s3.tid === base ? baseTid : s3.tid;
+      return `${tid === "_base" ? "_base" : quoteId(tid)}.${quoteId(s3.col)}`;
     }
     let fromClause;
     if (hasStacks) {
@@ -981,11 +981,11 @@
       const allTids = [base, ...src.stacks];
       const unionParts = allTids.filter((tid) => src.tablesById && src.tablesById.has(tid)).map((tid) => {
         const tCols = src.tablesById.get(tid).cols;
-        const selStr = [`"_rowno"`, ...baseCols.map((c2) => tCols.includes(c2) ? quoteId(c2) : `NULL AS ${quoteId(c2)}`)].join(", ");
+        const selStr = [`"_rowno"`, ...baseCols.map((c3) => tCols.includes(c3) ? quoteId(c3) : `NULL AS ${quoteId(c3)}`)].join(", ");
         const excl = src.excludedRows ? src.excludedRows[tid] : null;
-        let q2 = `SELECT ${selStr} FROM ${quoteId(tid)}`;
-        if (excl && excl.size) q2 += ` WHERE "_rowno" NOT IN (${[...excl].join(",")})`;
-        return q2;
+        let q4 = `SELECT ${selStr} FROM ${quoteId(tid)}`;
+        if (excl && excl.size) q4 += ` WHERE "_rowno" NOT IN (${[...excl].join(",")})`;
+        return q4;
       });
       fromClause = `(
   ${unionParts.join("\n  UNION ALL\n  ")}
@@ -998,37 +998,37 @@
       const jType = join.required ? "INNER" : "LEFT";
       const dupPolicy = join.duplicatePolicy || { mode: "block" };
       const rightCols = join.rightColumns || [];
-      const keyRightCols = new Set(join.keyPairs.map((p2) => p2.right));
+      const keyRightCols = new Set(join.keyPairs.map((p3) => p3.right));
       let rightSource;
       let exclInSubquery = false;
       if (dupPolicy.mode === "combine" && rightCols.length > 0) {
         const combine = Object.assign({ separator: "; ", unique: true, includeBlank: false, sort: false }, dupPolicy.combine || {});
         const aggSeparator = combine.separator === "; " ? '"; "' : `'${combine.separator.replace(/'/g, "''")}'`;
-        const valCols = rightCols.filter((c2) => !keyRightCols.has(c2));
-        const keyColQuoted = join.keyPairs.map((p2) => quoteId(p2.right));
-        const keyColSelects = join.keyPairs.map((p2) => `${quoteId(p2.right)} AS ${quoteId(p2.right)}`);
-        const whereClause = join.keyPairs.map((p2) => `${quoteId(p2.right)} IS NOT NULL AND TRIM(${quoteId(p2.right)}) != ''`).join(" AND ");
+        const valCols = rightCols.filter((c3) => !keyRightCols.has(c3));
+        const keyColQuoted = join.keyPairs.map((p3) => quoteId(p3.right));
+        const keyColSelects = join.keyPairs.map((p3) => `${quoteId(p3.right)} AS ${quoteId(p3.right)}`);
+        const whereClause = join.keyPairs.map((p3) => `${quoteId(p3.right)} IS NOT NULL AND TRIM(${quoteId(p3.right)}) != ''`).join(" AND ");
         const exclClause = join.excludedRows && join.excludedRows.size ? ` AND "_rowno" NOT IN (${[...join.excludedRows].join(",")})` : "";
         const fullWhere = whereClause + exclClause;
         if (combine.unique) {
-          const valSubExprs = valCols.map((c2) => {
-            let colExpr = quoteId(c2);
+          const valSubExprs = valCols.map((c3) => {
+            let colExpr = quoteId(c3);
             if (!combine.includeBlank) colExpr = `NULLIF(${colExpr}, '')`;
             const orderClause = combine.sort ? ` ORDER BY ${colExpr}` : "";
-            const innerSub = `(SELECT DISTINCT ${keyColQuoted.join(", ")}, ${colExpr} AS ${quoteId(c2)} FROM ${quoteId(join.rightId)} WHERE ${fullWhere})`;
-            const corrCond = keyColQuoted.map((k) => `_inner.${k} = _keys.${k}`).join(" AND ");
-            return `(SELECT GROUP_CONCAT(${quoteId(c2)}, ${aggSeparator}${orderClause}) FROM ${innerSub} AS _inner WHERE ${corrCond}) AS ${quoteId(c2)}`;
+            const innerSub = `(SELECT DISTINCT ${keyColQuoted.join(", ")}, ${colExpr} AS ${quoteId(c3)} FROM ${quoteId(join.rightId)} WHERE ${fullWhere})`;
+            const corrCond = keyColQuoted.map((k3) => `_inner.${k3} = _keys.${k3}`).join(" AND ");
+            return `(SELECT GROUP_CONCAT(${quoteId(c3)}, ${aggSeparator}${orderClause}) FROM ${innerSub} AS _inner WHERE ${corrCond}) AS ${quoteId(c3)}`;
           });
           const keyDistinctSub = `(SELECT DISTINCT ${keyColQuoted.join(", ")} FROM ${quoteId(join.rightId)} WHERE ${fullWhere})`;
           const subSql = `SELECT ${keyColSelects.join(", ")}, ${valSubExprs.join(", ")} FROM ${keyDistinctSub} AS _keys`;
           rightSource = `(${subSql}) AS ${quoteId(join.rightId)}`;
           exclInSubquery = true;
         } else {
-          const valExprs = valCols.map((c2) => {
-            let colExpr = quoteId(c2);
+          const valExprs = valCols.map((c3) => {
+            let colExpr = quoteId(c3);
             if (!combine.includeBlank) colExpr = `NULLIF(${colExpr}, '')`;
-            const orderClause = combine.sort ? ` ORDER BY ${quoteId(c2)}` : "";
-            return `GROUP_CONCAT(${colExpr}, ${aggSeparator}${orderClause}) AS ${quoteId(c2)}`;
+            const orderClause = combine.sort ? ` ORDER BY ${quoteId(c3)}` : "";
+            return `GROUP_CONCAT(${colExpr}, ${aggSeparator}${orderClause}) AS ${quoteId(c3)}`;
           });
           const selectParts = [...keyColSelects, ...valExprs];
           const subSql = `SELECT ${selectParts.join(", ")} FROM ${quoteId(join.rightId)} WHERE ${fullWhere} GROUP BY ${keyColQuoted.join(", ")}`;
@@ -1038,7 +1038,7 @@
       } else {
         rightSource = quoteId(join.rightId);
       }
-      const onParts = join.keyPairs.map((p2) => `${ref(p2.left)} = ${quoteId(join.rightId)}.${quoteId(p2.right)}`);
+      const onParts = join.keyPairs.map((p3) => `${ref(p3.left)} = ${quoteId(join.rightId)}.${quoteId(p3.right)}`);
       if (!exclInSubquery && join.excludedRows && join.excludedRows.size) {
         onParts.push(`${quoteId(join.rightId)}."_rowno" NOT IN (${[...join.excludedRows].join(",")})`);
       }
@@ -1052,12 +1052,12 @@
         whereParts.push(`${quoteId(base)}."_rowno" NOT IN (${[...excl].join(",")})`);
       }
     }
-    for (const f2 of plan.filters || []) {
-      if (!f2.col) continue;
-      const fs = colMap.get(f2.col);
+    for (const f4 of plan.filters || []) {
+      if (!f4.col) continue;
+      const fs = colMap.get(f4.col);
       const isNumericCalc = fs?.kind === "calc" && fs.mode === "math";
-      const filterVals = Array.isArray(f2.vals) ? f2.vals : [""];
-      const orParts = filterVals.map((v2) => renderWhereClause(ref(f2.col), f2.op, String(v2 ?? ""), params, { numericHint: isNumericCalc })).filter(Boolean);
+      const filterVals = Array.isArray(f4.vals) ? f4.vals : [""];
+      const orParts = filterVals.map((v3) => renderWhereClause(ref(f4.col), f4.op, String(v3 ?? ""), params, { numericHint: isNumericCalc })).filter(Boolean);
       if (!orParts.length) continue;
       whereParts.push(orParts.length > 1 ? `(${orParts.join(" OR ")})` : orParts[0]);
     }
@@ -1079,7 +1079,7 @@
 FROM ${fromClause}`;
     if (joinClauses.length) sql += "\n" + joinClauses.join("\n");
     if (whereParts.length) sql += "\nWHERE " + whereParts.join("\n  AND ");
-    const sortParts = (plan.sorts || []).map((s2) => `${ref(s2.col)} ${s2.dir === "DESC" ? "DESC" : "ASC"}`);
+    const sortParts = (plan.sorts || []).map((s3) => `${ref(s3.col)} ${s3.dir === "DESC" ? "DESC" : "ASC"}`);
     if (sortParts.length) sql += "\nORDER BY " + sortParts.join(", ");
     return { sql, params, cols: colAliases };
   }
@@ -1096,9 +1096,9 @@ FROM ${fromClause}`;
     if (hasAgg) {
       for (const alias of plan.groupBy || []) {
         if (selColSet && !selColSet.has(alias)) continue;
-        const r2 = ref(alias);
-        selParts.push(`${r2} AS ${quoteId(alias)}`);
-        groupRefs.push(r2);
+        const r3 = ref(alias);
+        selParts.push(`${r3} AS ${quoteId(alias)}`);
+        groupRefs.push(r3);
         colAliases.push(alias);
       }
       for (const agg of plan.aggregates || []) {
@@ -1121,7 +1121,7 @@ FROM ${fromClause}`;
     if (joinClauses.length) sql += "\n" + joinClauses.join("\n");
     if (whereParts.length) sql += "\nWHERE " + whereParts.join("\n  AND ");
     if (groupRefs.length) sql += "\nGROUP BY " + groupRefs.join(", ");
-    const sortParts = (plan.sorts || []).map((s2) => `${ref(s2.col)} ${s2.dir === "DESC" ? "DESC" : "ASC"}`);
+    const sortParts = (plan.sorts || []).map((s3) => `${ref(s3.col)} ${s3.dir === "DESC" ? "DESC" : "ASC"}`);
     if (sortParts.length) sql += "\nORDER BY " + sortParts.join(", ");
     return { sql, params, cols: colAliases };
   }
@@ -1131,7 +1131,7 @@ FROM ${fromClause}`;
     if (!plan.source.base) throw new Error("No base table in plan");
     const { fromClause, joinClauses, whereParts, params, ref } = renderFromJoinWhere(plan);
     const colTotals = plan.colTotals || {};
-    const hasAny = detailCols.some((c2) => colTotals[c2] && colTotals[c2] !== "skip");
+    const hasAny = detailCols.some((c3) => colTotals[c3] && colTotals[c3] !== "skip");
     if (!hasAny) return null;
     const selParts = detailCols.map((col) => {
       const fn = colTotals[col];
@@ -1157,85 +1157,85 @@ FROM ${fromClause}`;
     const includeSpacer = !!plan.subtotalSpacer;
     const subtotalOnTop = !!plan.subtotalOnTop;
     const isNested = plan.subtotalStrategy === "nested";
-    const orderIdx = new Map(toShow.map((a2, i2) => [a2, i2]));
+    const orderIdx = new Map(toShow.map((a3, i3) => [a3, i3]));
     const seenSub = /* @__PURE__ */ new Set();
-    const subtotalBy = (plan.subtotalBy || []).filter((a2) => orderIdx.has(a2) && !seenSub.has(a2) && (seenSub.add(a2), true)).sort((a2, b2) => (orderIdx.get(a2) ?? Infinity) - (orderIdx.get(b2) ?? Infinity));
+    const subtotalBy = (plan.subtotalBy || []).filter((a3) => orderIdx.has(a3) && !seenSub.has(a3) && (seenSub.add(a3), true)).sort((a3, b2) => (orderIdx.get(a3) ?? Infinity) - (orderIdx.get(b2) ?? Infinity));
     const n2 = subtotalBy.length;
-    const sortGroupKeys = subtotalBy.map((_2, i2) => `_sort_group_${i2}`);
+    const sortGroupKeys = subtotalBy.map((_3, i3) => `_sort_group_${i3}`);
     const detailSortType = subtotalOnTop ? 1 : 0;
     const subtotalSortType = subtotalOnTop ? 0 : 1;
-    const subAggExpr = (a2) => {
-      const fn = subtotalFns[a2];
-      if (!fn || fn === "skip") return `NULL AS ${quoteId(a2)}`;
-      return `${renderAggregateExpr(fn, ref(a2))} AS ${quoteId(a2)}`;
+    const subAggExpr = (a3) => {
+      const fn = subtotalFns[a3];
+      if (!fn || fn === "skip") return `NULL AS ${quoteId(a3)}`;
+      return `${renderAggregateExpr(fn, ref(a3))} AS ${quoteId(a3)}`;
     };
     const subtotalBySet = new Set(subtotalBy);
     const fromPart = `FROM ${fromClause}`;
     const joinPart = joinClauses.length ? "\n" + joinClauses.join("\n") : "";
     const wherePart = whereParts.length ? "\nWHERE " + whereParts.join("\n  AND ") : "";
-    const nullFilter = n2 ? subtotalBy.map((a2) => `${ref(a2)} IS NOT NULL`).join(" OR ") : "";
+    const nullFilter = n2 ? subtotalBy.map((a3) => `${ref(a3)} IS NOT NULL`).join(" OR ") : "";
     const subWherePart = nullFilter ? whereParts.length ? `
 WHERE ${whereParts.join("\n  AND ")}
   AND (${nullFilter})` : `
 WHERE (${nullFilter})` : wherePart;
     const detailSel = [
-      ...toShow.map((a2) => `${ref(a2)} AS ${quoteId(a2)}`),
+      ...toShow.map((a3) => `${ref(a3)} AS ${quoteId(a3)}`),
       '0 AS "_row_type"',
       `${detailSortType} AS "_sort_row_type"`,
-      ...subtotalBy.map((a2, i2) => `${ref(a2)} AS ${quoteId(sortGroupKeys[i2])}`)
+      ...subtotalBy.map((a3, i3) => `${ref(a3)} AS ${quoteId(sortGroupKeys[i3])}`)
     ].join(",\n       ");
     function makeSubSel(depth) {
       const groupCols = subtotalBy.slice(0, depth + 1);
       const groupSet = new Set(groupCols);
       return [
-        ...toShow.map((a2) => {
-          if (groupSet.has(a2)) return `${ref(a2)} AS ${quoteId(a2)}`;
-          if (subtotalBySet.has(a2)) return `NULL AS ${quoteId(a2)}`;
-          return subAggExpr(a2);
+        ...toShow.map((a3) => {
+          if (groupSet.has(a3)) return `${ref(a3)} AS ${quoteId(a3)}`;
+          if (subtotalBySet.has(a3)) return `NULL AS ${quoteId(a3)}`;
+          return subAggExpr(a3);
         }),
         '1 AS "_row_type"',
         `${subtotalSortType} AS "_sort_row_type"`,
-        ...subtotalBy.map((a2, i2) => i2 <= depth ? `${ref(a2)} AS ${quoteId(sortGroupKeys[i2])}` : `NULL AS ${quoteId(sortGroupKeys[i2])}`)
+        ...subtotalBy.map((a3, i3) => i3 <= depth ? `${ref(a3)} AS ${quoteId(sortGroupKeys[i3])}` : `NULL AS ${quoteId(sortGroupKeys[i3])}`)
       ].join(",\n       ");
     }
     const grandSel = [
-      ...toShow.map((a2) => subtotalBySet.has(a2) ? `NULL AS ${quoteId(a2)}` : subAggExpr(a2)),
+      ...toShow.map((a3) => subtotalBySet.has(a3) ? `NULL AS ${quoteId(a3)}` : subAggExpr(a3)),
       '3 AS "_row_type"',
       '3 AS "_sort_row_type"',
-      ...subtotalBy.map((_2, i2) => `NULL AS ${quoteId(sortGroupKeys[i2])}`)
+      ...subtotalBy.map((_3, i3) => `NULL AS ${quoteId(sortGroupKeys[i3])}`)
     ].join(",\n       ");
     const spacerSel = [
-      ...toShow.map((a2) => `NULL AS ${quoteId(a2)}`),
+      ...toShow.map((a3) => `NULL AS ${quoteId(a3)}`),
       '2 AS "_row_type"',
       '2 AS "_sort_row_type"',
-      ...subtotalBy.map((a2, i2) => `${ref(a2)} AS ${quoteId(sortGroupKeys[i2])}`)
+      ...subtotalBy.map((a3, i3) => `${ref(a3)} AS ${quoteId(sortGroupKeys[i3])}`)
     ].join(",\n       ");
     const orderParts = [
-      ...sortGroupKeys.map((k, i2) => {
-        if (isNested && i2 > 0 && subtotalOnTop) return `${quoteId(k)} ASC NULLS FIRST`;
-        return `${quoteId(k)} ASC NULLS LAST`;
+      ...sortGroupKeys.map((k3, i3) => {
+        if (isNested && i3 > 0 && subtotalOnTop) return `${quoteId(k3)} ASC NULLS FIRST`;
+        return `${quoteId(k3)} ASC NULLS LAST`;
       }),
       '"_sort_row_type" ASC',
-      ...(plan.sorts || []).filter((s2) => toShow.includes(s2.col) && !subtotalBySet.has(s2.col)).map((s2) => `${quoteId(s2.col)} ${s2.dir === "DESC" ? "DESC" : "ASC"}`)
+      ...(plan.sorts || []).filter((s3) => toShow.includes(s3.col) && !subtotalBySet.has(s3.col)).map((s3) => `${quoteId(s3.col)} ${s3.dir === "DESC" ? "DESC" : "ASC"}`)
     ];
     const branches = [`SELECT ${detailSel}
 ${fromPart}${joinPart}${wherePart}`];
     if (n2 > 0) {
       if (isNested && n2 > 1) {
-        for (let d2 = 0; d2 < n2; d2++) {
-          const groupClause = subtotalBy.slice(0, d2 + 1).map((a2) => ref(a2)).join(", ");
-          branches.push(`SELECT ${makeSubSel(d2)}
+        for (let d3 = 0; d3 < n2; d3++) {
+          const groupClause = subtotalBy.slice(0, d3 + 1).map((a3) => ref(a3)).join(", ");
+          branches.push(`SELECT ${makeSubSel(d3)}
 ${fromPart}${joinPart}${subWherePart}
 GROUP BY ${groupClause}`);
         }
       } else {
-        const groupClause = subtotalBy.map((a2) => ref(a2)).join(", ");
+        const groupClause = subtotalBy.map((a3) => ref(a3)).join(", ");
         branches.push(`SELECT ${makeSubSel(n2 - 1)}
 ${fromPart}${joinPart}${subWherePart}
 GROUP BY ${groupClause}`);
       }
       if (includeSpacer) {
-        const groupClause = subtotalBy.map((a2) => ref(a2)).join(", ");
+        const groupClause = subtotalBy.map((a3) => ref(a3)).join(", ");
         branches.push(`SELECT ${spacerSel}
 ${fromPart}${joinPart}${subWherePart}
 GROUP BY ${groupClause}`);
@@ -1243,7 +1243,7 @@ GROUP BY ${groupClause}`);
     }
     if (includeGrand) {
       const hasGrandValue = toShow.some(
-        (a2) => !subtotalBySet.has(a2) && subtotalFns[a2] && subtotalFns[a2] !== "skip"
+        (a3) => !subtotalBySet.has(a3) && subtotalFns[a3] && subtotalFns[a3] !== "skip"
       );
       if (hasGrandValue) {
         branches.push(`SELECT ${grandSel}
@@ -1264,19 +1264,19 @@ ${fromPart}${joinPart}${wherePart}`);
   function checkLookupDuplicates(lk) {
     if (!lk.rightId || !db.tables[lk.rightId]) return null;
     if (lk.duplicatePolicy && lk.duplicatePolicy.mode === "combine") return null;
-    const pairs = Array.isArray(lk.keyPairs) ? lk.keyPairs.filter((p2) => p2.left && p2.right) : [];
+    const pairs = Array.isArray(lk.keyPairs) ? lk.keyPairs.filter((p3) => p3.left && p3.right) : [];
     if (!pairs.length) return null;
     try {
       const table = quoteId(lk.rightId);
       const tname = db.tables[lk.rightId].name;
-      const rightCols = pairs.map((p2) => p2.right);
-      const whereParts = rightCols.map((c2) => `${quoteId(c2)} IS NOT NULL AND TRIM(${quoteId(c2)}) != ''`);
+      const rightCols = pairs.map((p3) => p3.right);
+      const whereParts = rightCols.map((c3) => `${quoteId(c3)} IS NOT NULL AND TRIM(${quoteId(c3)}) != ''`);
       const excl = db.excludedRows?.[lk.rightId];
       if (excl && excl.size) {
         whereParts.push(`"_rowno" NOT IN (${[...excl].join(",")})`);
       }
       const whereNonNull = whereParts.join(" AND ");
-      const concatExpr = rightCols.length === 1 ? quoteId(rightCols[0]) : rightCols.map((c2) => quoteId(c2)).join(` || CHAR(0) || `);
+      const concatExpr = rightCols.length === 1 ? quoteId(rightCols[0]) : rightCols.map((c3) => quoteId(c3)).join(` || CHAR(0) || `);
       const sql = `
       SELECT COUNT(*) AS total, COUNT(DISTINCT ${concatExpr}) AS uniq
       FROM ${table}
@@ -1287,8 +1287,8 @@ ${fromPart}${joinPart}${wherePart}`);
       const { total, uniq } = rows[0];
       if (total > uniq) {
         const dupes = total - uniq;
-        const keyLabels = rightCols.map((c2) => colUserLabel(lk.rightId, c2) || c2);
-        const keyDesc = keyLabels.length === 1 ? `"${keyLabels[0]}"` : keyLabels.map((c2) => `"${c2}"`).join(" + ");
+        const keyLabels = rightCols.map((c3) => colUserLabel(lk.rightId, c3) || c3);
+        const keyDesc = keyLabels.length === 1 ? `"${keyLabels[0]}"` : keyLabels.map((c3) => `"${c3}"`).join(" + ");
         return `${keyDesc} in "${tname}" has ${dupes.toLocaleString()} duplicate combination${dupes === 1 ? "" : "s"} \u2014 it's unclear which row's data applies when there are multiple matches. Choose columns that together form a unique key.`;
       }
       return null;
@@ -1383,20 +1383,20 @@ ${fromPart}${joinPart}${wherePart}`);
     text: validateTextMode,
     date: validateDateMode
   };
-  function checkCalcError(calc, i2) {
+  function checkCalcError(calc, i3) {
     const alias = (calc.alias || "").trim();
     if (!alias) return "Provide a label for this calculated column.";
     if (!calc.mode || !["math", "compare", "text", "date"].includes(calc.mode)) {
       return "Pick a valid calculation type.";
     }
     const cols = new Set(projectedCols());
-    const ctx = { calc, i: i2, cols, alias };
+    const ctx = { calc, i: i3, cols, alias };
     const modeError = calcModeValidators[calc.mode](ctx);
     if (modeError) return modeError;
     const map = buildColSourceMap();
     const src = map.get(alias);
     if (src && src.kind !== "calc") return "Label conflicts with an existing column name.";
-    const duplicates = (db.calcStages || []).filter((c2, idx) => idx !== i2 && (c2.alias || "").trim() === alias);
+    const duplicates = (db.calcStages || []).filter((c3, idx) => idx !== i3 && (c3.alias || "").trim() === alias);
     if (duplicates.length) return "Label must be unique across calculated columns.";
     return null;
   }
@@ -1520,8 +1520,8 @@ ${fromPart}${joinPart}${wherePart}`);
       return Object.assign({ id, severity: "blocked", area, cardId, itemId, message }, extra || {});
     }
     function mkItem(itemId, enabled, resolved, issues) {
-      const e2 = enabled !== false;
-      items[itemId] = { enabled: e2, resolved, blocking: e2 && !resolved, issues: issues || [] };
+      const e3 = enabled !== false;
+      items[itemId] = { enabled: e3, resolved, blocking: e3 && !resolved, issues: issues || [] };
       return items[itemId];
     }
     const baseOk = !!(db.base && db.tables && db.tables[db.base]);
@@ -1551,24 +1551,24 @@ ${fromPart}${joinPart}${wherePart}`);
         )
       ]);
     }
-    for (let i2 = 0; i2 < (db.stacks || []).length; i2++) {
-      const id = db.stacks[i2];
+    for (let i3 = 0; i3 < (db.stacks || []).length; i3++) {
+      const id = db.stacks[i3];
       const ok = !!(id && db.tables && db.tables[id]);
       const issues = [];
       if (!ok) {
         issues.push(mkIssue(
-          `stack_${i2}_missing`,
+          `stack_${i3}_missing`,
           "stack",
           "pipeline",
-          `stack_${i2}`,
+          `stack_${i3}`,
           `Stacked sheet "${id}" is not loaded`,
           { missingTableId: id, repairHint: "Load the file containing this sheet." }
         ));
       }
-      mkItem(`stack_${i2}`, true, ok, issues);
+      mkItem(`stack_${i3}`, true, ok, issues);
     }
-    for (let i2 = 0; i2 < (db.lookups || []).length; i2++) {
-      const lk = db.lookups[i2];
+    for (let i3 = 0; i3 < (db.lookups || []).length; i3++) {
+      const lk = db.lookups[i3];
       const enabled = lk.enabled !== false;
       const issues = [];
       let resolved = true;
@@ -1576,50 +1576,50 @@ ${fromPart}${joinPart}${wherePart}`);
       if (!rt) {
         resolved = false;
         issues.push(mkIssue(
-          `lookup_${i2}_missing_table`,
+          `lookup_${i3}_missing_table`,
           "lookup",
-          `lookup_${i2}`,
-          `lookup_${i2}`,
+          `lookup_${i3}`,
+          `lookup_${i3}`,
           `Lookup sheet "${lk.rightId || "(none)"}" is not loaded`,
           { missingTableId: lk.rightId || null, repairHint: "Load the file containing this sheet." }
         ));
       } else if (baseOk) {
-        const leftCols = projectedColsUpToLookup(i2);
+        const leftCols = projectedColsUpToLookup(i3);
         const leftSet = new Set(leftCols);
         for (let pi = 0; pi < (lk.keyPairs || []).length; pi++) {
-          const p2 = lk.keyPairs[pi];
-          if (p2.left && !leftSet.has(p2.left)) {
+          const p3 = lk.keyPairs[pi];
+          if (p3.left && !leftSet.has(p3.left)) {
             resolved = false;
             issues.push(mkIssue(
-              `lookup_${i2}_kp${pi}_left`,
+              `lookup_${i3}_kp${pi}_left`,
               "lookup",
-              `lookup_${i2}`,
-              `lookup_${i2}`,
-              `Match column "${p2.left}" is not available`,
-              { missingColumn: p2.left }
+              `lookup_${i3}`,
+              `lookup_${i3}`,
+              `Match column "${p3.left}" is not available`,
+              { missingColumn: p3.left }
             ));
           }
-          if (p2.right && !rt.cols.includes(p2.right)) {
+          if (p3.right && !rt.cols.includes(p3.right)) {
             resolved = false;
             issues.push(mkIssue(
-              `lookup_${i2}_kp${pi}_right`,
+              `lookup_${i3}_kp${pi}_right`,
               "lookup",
-              `lookup_${i2}`,
-              `lookup_${i2}`,
-              `Match column "${p2.right}" not found in "${rt.name}"`,
-              { missingColumn: p2.right }
+              `lookup_${i3}`,
+              `lookup_${i3}`,
+              `Match column "${p3.right}" not found in "${rt.name}"`,
+              { missingColumn: p3.right }
             ));
           }
         }
       }
-      const hasCompleteKeyPair = (lk.keyPairs || []).some((p2) => p2 && p2.left && p2.right);
+      const hasCompleteKeyPair = (lk.keyPairs || []).some((p3) => p3 && p3.left && p3.right);
       if (rt && !hasCompleteKeyPair) {
         resolved = false;
         issues.push(mkIssue(
-          `lookup_${i2}_no_key_pairs`,
+          `lookup_${i3}_no_key_pairs`,
           "lookup",
-          `lookup_${i2}`,
-          `lookup_${i2}`,
+          `lookup_${i3}`,
+          `lookup_${i3}`,
           `Lookup "${rt.name}" has no complete match column pair`
         ));
       }
@@ -1627,139 +1627,139 @@ ${fromPart}${joinPart}${wherePart}`);
       if (dupErr) {
         resolved = false;
         issues.push(mkIssue(
-          `lookup_${i2}_dup_keys`,
+          `lookup_${i3}_dup_keys`,
           "duplicateKeys",
           "pipeline",
-          `lookup_${i2}`,
+          `lookup_${i3}`,
           dupErr,
-          { lookupIndex: i2 }
+          { lookupIndex: i3 }
         ));
       }
-      mkItem(`lookup_${i2}`, enabled, resolved, issues);
+      mkItem(`lookup_${i3}`, enabled, resolved, issues);
     }
-    for (let i2 = 0; i2 < (db.calcStages || []).length; i2++) {
-      const c2 = db.calcStages[i2];
-      const enabled = c2.enabled !== false;
-      const alias = (c2.alias || "").trim();
+    for (let i3 = 0; i3 < (db.calcStages || []).length; i3++) {
+      const c3 = db.calcStages[i3];
+      const enabled = c3.enabled !== false;
+      const alias = (c3.alias || "").trim();
       let resolved = true;
       const issues = [];
       if (!alias) {
         resolved = false;
         issues.push(mkIssue(
-          `calc_${i2}_no_alias`,
+          `calc_${i3}_no_alias`,
           "calculatedColumn",
-          `calc_${i2}`,
-          `calc_${i2}`,
+          `calc_${i3}`,
+          `calc_${i3}`,
           `Calculated column has no alias`
         ));
       } else if (!projected.has(alias)) {
         resolved = false;
         issues.push(mkIssue(
-          `calc_${i2}_unresolved`,
+          `calc_${i3}_unresolved`,
           "calculatedColumn",
-          `calc_${i2}`,
-          `calc_${i2}`,
+          `calc_${i3}`,
+          `calc_${i3}`,
           `Calculated column "${alias}" \u2014 one or more source columns are not available`
         ));
       }
-      const calcErr = checkCalcError(c2, i2);
+      const calcErr = checkCalcError(c3, i3);
       if (calcErr) {
         resolved = false;
         issues.push(mkIssue(
-          `calc_${i2}_expr_error`,
+          `calc_${i3}_expr_error`,
           "calcError",
           "pipeline",
-          `calc_${i2}`,
+          `calc_${i3}`,
           calcErr,
-          { calcIndex: i2 }
+          { calcIndex: i3 }
         ));
       }
-      mkItem(`calc_${i2}`, enabled, resolved, issues);
+      mkItem(`calc_${i3}`, enabled, resolved, issues);
     }
-    for (let i2 = 0; i2 < (db.filters || []).length; i2++) {
-      const f2 = db.filters[i2];
-      const enabled = f2.enabled !== false;
+    for (let i3 = 0; i3 < (db.filters || []).length; i3++) {
+      const f4 = db.filters[i3];
+      const enabled = f4.enabled !== false;
       let resolved = true;
       const issues = [];
-      if (f2.col && !projected.has(f2.col)) {
+      if (f4.col && !projected.has(f4.col)) {
         resolved = false;
         issues.push(mkIssue(
-          `filter_${i2}_missing_col`,
+          `filter_${i3}_missing_col`,
           "filter",
           "filterSort",
-          `filter_${i2}`,
-          `Filter column "${f2.col}" is not available`,
-          { missingColumn: f2.col }
+          `filter_${i3}`,
+          `Filter column "${f4.col}" is not available`,
+          { missingColumn: f4.col }
         ));
       }
-      if (!Array.isArray(f2.vals)) {
+      if (!Array.isArray(f4.vals)) {
         resolved = false;
         issues.push(mkIssue(
-          `filter_${i2}_bad_vals`,
+          `filter_${i3}_bad_vals`,
           "filter",
           "filterSort",
-          `filter_${i2}`,
-          `Filter "${f2.col || "(no column)"}" has malformed values`
+          `filter_${i3}`,
+          `Filter "${f4.col || "(no column)"}" has malformed values`
         ));
-      } else if (f2.vals.some((v2) => typeof v2 !== "string")) {
+      } else if (f4.vals.some((v3) => typeof v3 !== "string")) {
         resolved = false;
         issues.push(mkIssue(
-          `filter_${i2}_bad_vals`,
+          `filter_${i3}_bad_vals`,
           "filter",
           "filterSort",
-          `filter_${i2}`,
-          `Filter "${f2.col || "(no column)"}" has malformed values`
+          `filter_${i3}`,
+          `Filter "${f4.col || "(no column)"}" has malformed values`
         ));
       }
-      mkItem(`filter_${i2}`, enabled, resolved, issues);
+      mkItem(`filter_${i3}`, enabled, resolved, issues);
     }
-    for (let i2 = 0; i2 < (db.sorts || []).length; i2++) {
-      const s2 = db.sorts[i2];
-      const enabled = s2.enabled !== false;
+    for (let i3 = 0; i3 < (db.sorts || []).length; i3++) {
+      const s3 = db.sorts[i3];
+      const enabled = s3.enabled !== false;
       let resolved = true;
       const issues = [];
-      if (s2.col && !projected.has(s2.col)) {
+      if (s3.col && !projected.has(s3.col)) {
         resolved = false;
         issues.push(mkIssue(
-          `sort_${i2}_missing_col`,
+          `sort_${i3}_missing_col`,
           "sort",
           "filterSort",
-          `sort_${i2}`,
-          `Sort column "${s2.col}" is not available`,
-          { missingColumn: s2.col }
+          `sort_${i3}`,
+          `Sort column "${s3.col}" is not available`,
+          { missingColumn: s3.col }
         ));
       }
-      mkItem(`sort_${i2}`, enabled, resolved, issues);
+      mkItem(`sort_${i3}`, enabled, resolved, issues);
     }
     if (db.aggMode === "group") {
-      for (let i2 = 0; i2 < (db.groupBy || []).length; i2++) {
-        const col = db.groupBy[i2];
+      for (let i3 = 0; i3 < (db.groupBy || []).length; i3++) {
+        const col = db.groupBy[i3];
         const resolved = projected.has(col);
         const issues = [];
         if (!resolved) {
           issues.push(mkIssue(
-            `groupby_${i2}_missing_col`,
+            `groupby_${i3}_missing_col`,
             "groupBy",
             "aggregation",
-            `groupby_${i2}`,
+            `groupby_${i3}`,
             `Group-by column "${col}" is not available`,
             { missingColumn: col }
           ));
         }
-        mkItem(`groupby_${i2}`, true, resolved, issues);
+        mkItem(`groupby_${i3}`, true, resolved, issues);
       }
-      for (let i2 = 0; i2 < (db.aggregates || []).length; i2++) {
-        const agg = db.aggregates[i2];
+      for (let i3 = 0; i3 < (db.aggregates || []).length; i3++) {
+        const agg = db.aggregates[i3];
         const issues = [];
         let resolved = true;
         const needsCol = aggregateNeedsColumn(agg.fn);
         if (needsCol && agg.col && agg.col !== "*" && !projected.has(agg.col)) {
           resolved = false;
           issues.push(mkIssue(
-            `agg_${i2}_missing_col`,
+            `agg_${i3}_missing_col`,
             "aggregate",
             "aggregation",
-            `agg_${i2}`,
+            `agg_${i3}`,
             `Aggregate column "${agg.col}" is not available`,
             { missingColumn: agg.col }
           ));
@@ -1767,14 +1767,14 @@ ${fromPart}${joinPart}${wherePart}`);
         if (!isValidAggregateFn(agg.fn)) {
           resolved = false;
           issues.push(mkIssue(
-            `agg_${i2}_invalid_fn`,
+            `agg_${i3}_invalid_fn`,
             "aggregate",
             "aggregation",
-            `agg_${i2}`,
+            `agg_${i3}`,
             `Unknown aggregate function "${agg.fn}"`
           ));
         }
-        mkItem(`agg_${i2}`, true, resolved, issues);
+        mkItem(`agg_${i3}`, true, resolved, issues);
       }
     }
     if (db.aggMode === "totals") {
@@ -1833,21 +1833,21 @@ ${fromPart}${joinPart}${wherePart}`);
           )
         ]);
       }
-      for (let i2 = 0; i2 < (db.subtotalBy || []).length; i2++) {
-        const col = db.subtotalBy[i2];
+      for (let i3 = 0; i3 < (db.subtotalBy || []).length; i3++) {
+        const col = db.subtotalBy[i3];
         const resolved = projected.has(col);
         const issues = [];
         if (!resolved) {
           issues.push(mkIssue(
-            `subtotalby_${i2}_missing_col`,
+            `subtotalby_${i3}_missing_col`,
             "subtotalBy",
             "aggregation",
-            `subtotalby_${i2}`,
+            `subtotalby_${i3}`,
             `Subtotal group column "${col}" is not available`,
             { missingColumn: col }
           ));
         }
-        mkItem(`subtotalby_${i2}`, true, resolved, issues);
+        mkItem(`subtotalby_${i3}`, true, resolved, issues);
       }
       const subColMap = buildColSourceMap();
       for (const [col, fn] of Object.entries(db.subtotalFns || {})) {
@@ -1900,11 +1900,11 @@ ${fromPart}${joinPart}${wherePart}`);
     for (const calc of db.calcStages || []) {
       if (calc.alias) outputAliases.add(calc.alias);
     }
-    const colOrderItems = (db.colOrder || []).filter((a2) => !projected.has(a2) && !outputAliases.has(a2));
-    for (let i2 = 0; i2 < colOrderItems.length; i2++) {
-      const col = colOrderItems[i2];
+    const colOrderItems = (db.colOrder || []).filter((a3) => !projected.has(a3) && !outputAliases.has(a3));
+    for (let i3 = 0; i3 < colOrderItems.length; i3++) {
+      const col = colOrderItems[i3];
       const issues = [mkIssue(
-        `colorder_${i2}_stale`,
+        `colorder_${i3}_stale`,
         "outputColumn",
         "outputColumns",
         `colorder_${col}`,
@@ -1941,7 +1941,7 @@ ${fromPart}${joinPart}${wherePart}`);
       if (item.blocking) cards[cid].status = "blocked";
       cards[cid].issues.push(...item.issues);
     }
-    const reportBlocked = Object.values(items).some((i2) => i2.blocking);
+    const reportBlocked = Object.values(items).some((i3) => i3.blocking);
     return {
       reportStatus: reportBlocked ? "blocked" : "healthy",
       cards,
@@ -1981,23 +1981,23 @@ ${fromPart}${joinPart}${wherePart}`);
         rightId: lk.rightId,
         rightColumns: rtMeta ? rtMeta.cols : [],
         rightTableName: rtMeta ? rtMeta.name : lk.rightId,
-        keyPairs: (lk.keyPairs || []).filter((p2) => p2.left && p2.right),
+        keyPairs: (lk.keyPairs || []).filter((p3) => p3.left && p3.right),
         required: !!lk.required,
         duplicatePolicy: lk.duplicatePolicy || { mode: "block" },
         excludedRows: (ctx.excludedRows || {})[lk.rightId] || null
       };
-    }).filter((j2) => j2.keyPairs.length > 0);
-    const calculatedColumns = [...colMap.values()].filter((e2) => e2.kind === "calc");
-    const filters = (ctx.filters || []).filter((f2) => f2.enabled !== false && f2.col);
+    }).filter((j4) => j4.keyPairs.length > 0);
+    const calculatedColumns = [...colMap.values()].filter((e3) => e3.kind === "calc");
+    const filters = (ctx.filters || []).filter((f4) => f4.enabled !== false && f4.col);
     const colOrder = ctx.colOrder;
     const aggMode = ctx.aggMode || "none";
     const aggregates = ctx.aggregates || [];
-    const aggAliases = aggMode === "group" ? aggregates.map((a2) => a2.alias).filter((a2) => a2) : [];
-    const orderedAliases = colOrder ? colOrder.filter((a2) => colMap.has(a2) || aggAliases.includes(a2)) : [...colMap.keys(), ...aggAliases];
+    const aggAliases = aggMode === "group" ? aggregates.map((a3) => a3.alias).filter((a3) => a3) : [];
+    const orderedAliases = colOrder ? colOrder.filter((a3) => colMap.has(a3) || aggAliases.includes(a3)) : [...colMap.keys(), ...aggAliases];
     const rawSelCols = ctx.selCols;
     const selCols = rawSelCols instanceof Set ? rawSelCols : null;
-    const selectedColumns = selCols ? orderedAliases.filter((a2) => selCols.has(a2)) : orderedAliases;
-    const sorts = (ctx.sorts || []).filter((s2) => s2.enabled !== false && s2.col && colMap.has(s2.col));
+    const selectedColumns = selCols ? orderedAliases.filter((a3) => selCols.has(a3)) : orderedAliases;
+    const sorts = (ctx.sorts || []).filter((s3) => s3.enabled !== false && s3.col && colMap.has(s3.col));
     return {
       source,
       joins,
@@ -2035,10 +2035,10 @@ ${fromPart}${joinPart}${wherePart}`);
     }
     const totalsRows = execQuery(totals.sql, totals.params);
     const newAggCols = totals.cols.slice(detail.cols.length);
-    const paddedRows = newAggCols.length ? detailRows.map((r2) => {
-      const row = Object.assign({}, r2);
-      newAggCols.forEach((c2) => {
-        row[c2] = null;
+    const paddedRows = newAggCols.length ? detailRows.map((r3) => {
+      const row = Object.assign({}, r3);
+      newAggCols.forEach((c3) => {
+        row[c3] = null;
       });
       return row;
     }) : detailRows;
@@ -2079,7 +2079,627 @@ ${fromPart}${joinPart}${wherePart}`);
   if (typeof window !== "undefined") window.runReport = runReport;
   if (typeof window !== "undefined") window.executeReport = runReport;
 
-  // js/ui/components/modal.ts
+  // node_modules/preact/dist/preact.module.js
+  var n;
+  var l;
+  var u;
+  var t;
+  var i;
+  var r;
+  var o;
+  var e;
+  var f;
+  var c;
+  var a;
+  var s;
+  var h2;
+  var p;
+  var v;
+  var y;
+  var d = {};
+  var w = [];
+  var _ = /acit|ex(?:s|g|n|p|$)|rph|grid|ows|mnc|ntw|ine[ch]|zoo|^ord|itera/i;
+  var g = Array.isArray;
+  function m(n2, l3) {
+    for (var u4 in l3) n2[u4] = l3[u4];
+    return n2;
+  }
+  function b(n2) {
+    n2 && n2.parentNode && n2.parentNode.removeChild(n2);
+  }
+  function k(l3, u4, t3) {
+    var i3, r3, o3, e3 = {};
+    for (o3 in u4) "key" == o3 ? i3 = u4[o3] : "ref" == o3 ? r3 = u4[o3] : e3[o3] = u4[o3];
+    if (arguments.length > 2 && (e3.children = arguments.length > 3 ? n.call(arguments, 2) : t3), "function" == typeof l3 && null != l3.defaultProps) for (o3 in l3.defaultProps) void 0 === e3[o3] && (e3[o3] = l3.defaultProps[o3]);
+    return x(l3, e3, i3, r3, null);
+  }
+  function x(n2, t3, i3, r3, o3) {
+    var e3 = { type: n2, props: t3, key: i3, ref: r3, __k: null, __: null, __b: 0, __e: null, __c: null, constructor: void 0, __v: null == o3 ? ++u : o3, __i: -1, __u: 0 };
+    return null == o3 && null != l.vnode && l.vnode(e3), e3;
+  }
+  function S(n2) {
+    return n2.children;
+  }
+  function C(n2, l3) {
+    this.props = n2, this.context = l3;
+  }
+  function $(n2, l3) {
+    if (null == l3) return n2.__ ? $(n2.__, n2.__i + 1) : null;
+    for (var u4; l3 < n2.__k.length; l3++) if (null != (u4 = n2.__k[l3]) && null != u4.__e) return u4.__e;
+    return "function" == typeof n2.type ? $(n2) : null;
+  }
+  function I(n2) {
+    if (n2.__P && n2.__d) {
+      var u4 = n2.__v, t3 = u4.__e, i3 = [], r3 = [], o3 = m({}, u4);
+      o3.__v = u4.__v + 1, l.vnode && l.vnode(o3), q(n2.__P, o3, u4, n2.__n, n2.__P.namespaceURI, 32 & u4.__u ? [t3] : null, i3, null == t3 ? $(u4) : t3, !!(32 & u4.__u), r3), o3.__v = u4.__v, o3.__.__k[o3.__i] = o3, D(i3, o3, r3), u4.__e = u4.__ = null, o3.__e != t3 && P(o3);
+    }
+  }
+  function P(n2) {
+    if (null != (n2 = n2.__) && null != n2.__c) return n2.__e = n2.__c.base = null, n2.__k.some(function(l3) {
+      if (null != l3 && null != l3.__e) return n2.__e = n2.__c.base = l3.__e;
+    }), P(n2);
+  }
+  function A(n2) {
+    (!n2.__d && (n2.__d = true) && i.push(n2) && !H.__r++ || r != l.debounceRendering) && ((r = l.debounceRendering) || o)(H);
+  }
+  function H() {
+    try {
+      for (var n2, l3 = 1; i.length; ) i.length > l3 && i.sort(e), n2 = i.shift(), l3 = i.length, I(n2);
+    } finally {
+      i.length = H.__r = 0;
+    }
+  }
+  function L(n2, l3, u4, t3, i3, r3, o3, e3, f4, c3, a3) {
+    var s3, h5, p3, v3, y3, _3, g4, m3 = t3 && t3.__k || w, b2 = l3.length;
+    for (f4 = T(u4, l3, m3, f4, b2), s3 = 0; s3 < b2; s3++) null != (p3 = u4.__k[s3]) && (h5 = -1 != p3.__i && m3[p3.__i] || d, p3.__i = s3, _3 = q(n2, p3, h5, i3, r3, o3, e3, f4, c3, a3), v3 = p3.__e, p3.ref && h5.ref != p3.ref && (h5.ref && J(h5.ref, null, p3), a3.push(p3.ref, p3.__c || v3, p3)), null == y3 && null != v3 && (y3 = v3), (g4 = !!(4 & p3.__u)) || h5.__k === p3.__k ? (f4 = j(p3, f4, n2, g4), g4 && h5.__e && (h5.__e = null)) : "function" == typeof p3.type && void 0 !== _3 ? f4 = _3 : v3 && (f4 = v3.nextSibling), p3.__u &= -7);
+    return u4.__e = y3, f4;
+  }
+  function T(n2, l3, u4, t3, i3) {
+    var r3, o3, e3, f4, c3, a3 = u4.length, s3 = a3, h5 = 0;
+    for (n2.__k = new Array(i3), r3 = 0; r3 < i3; r3++) null != (o3 = l3[r3]) && "boolean" != typeof o3 && "function" != typeof o3 ? ("string" == typeof o3 || "number" == typeof o3 || "bigint" == typeof o3 || o3.constructor == String ? o3 = n2.__k[r3] = x(null, o3, null, null, null) : g(o3) ? o3 = n2.__k[r3] = x(S, { children: o3 }, null, null, null) : void 0 === o3.constructor && o3.__b > 0 ? o3 = n2.__k[r3] = x(o3.type, o3.props, o3.key, o3.ref ? o3.ref : null, o3.__v) : n2.__k[r3] = o3, f4 = r3 + h5, o3.__ = n2, o3.__b = n2.__b + 1, e3 = null, -1 != (c3 = o3.__i = O(o3, u4, f4, s3)) && (s3--, (e3 = u4[c3]) && (e3.__u |= 2)), null == e3 || null == e3.__v ? (-1 == c3 && (i3 > a3 ? h5-- : i3 < a3 && h5++), "function" != typeof o3.type && (o3.__u |= 4)) : c3 != f4 && (c3 == f4 - 1 ? h5-- : c3 == f4 + 1 ? h5++ : (c3 > f4 ? h5-- : h5++, o3.__u |= 4))) : n2.__k[r3] = null;
+    if (s3) for (r3 = 0; r3 < a3; r3++) null != (e3 = u4[r3]) && 0 == (2 & e3.__u) && (e3.__e == t3 && (t3 = $(e3)), K(e3, e3));
+    return t3;
+  }
+  function j(n2, l3, u4, t3) {
+    var i3, r3;
+    if ("function" == typeof n2.type) {
+      for (i3 = n2.__k, r3 = 0; i3 && r3 < i3.length; r3++) i3[r3] && (i3[r3].__ = n2, l3 = j(i3[r3], l3, u4, t3));
+      return l3;
+    }
+    n2.__e != l3 && (t3 && (l3 && n2.type && !l3.parentNode && (l3 = $(n2)), u4.insertBefore(n2.__e, l3 || null)), l3 = n2.__e);
+    do {
+      l3 = l3 && l3.nextSibling;
+    } while (null != l3 && 8 == l3.nodeType);
+    return l3;
+  }
+  function F(n2, l3) {
+    return l3 = l3 || [], null == n2 || "boolean" == typeof n2 || (g(n2) ? n2.some(function(n3) {
+      F(n3, l3);
+    }) : l3.push(n2)), l3;
+  }
+  function O(n2, l3, u4, t3) {
+    var i3, r3, o3, e3 = n2.key, f4 = n2.type, c3 = l3[u4], a3 = null != c3 && 0 == (2 & c3.__u);
+    if (null === c3 && null == e3 || a3 && e3 == c3.key && f4 == c3.type) return u4;
+    if (t3 > (a3 ? 1 : 0)) {
+      for (i3 = u4 - 1, r3 = u4 + 1; i3 >= 0 || r3 < l3.length; ) if (null != (c3 = l3[o3 = i3 >= 0 ? i3-- : r3++]) && 0 == (2 & c3.__u) && e3 == c3.key && f4 == c3.type) return o3;
+    }
+    return -1;
+  }
+  function z(n2, l3, u4) {
+    "-" == l3[0] ? n2.setProperty(l3, null == u4 ? "" : u4) : n2[l3] = null == u4 ? "" : "number" != typeof u4 || _.test(l3) ? u4 : u4 + "px";
+  }
+  function N(n2, l3, u4, t3, i3) {
+    var r3, o3;
+    n: if ("style" == l3) if ("string" == typeof u4) n2.style.cssText = u4;
+    else {
+      if ("string" == typeof t3 && (n2.style.cssText = t3 = ""), t3) for (l3 in t3) u4 && l3 in u4 || z(n2.style, l3, "");
+      if (u4) for (l3 in u4) t3 && u4[l3] == t3[l3] || z(n2.style, l3, u4[l3]);
+    }
+    else if ("o" == l3[0] && "n" == l3[1]) r3 = l3 != (l3 = l3.replace(s, "$1")), o3 = l3.toLowerCase(), l3 = o3 in n2 || "onFocusOut" == l3 || "onFocusIn" == l3 ? o3.slice(2) : l3.slice(2), n2.l || (n2.l = {}), n2.l[l3 + r3] = u4, u4 ? t3 ? u4[a] = t3[a] : (u4[a] = h2, n2.addEventListener(l3, r3 ? v : p, r3)) : n2.removeEventListener(l3, r3 ? v : p, r3);
+    else {
+      if ("http://www.w3.org/2000/svg" == i3) l3 = l3.replace(/xlink(H|:h)/, "h").replace(/sName$/, "s");
+      else if ("width" != l3 && "height" != l3 && "href" != l3 && "list" != l3 && "form" != l3 && "tabIndex" != l3 && "download" != l3 && "rowSpan" != l3 && "colSpan" != l3 && "role" != l3 && "popover" != l3 && l3 in n2) try {
+        n2[l3] = null == u4 ? "" : u4;
+        break n;
+      } catch (n3) {
+      }
+      "function" == typeof u4 || (null == u4 || false === u4 && "-" != l3[4] ? n2.removeAttribute(l3) : n2.setAttribute(l3, "popover" == l3 && 1 == u4 ? "" : u4));
+    }
+  }
+  function V(n2) {
+    return function(u4) {
+      if (this.l) {
+        var t3 = this.l[u4.type + n2];
+        if (null == u4[c]) u4[c] = h2++;
+        else if (u4[c] < t3[a]) return;
+        return t3(l.event ? l.event(u4) : u4);
+      }
+    };
+  }
+  function q(n2, u4, t3, i3, r3, o3, e3, f4, c3, a3) {
+    var s3, h5, p3, v3, y3, d3, _3, k3, x3, M3, $4, I2, P4, A4, H3, T4 = u4.type;
+    if (void 0 !== u4.constructor) return null;
+    128 & t3.__u && (c3 = !!(32 & t3.__u), o3 = [f4 = u4.__e = t3.__e]), (s3 = l.__b) && s3(u4);
+    n: if ("function" == typeof T4) try {
+      if (k3 = u4.props, x3 = T4.prototype && T4.prototype.render, M3 = (s3 = T4.contextType) && i3[s3.__c], $4 = s3 ? M3 ? M3.props.value : s3.__ : i3, t3.__c ? _3 = (h5 = u4.__c = t3.__c).__ = h5.__E : (x3 ? u4.__c = h5 = new T4(k3, $4) : (u4.__c = h5 = new C(k3, $4), h5.constructor = T4, h5.render = Q), M3 && M3.sub(h5), h5.state || (h5.state = {}), h5.__n = i3, p3 = h5.__d = true, h5.__h = [], h5._sb = []), x3 && null == h5.__s && (h5.__s = h5.state), x3 && null != T4.getDerivedStateFromProps && (h5.__s == h5.state && (h5.__s = m({}, h5.__s)), m(h5.__s, T4.getDerivedStateFromProps(k3, h5.__s))), v3 = h5.props, y3 = h5.state, h5.__v = u4, p3) x3 && null == T4.getDerivedStateFromProps && null != h5.componentWillMount && h5.componentWillMount(), x3 && null != h5.componentDidMount && h5.__h.push(h5.componentDidMount);
+      else {
+        if (x3 && null == T4.getDerivedStateFromProps && k3 !== v3 && null != h5.componentWillReceiveProps && h5.componentWillReceiveProps(k3, $4), u4.__v == t3.__v || !h5.__e && null != h5.shouldComponentUpdate && false === h5.shouldComponentUpdate(k3, h5.__s, $4)) {
+          u4.__v != t3.__v && (h5.props = k3, h5.state = h5.__s, h5.__d = false), u4.__e = t3.__e, u4.__k = t3.__k, u4.__k.some(function(n3) {
+            n3 && (n3.__ = u4);
+          }), w.push.apply(h5.__h, h5._sb), h5._sb = [], h5.__h.length && e3.push(h5);
+          break n;
+        }
+        null != h5.componentWillUpdate && h5.componentWillUpdate(k3, h5.__s, $4), x3 && null != h5.componentDidUpdate && h5.__h.push(function() {
+          h5.componentDidUpdate(v3, y3, d3);
+        });
+      }
+      if (h5.context = $4, h5.props = k3, h5.__P = n2, h5.__e = false, I2 = l.__r, P4 = 0, x3) h5.state = h5.__s, h5.__d = false, I2 && I2(u4), s3 = h5.render(h5.props, h5.state, h5.context), w.push.apply(h5.__h, h5._sb), h5._sb = [];
+      else do {
+        h5.__d = false, I2 && I2(u4), s3 = h5.render(h5.props, h5.state, h5.context), h5.state = h5.__s;
+      } while (h5.__d && ++P4 < 25);
+      h5.state = h5.__s, null != h5.getChildContext && (i3 = m(m({}, i3), h5.getChildContext())), x3 && !p3 && null != h5.getSnapshotBeforeUpdate && (d3 = h5.getSnapshotBeforeUpdate(v3, y3)), A4 = null != s3 && s3.type === S && null == s3.key ? E(s3.props.children) : s3, f4 = L(n2, g(A4) ? A4 : [A4], u4, t3, i3, r3, o3, e3, f4, c3, a3), h5.base = u4.__e, u4.__u &= -161, h5.__h.length && e3.push(h5), _3 && (h5.__E = h5.__ = null);
+    } catch (n3) {
+      if (u4.__v = null, c3 || null != o3) if (n3.then) {
+        for (u4.__u |= c3 ? 160 : 128; f4 && 8 == f4.nodeType && f4.nextSibling; ) f4 = f4.nextSibling;
+        o3[o3.indexOf(f4)] = null, u4.__e = f4;
+      } else {
+        for (H3 = o3.length; H3--; ) b(o3[H3]);
+        B(u4);
+      }
+      else u4.__e = t3.__e, u4.__k = t3.__k, n3.then || B(u4);
+      l.__e(n3, u4, t3);
+    }
+    else null == o3 && u4.__v == t3.__v ? (u4.__k = t3.__k, u4.__e = t3.__e) : f4 = u4.__e = G(t3.__e, u4, t3, i3, r3, o3, e3, c3, a3);
+    return (s3 = l.diffed) && s3(u4), 128 & u4.__u ? void 0 : f4;
+  }
+  function B(n2) {
+    n2 && (n2.__c && (n2.__c.__e = true), n2.__k && n2.__k.some(B));
+  }
+  function D(n2, u4, t3) {
+    for (var i3 = 0; i3 < t3.length; i3++) J(t3[i3], t3[++i3], t3[++i3]);
+    l.__c && l.__c(u4, n2), n2.some(function(u5) {
+      try {
+        n2 = u5.__h, u5.__h = [], n2.some(function(n3) {
+          n3.call(u5);
+        });
+      } catch (n3) {
+        l.__e(n3, u5.__v);
+      }
+    });
+  }
+  function E(n2) {
+    return "object" != typeof n2 || null == n2 || n2.__b > 0 ? n2 : g(n2) ? n2.map(E) : void 0 !== n2.constructor ? null : m({}, n2);
+  }
+  function G(u4, t3, i3, r3, o3, e3, f4, c3, a3) {
+    var s3, h5, p3, v3, y3, w3, _3, m3 = i3.props || d, k3 = t3.props, x3 = t3.type;
+    if ("svg" == x3 ? o3 = "http://www.w3.org/2000/svg" : "math" == x3 ? o3 = "http://www.w3.org/1998/Math/MathML" : o3 || (o3 = "http://www.w3.org/1999/xhtml"), null != e3) {
+      for (s3 = 0; s3 < e3.length; s3++) if ((y3 = e3[s3]) && "setAttribute" in y3 == !!x3 && (x3 ? y3.localName == x3 : 3 == y3.nodeType)) {
+        u4 = y3, e3[s3] = null;
+        break;
+      }
+    }
+    if (null == u4) {
+      if (null == x3) return document.createTextNode(k3);
+      u4 = document.createElementNS(o3, x3, k3.is && k3), c3 && (l.__m && l.__m(t3, e3), c3 = false), e3 = null;
+    }
+    if (null == x3) m3 === k3 || c3 && u4.data == k3 || (u4.data = k3);
+    else {
+      if (e3 = "textarea" == x3 && null != k3.defaultValue ? null : e3 && n.call(u4.childNodes), !c3 && null != e3) for (m3 = {}, s3 = 0; s3 < u4.attributes.length; s3++) m3[(y3 = u4.attributes[s3]).name] = y3.value;
+      for (s3 in m3) y3 = m3[s3], "dangerouslySetInnerHTML" == s3 ? p3 = y3 : "children" == s3 || s3 in k3 || "value" == s3 && "defaultValue" in k3 || "checked" == s3 && "defaultChecked" in k3 || N(u4, s3, null, y3, o3);
+      for (s3 in k3) y3 = k3[s3], "children" == s3 ? v3 = y3 : "dangerouslySetInnerHTML" == s3 ? h5 = y3 : "value" == s3 ? w3 = y3 : "checked" == s3 ? _3 = y3 : c3 && "function" != typeof y3 || m3[s3] === y3 || N(u4, s3, y3, m3[s3], o3);
+      if (h5) c3 || p3 && (h5.__html == p3.__html || h5.__html == u4.innerHTML) || (u4.innerHTML = h5.__html), t3.__k = [];
+      else if (p3 && (u4.innerHTML = ""), L("template" == t3.type ? u4.content : u4, g(v3) ? v3 : [v3], t3, i3, r3, "foreignObject" == x3 ? "http://www.w3.org/1999/xhtml" : o3, e3, f4, e3 ? e3[0] : i3.__k && $(i3, 0), c3, a3), null != e3) for (s3 = e3.length; s3--; ) b(e3[s3]);
+      c3 && "textarea" != x3 || (s3 = "value", "progress" == x3 && null == w3 ? u4.removeAttribute("value") : null != w3 && (w3 !== u4[s3] || "progress" == x3 && !w3 || "option" == x3 && w3 != m3[s3]) && N(u4, s3, w3, m3[s3], o3), s3 = "checked", null != _3 && _3 != u4[s3] && N(u4, s3, _3, m3[s3], o3));
+    }
+    return u4;
+  }
+  function J(n2, u4, t3) {
+    try {
+      if ("function" == typeof n2) {
+        var i3 = "function" == typeof n2.__u;
+        i3 && n2.__u(), i3 && null == u4 || (n2.__u = n2(u4));
+      } else n2.current = u4;
+    } catch (n3) {
+      l.__e(n3, t3);
+    }
+  }
+  function K(n2, u4, t3) {
+    var i3, r3;
+    if (l.unmount && l.unmount(n2), (i3 = n2.ref) && (i3.current && i3.current != n2.__e || J(i3, null, u4)), null != (i3 = n2.__c)) {
+      if (i3.componentWillUnmount) try {
+        i3.componentWillUnmount();
+      } catch (n3) {
+        l.__e(n3, u4);
+      }
+      i3.base = i3.__P = null;
+    }
+    if (i3 = n2.__k) for (r3 = 0; r3 < i3.length; r3++) i3[r3] && K(i3[r3], u4, t3 || "function" != typeof n2.type);
+    t3 || b(n2.__e), n2.__c = n2.__ = n2.__e = void 0;
+  }
+  function Q(n2, l3, u4) {
+    return this.constructor(n2, u4);
+  }
+  function R(u4, t3, i3) {
+    var r3, o3, e3, f4;
+    t3 == document && (t3 = document.documentElement), l.__ && l.__(u4, t3), o3 = (r3 = "function" == typeof i3) ? null : i3 && i3.__k || t3.__k, e3 = [], f4 = [], q(t3, u4 = (!r3 && i3 || t3).__k = k(S, null, [u4]), o3 || d, d, t3.namespaceURI, !r3 && i3 ? [i3] : o3 ? null : t3.firstChild ? n.call(t3.childNodes) : null, e3, !r3 && i3 ? i3 : o3 ? o3.__e : t3.firstChild, r3, f4), D(e3, u4, f4);
+  }
+  n = w.slice, l = { __e: function(n2, l3, u4, t3) {
+    for (var i3, r3, o3; l3 = l3.__; ) if ((i3 = l3.__c) && !i3.__) try {
+      if ((r3 = i3.constructor) && null != r3.getDerivedStateFromError && (i3.setState(r3.getDerivedStateFromError(n2)), o3 = i3.__d), null != i3.componentDidCatch && (i3.componentDidCatch(n2, t3 || {}), o3 = i3.__d), o3) return i3.__E = i3;
+    } catch (l4) {
+      n2 = l4;
+    }
+    throw n2;
+  } }, u = 0, t = function(n2) {
+    return null != n2 && void 0 === n2.constructor;
+  }, C.prototype.setState = function(n2, l3) {
+    var u4;
+    u4 = null != this.__s && this.__s != this.state ? this.__s : this.__s = m({}, this.state), "function" == typeof n2 && (n2 = n2(m({}, u4), this.props)), n2 && m(u4, n2), null != n2 && this.__v && (l3 && this._sb.push(l3), A(this));
+  }, C.prototype.forceUpdate = function(n2) {
+    this.__v && (this.__e = true, n2 && this.__h.push(n2), A(this));
+  }, C.prototype.render = S, i = [], o = "function" == typeof Promise ? Promise.prototype.then.bind(Promise.resolve()) : setTimeout, e = function(n2, l3) {
+    return n2.__v.__b - l3.__v.__b;
+  }, H.__r = 0, f = Math.random().toString(8), c = "__d" + f, a = "__a" + f, s = /(PointerCapture)$|Capture$/i, h2 = 0, p = V(false), v = V(true), y = 0;
+
+  // node_modules/preact/hooks/dist/hooks.module.js
+  var t2;
+  var r2;
+  var u2;
+  var i2;
+  var o2 = 0;
+  var f2 = [];
+  var c2 = l;
+  var e2 = c2.__b;
+  var a2 = c2.__r;
+  var v2 = c2.diffed;
+  var l2 = c2.__c;
+  var m2 = c2.unmount;
+  var s2 = c2.__;
+  function p2(n2, t3) {
+    c2.__h && c2.__h(r2, n2, o2 || t3), o2 = 0;
+    var u4 = r2.__H || (r2.__H = { __: [], __h: [] });
+    return n2 >= u4.__.length && u4.__.push({}), u4.__[n2];
+  }
+  function y2(n2, u4) {
+    var i3 = p2(t2++, 3);
+    !c2.__s && C2(i3.__H, u4) && (i3.__ = n2, i3.u = u4, r2.__H.__h.push(i3));
+  }
+  function A2(n2) {
+    return o2 = 5, T2(function() {
+      return { current: n2 };
+    }, []);
+  }
+  function T2(n2, r3) {
+    var u4 = p2(t2++, 7);
+    return C2(u4.__H, r3) && (u4.__ = n2(), u4.__H = r3, u4.__h = n2), u4.__;
+  }
+  function j2() {
+    for (var n2; n2 = f2.shift(); ) {
+      var t3 = n2.__H;
+      if (n2.__P && t3) try {
+        t3.__h.some(z2), t3.__h.some(B2), t3.__h = [];
+      } catch (r3) {
+        t3.__h = [], c2.__e(r3, n2.__v);
+      }
+    }
+  }
+  c2.__b = function(n2) {
+    r2 = null, e2 && e2(n2);
+  }, c2.__ = function(n2, t3) {
+    n2 && t3.__k && t3.__k.__m && (n2.__m = t3.__k.__m), s2 && s2(n2, t3);
+  }, c2.__r = function(n2) {
+    a2 && a2(n2), t2 = 0;
+    var i3 = (r2 = n2.__c).__H;
+    i3 && (u2 === r2 ? (i3.__h = [], r2.__h = [], i3.__.some(function(n3) {
+      n3.__N && (n3.__ = n3.__N), n3.u = n3.__N = void 0;
+    })) : (i3.__h.some(z2), i3.__h.some(B2), i3.__h = [], t2 = 0)), u2 = r2;
+  }, c2.diffed = function(n2) {
+    v2 && v2(n2);
+    var t3 = n2.__c;
+    t3 && t3.__H && (t3.__H.__h.length && (1 !== f2.push(t3) && i2 === c2.requestAnimationFrame || ((i2 = c2.requestAnimationFrame) || w2)(j2)), t3.__H.__.some(function(n3) {
+      n3.u && (n3.__H = n3.u), n3.u = void 0;
+    })), u2 = r2 = null;
+  }, c2.__c = function(n2, t3) {
+    t3.some(function(n3) {
+      try {
+        n3.__h.some(z2), n3.__h = n3.__h.filter(function(n4) {
+          return !n4.__ || B2(n4);
+        });
+      } catch (r3) {
+        t3.some(function(n4) {
+          n4.__h && (n4.__h = []);
+        }), t3 = [], c2.__e(r3, n3.__v);
+      }
+    }), l2 && l2(n2, t3);
+  }, c2.unmount = function(n2) {
+    m2 && m2(n2);
+    var t3, r3 = n2.__c;
+    r3 && r3.__H && (r3.__H.__.some(function(n3) {
+      try {
+        z2(n3);
+      } catch (n4) {
+        t3 = n4;
+      }
+    }), r3.__H = void 0, t3 && c2.__e(t3, r3.__v));
+  };
+  var k2 = "function" == typeof requestAnimationFrame;
+  function w2(n2) {
+    var t3, r3 = function() {
+      clearTimeout(u4), k2 && cancelAnimationFrame(t3), setTimeout(n2);
+    }, u4 = setTimeout(r3, 35);
+    k2 && (t3 = requestAnimationFrame(r3));
+  }
+  function z2(n2) {
+    var t3 = r2, u4 = n2.__c;
+    "function" == typeof u4 && (n2.__c = void 0, u4()), r2 = t3;
+  }
+  function B2(n2) {
+    var t3 = r2;
+    n2.__c = n2.__(), r2 = t3;
+  }
+  function C2(n2, t3) {
+    return !n2 || n2.length !== t3.length || t3.some(function(t4, r3) {
+      return t4 !== n2[r3];
+    });
+  }
+
+  // node_modules/preact/compat/dist/compat.module.js
+  function g3(n2, t3) {
+    for (var e3 in t3) n2[e3] = t3[e3];
+    return n2;
+  }
+  function E2(n2, t3) {
+    for (var e3 in n2) if ("__source" !== e3 && !(e3 in t3)) return true;
+    for (var r3 in t3) if ("__source" !== r3 && n2[r3] !== t3[r3]) return true;
+    return false;
+  }
+  function M2(n2, t3) {
+    this.props = n2, this.context = t3;
+  }
+  (M2.prototype = new C()).isPureReactComponent = true, M2.prototype.shouldComponentUpdate = function(n2, t3) {
+    return E2(this.props, n2) || E2(this.state, t3);
+  };
+  var T3 = l.__b;
+  l.__b = function(n2) {
+    n2.type && n2.type.__f && n2.ref && (n2.props.ref = n2.ref, n2.ref = null), T3 && T3(n2);
+  };
+  var A3 = "undefined" != typeof Symbol && Symbol.for && Symbol.for("react.forward_ref") || 3911;
+  var O2 = l.__e;
+  l.__e = function(n2, t3, e3, r3) {
+    if (n2.then) {
+      for (var u4, o3 = t3; o3 = o3.__; ) if ((u4 = o3.__c) && u4.__c) return null == t3.__e && (t3.__e = e3.__e, t3.__k = e3.__k), u4.__c(n2, t3);
+    }
+    O2(n2, t3, e3, r3);
+  };
+  var U2 = l.unmount;
+  function V2(n2, t3, e3) {
+    return n2 && (n2.__c && n2.__c.__H && (n2.__c.__H.__.forEach(function(n3) {
+      "function" == typeof n3.__c && n3.__c();
+    }), n2.__c.__H = null), null != (n2 = g3({}, n2)).__c && (n2.__c.__P === e3 && (n2.__c.__P = t3), n2.__c.__e = true, n2.__c = null), n2.__k = n2.__k && n2.__k.map(function(n3) {
+      return V2(n3, t3, e3);
+    })), n2;
+  }
+  function W2(n2, t3, e3) {
+    return n2 && e3 && (n2.__v = null, n2.__k = n2.__k && n2.__k.map(function(n3) {
+      return W2(n3, t3, e3);
+    }), n2.__c && n2.__c.__P === t3 && (n2.__e && e3.appendChild(n2.__e), n2.__c.__e = true, n2.__c.__P = e3)), n2;
+  }
+  function P3() {
+    this.__u = 0, this.o = null, this.__b = null;
+  }
+  function j3(n2) {
+    var t3 = n2.__ && n2.__.__c;
+    return t3 && t3.__a && t3.__a(n2);
+  }
+  function B3() {
+    this.i = null, this.l = null;
+  }
+  l.unmount = function(n2) {
+    var t3 = n2.__c;
+    t3 && (t3.__z = true), t3 && t3.__R && t3.__R(), t3 && 32 & n2.__u && (n2.type = null), U2 && U2(n2);
+  }, (P3.prototype = new C()).__c = function(n2, t3) {
+    var e3 = t3.__c, r3 = this;
+    null == r3.o && (r3.o = []), r3.o.push(e3);
+    var u4 = j3(r3.__v), o3 = false, i3 = function() {
+      o3 || r3.__z || (o3 = true, e3.__R = null, u4 ? u4(c3) : c3());
+    };
+    e3.__R = i3;
+    var l3 = e3.__P;
+    e3.__P = null;
+    var c3 = function() {
+      if (!--r3.__u) {
+        if (r3.state.__a) {
+          var n3 = r3.state.__a;
+          r3.__v.__k[0] = W2(n3, n3.__c.__P, n3.__c.__O);
+        }
+        var t4;
+        for (r3.setState({ __a: r3.__b = null }); t4 = r3.o.pop(); ) t4.__P = l3, t4.forceUpdate();
+      }
+    };
+    r3.__u++ || 32 & t3.__u || r3.setState({ __a: r3.__b = r3.__v.__k[0] }), n2.then(i3, i3);
+  }, P3.prototype.componentWillUnmount = function() {
+    this.o = [];
+  }, P3.prototype.render = function(n2, e3) {
+    if (this.__b) {
+      if (this.__v.__k) {
+        var r3 = document.createElement("div"), o3 = this.__v.__k[0].__c;
+        this.__v.__k[0] = V2(this.__b, r3, o3.__O = o3.__P);
+      }
+      this.__b = null;
+    }
+    var i3 = e3.__a && k(S, null, n2.fallback);
+    return i3 && (i3.__u &= -33), [k(S, null, e3.__a ? null : n2.children), i3];
+  };
+  var H2 = function(n2, t3, e3) {
+    if (++e3[1] === e3[0] && n2.l.delete(t3), n2.props.revealOrder && ("t" !== n2.props.revealOrder[0] || !n2.l.size)) for (e3 = n2.i; e3; ) {
+      for (; e3.length > 3; ) e3.pop()();
+      if (e3[1] < e3[0]) break;
+      n2.i = e3 = e3[2];
+    }
+  };
+  function Z(n2) {
+    return this.getChildContext = function() {
+      return n2.context;
+    }, n2.children;
+  }
+  function Y(n2) {
+    var e3 = this, r3 = n2.h;
+    if (e3.componentWillUnmount = function() {
+      R(null, e3.v), e3.v = null, e3.h = null;
+    }, e3.h && e3.h !== r3 && e3.componentWillUnmount(), !e3.v) {
+      for (var u4 = e3.__v; null !== u4 && !u4.__m && null !== u4.__; ) u4 = u4.__;
+      e3.h = r3, e3.v = { nodeType: 1, parentNode: r3, childNodes: [], __k: { __m: u4.__m }, contains: function() {
+        return true;
+      }, namespaceURI: r3.namespaceURI, insertBefore: function(n3, t3) {
+        this.childNodes.push(n3), e3.h.insertBefore(n3, t3);
+      }, removeChild: function(n3) {
+        this.childNodes.splice(this.childNodes.indexOf(n3) >>> 1, 1), e3.h.removeChild(n3);
+      } };
+    }
+    R(k(Z, { context: e3.context }, n2.__v), e3.v);
+  }
+  function $2(n2, e3) {
+    var r3 = k(Y, { __v: n2, h: e3 });
+    return r3.containerInfo = e3, r3;
+  }
+  (B3.prototype = new C()).__a = function(n2) {
+    var t3 = this, e3 = j3(t3.__v), r3 = t3.l.get(n2);
+    return r3[0]++, function(u4) {
+      var o3 = function() {
+        t3.props.revealOrder ? (r3.push(u4), H2(t3, n2, r3)) : u4();
+      };
+      e3 ? e3(o3) : o3();
+    };
+  }, B3.prototype.render = function(n2) {
+    this.i = null, this.l = /* @__PURE__ */ new Map();
+    var t3 = F(n2.children);
+    n2.revealOrder && "b" === n2.revealOrder[0] && t3.reverse();
+    for (var e3 = t3.length; e3--; ) this.l.set(t3[e3], this.i = [1, 0, this.i]);
+    return n2.children;
+  }, B3.prototype.componentDidUpdate = B3.prototype.componentDidMount = function() {
+    var n2 = this;
+    this.l.forEach(function(t3, e3) {
+      H2(n2, e3, t3);
+    });
+  };
+  var q3 = "undefined" != typeof Symbol && Symbol.for && Symbol.for("react.element") || 60103;
+  var G2 = /^(?:accent|alignment|arabic|baseline|cap|clip(?!PathU)|color|dominant|fill|flood|font|glyph(?!R)|horiz|image(!S)|letter|lighting|marker(?!H|W|U)|overline|paint|pointer|shape|stop|strikethrough|stroke|text(?!L)|transform|underline|unicode|units|v|vector|vert|word|writing|x(?!C))[A-Z]/;
+  var J2 = /^on(Ani|Tra|Tou|BeforeInp|Compo)/;
+  var K2 = /[A-Z0-9]/g;
+  var Q2 = "undefined" != typeof document;
+  var X2 = function(n2) {
+    return ("undefined" != typeof Symbol && "symbol" == typeof Symbol() ? /fil|che|rad/ : /fil|che|ra/).test(n2);
+  };
+  function nn(n2, t3, e3) {
+    return null == t3.__k && (t3.textContent = ""), R(n2, t3), "function" == typeof e3 && e3(), n2 ? n2.__c : null;
+  }
+  C.prototype.isReactComponent = true, ["componentWillMount", "componentWillReceiveProps", "componentWillUpdate"].forEach(function(t3) {
+    Object.defineProperty(C.prototype, t3, { configurable: true, get: function() {
+      return this["UNSAFE_" + t3];
+    }, set: function(n2) {
+      Object.defineProperty(this, t3, { configurable: true, writable: true, value: n2 });
+    } });
+  });
+  var en = l.event;
+  l.event = function(n2) {
+    return en && (n2 = en(n2)), n2.persist = function() {
+    }, n2.isPropagationStopped = function() {
+      return this.cancelBubble;
+    }, n2.isDefaultPrevented = function() {
+      return this.defaultPrevented;
+    }, n2.nativeEvent = n2;
+  };
+  var rn;
+  var un = { configurable: true, get: function() {
+    return this.class;
+  } };
+  var on = l.vnode;
+  l.vnode = function(n2) {
+    "string" == typeof n2.type && (function(n3) {
+      var t3 = n3.props, e3 = n3.type, u4 = {}, o3 = -1 == e3.indexOf("-");
+      for (var i3 in t3) {
+        var l3 = t3[i3];
+        if (!("value" === i3 && "defaultValue" in t3 && null == l3 || Q2 && "children" === i3 && "noscript" === e3 || "class" === i3 || "className" === i3)) {
+          var c3 = i3.toLowerCase();
+          "defaultValue" === i3 && "value" in t3 && null == t3.value ? i3 = "value" : "download" === i3 && true === l3 ? l3 = "" : "translate" === c3 && "no" === l3 ? l3 = false : "o" === c3[0] && "n" === c3[1] ? "ondoubleclick" === c3 ? i3 = "ondblclick" : "onchange" !== c3 || "input" !== e3 && "textarea" !== e3 || X2(t3.type) ? "onfocus" === c3 ? i3 = "onfocusin" : "onblur" === c3 ? i3 = "onfocusout" : J2.test(i3) && (i3 = c3) : c3 = i3 = "oninput" : o3 && G2.test(i3) ? i3 = i3.replace(K2, "-$&").toLowerCase() : null === l3 && (l3 = void 0), "oninput" === c3 && u4[i3 = c3] && (i3 = "oninputCapture"), u4[i3] = l3;
+        }
+      }
+      "select" == e3 && (u4.multiple && Array.isArray(u4.value) && (u4.value = F(t3.children).forEach(function(n4) {
+        n4.props.selected = -1 != u4.value.indexOf(n4.props.value);
+      })), null != u4.defaultValue && (u4.value = F(t3.children).forEach(function(n4) {
+        n4.props.selected = u4.multiple ? -1 != u4.defaultValue.indexOf(n4.props.value) : u4.defaultValue == n4.props.value;
+      }))), t3.class && !t3.className ? (u4.class = t3.class, Object.defineProperty(u4, "className", un)) : t3.className && (u4.class = u4.className = t3.className), n3.props = u4;
+    })(n2), n2.$$typeof = q3, on && on(n2);
+  };
+  var ln = l.__r;
+  l.__r = function(n2) {
+    ln && ln(n2), rn = n2.__c;
+  };
+  var cn = l.diffed;
+  l.diffed = function(n2) {
+    cn && cn(n2);
+    var t3 = n2.props, e3 = n2.__e;
+    null != e3 && "textarea" === n2.type && "value" in t3 && t3.value !== e3.value && (e3.value = null == t3.value ? "" : t3.value), rn = null;
+  };
+
+  // node_modules/preact/jsx-runtime/dist/jsxRuntime.module.js
+  var f3 = 0;
+  function u3(e3, t3, n2, o3, i3, u4) {
+    t3 || (t3 = {});
+    var a3, c3, p3 = t3;
+    if ("ref" in p3) for (c3 in p3 = {}, t3) "ref" == c3 ? a3 = t3[c3] : p3[c3] = t3[c3];
+    var l3 = { type: e3, props: p3, key: n2, ref: a3, __k: null, __: null, __b: 0, __e: null, __c: null, constructor: void 0, __v: --f3, __i: -1, __u: 0, __source: i3, __self: u4 };
+    if ("function" == typeof e3 && (a3 = e3.defaultProps)) for (c3 in a3) void 0 === p3[c3] && (p3[c3] = a3[c3]);
+    return l.vnode && l.vnode(l3), l3;
+  }
+
+  // js/ui/components/modal.tsx
+  function Modal({
+    open,
+    title = "",
+    onClose,
+    closeOnBackdrop = true,
+    className = "",
+    children,
+    buttons = []
+  }) {
+    const contentRef = A2(null);
+    y2(() => {
+      if (!open) return;
+      const handleEscape = (e3) => {
+        if (e3.key === "Escape") {
+          onClose?.();
+        }
+      };
+      document.addEventListener("keydown", handleEscape);
+      return () => document.removeEventListener("keydown", handleEscape);
+    }, [open, onClose]);
+    y2(() => {
+      if (!open) return;
+      const btn = contentRef.current?.querySelector("button");
+      if (btn) btn.focus();
+    }, [open]);
+    if (!open) return null;
+    return $2(
+      /* @__PURE__ */ u3("div", { class: `modal ${className}`, role: "dialog", "aria-modal": "true", children: [
+        closeOnBackdrop && /* @__PURE__ */ u3("div", { class: "modal-backdrop", onClick: onClose }),
+        /* @__PURE__ */ u3("div", { class: "modal-content", ref: contentRef, children: [
+          title && /* @__PURE__ */ u3("div", { class: "modal-title", children: title }),
+          /* @__PURE__ */ u3("div", { class: "modal-body", children }),
+          buttons.length > 0 && /* @__PURE__ */ u3("div", { class: "modal-buttons", children: buttons.map((btn, i3) => /* @__PURE__ */ u3(
+            "button",
+            {
+              class: ["btn", btn.primary ? "btn-primary" : "btn-ghost", btn.className || ""].filter(Boolean).join(" "),
+              onClick: btn.action,
+              children: btn.label
+            },
+            i3
+          )) })
+        ] })
+      ] }),
+      document.body
+    );
+  }
   var activeModal = null;
   function showModal(options) {
     const {
@@ -2091,63 +2711,39 @@ ${fromPart}${joinPart}${wherePart}`);
       closeOnBackdrop = true,
       className = ""
     } = options;
-    if (activeModal) {
+    if (activeModal) closeModal();
+    const container = document.createElement("div");
+    container.id = id;
+    document.body.appendChild(container);
+    activeModal = container;
+    const handleClose = () => {
       closeModal();
-    }
-    const modal = document.createElement("div");
-    modal.id = id;
-    modal.className = `modal ${className}`;
-    modal.setAttribute("role", "dialog");
-    modal.setAttribute("aria-modal", "true");
-    const titleHtml = title ? `<div class="modal-title">${h(title)}</div>` : "";
-    const buttonsHtml = buttons.length ? `<div class="modal-buttons">
-        ${buttons.map((btn, i2) => {
-      const classes = ["btn", btn.primary ? "btn-primary" : "btn-ghost", btn.className || ""].filter(Boolean).join(" ");
-      return `<button class="${classes}" data-btn-index="${i2}">${h(btn.label)}</button>`;
-    }).join("")}
-       </div>` : "";
-    modal.innerHTML = `
-    <div class="modal-backdrop"></div>
-    <div class="modal-content">
-      ${titleHtml}
-      <div class="modal-body">${content}</div>
-      ${buttonsHtml}
-    </div>
-  `;
-    document.body.appendChild(modal);
-    activeModal = modal;
-    const backdrop = modal.querySelector(".modal-backdrop");
-    if (closeOnBackdrop && backdrop) {
-      backdrop.addEventListener("click", () => {
-        closeModal();
-        onClose?.();
-      });
-    }
-    buttons.forEach((btn, i2) => {
-      const button = modal.querySelector(`[data-btn-index="${i2}"]`);
-      if (button) {
-        button.addEventListener("click", () => {
-          btn.action();
-        });
-      }
-    });
-    const firstButton = modal.querySelector("button");
-    if (firstButton) {
-      firstButton.focus();
-    } else {
-      modal.focus();
-    }
-    const handleEscape = (e2) => {
-      if (e2.key === "Escape") {
-        closeModal();
-        onClose?.();
-        document.removeEventListener("keydown", handleEscape);
-      }
+      onClose?.();
     };
-    document.addEventListener("keydown", handleEscape);
+    nn(
+      /* @__PURE__ */ u3(
+        Modal,
+        {
+          open: true,
+          title,
+          onClose: handleClose,
+          closeOnBackdrop,
+          className,
+          buttons: buttons.map((btn) => ({
+            label: btn.label,
+            action: () => btn.action(),
+            primary: btn.primary,
+            className: btn.className
+          })),
+          children: /* @__PURE__ */ u3("div", { dangerouslySetInnerHTML: { __html: content } })
+        }
+      ),
+      container
+    );
   }
   function closeModal() {
     if (activeModal) {
+      nn(null, activeModal);
       activeModal.remove();
       activeModal = null;
     }
@@ -2226,9 +2822,9 @@ ${fromPart}${joinPart}${wherePart}`);
       if (inp) {
         inp.focus();
         inp.select();
-        inp.addEventListener("keydown", (e2) => {
-          if (e2.key === "Enter") {
-            e2.preventDefault();
+        inp.addEventListener("keydown", (e3) => {
+          if (e3.key === "Enter") {
+            e3.preventDefault();
             const btn = inp.closest(".modal-content")?.querySelector(".btn-primary");
             btn?.click();
           }
@@ -2239,309 +2835,84 @@ ${fromPart}${joinPart}${wherePart}`);
 
   // js/ui/utils/dom.ts
   var elementCache = /* @__PURE__ */ new Map();
-  function $(id) {
+  function $3(id) {
     if (!elementCache.has(id)) {
       elementCache.set(id, document.getElementById(id));
     }
     return elementCache.get(id) || null;
   }
 
-  // js/ui/components/context-menu.ts
-  var activeCtxMenu = null;
+  // js/ui/components/context-menu.tsx
+  function ContextMenu({ x: x3, y: y3, items, onClose }) {
+    const menuRef = A2(null);
+    y2(() => {
+      const menu = menuRef.current;
+      if (!menu) return;
+      const rect = menu.getBoundingClientRect();
+      if (rect.right > window.innerWidth) menu.style.left = x3 - rect.width + "px";
+      if (rect.bottom > window.innerHeight) menu.style.top = y3 - rect.height + "px";
+      const close = (e3) => {
+        if (!menu.contains(e3.target)) onClose();
+      };
+      setTimeout(() => {
+        document.addEventListener("click", close, { once: true });
+        document.addEventListener("contextmenu", close, { once: true });
+      }, 0);
+      return () => {
+        document.removeEventListener("click", close);
+        document.removeEventListener("contextmenu", close);
+      };
+    }, [x3, y3, onClose]);
+    return $2(
+      /* @__PURE__ */ u3("div", { class: "ctx-menu", ref: menuRef, style: { left: x3 + "px", top: y3 + "px" }, children: items.map((item, i3) => /* @__PURE__ */ u3(
+        "button",
+        {
+          class: "ctx-menu-item",
+          onClick: () => {
+            onClose();
+            item.action();
+          },
+          children: item.label
+        },
+        i3
+      )) }),
+      document.body
+    );
+  }
+  var _legacyContainer = null;
   function _hideTooltip() {
     const tipBox = document.querySelector('[style*="z-index: 9500"]');
     if (tipBox) tipBox.style.display = "none";
   }
   function isContextMenuOpen() {
-    return activeCtxMenu !== null;
+    return _legacyContainer !== null;
   }
-  function showContextMenu(x2, y2, items) {
+  function showContextMenu(x3, y3, items) {
     closeContextMenu();
     _hideTooltip();
-    const menu = document.createElement("div");
-    menu.className = "ctx-menu";
-    menu.style.left = x2 + "px";
-    menu.style.top = y2 + "px";
-    for (const item of items) {
-      const btn = document.createElement("button");
-      btn.className = "ctx-menu-item";
-      btn.textContent = item.label;
-      btn.addEventListener("click", () => {
-        closeContextMenu();
-        item.action();
-      });
-      menu.appendChild(btn);
-    }
-    document.body.appendChild(menu);
-    activeCtxMenu = menu;
-    const rect = menu.getBoundingClientRect();
-    if (rect.right > window.innerWidth) menu.style.left = x2 - rect.width + "px";
-    if (rect.bottom > window.innerHeight) menu.style.top = y2 - rect.height + "px";
-    const close = (e2) => {
-      if (!menu.isConnected) return;
-      if (!menu.contains(e2.target)) {
-        menu.remove();
-        if (activeCtxMenu === menu) activeCtxMenu = null;
-      }
-    };
-    setTimeout(() => {
-      document.addEventListener("click", close, { once: true });
-      document.addEventListener("contextmenu", close, { once: true });
-    }, 0);
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    _legacyContainer = container;
+    nn(
+      /* @__PURE__ */ u3(
+        ContextMenu,
+        {
+          x: x3,
+          y: y3,
+          items,
+          onClose: closeContextMenu
+        }
+      ),
+      container
+    );
   }
   function closeContextMenu() {
-    if (activeCtxMenu) {
-      activeCtxMenu.remove();
-      activeCtxMenu = null;
+    if (_legacyContainer) {
+      nn(null, _legacyContainer);
+      _legacyContainer.remove();
+      _legacyContainer = null;
     }
   }
-
-  // node_modules/preact/dist/preact.module.js
-  var n;
-  var l;
-  var u;
-  var t;
-  var i;
-  var r;
-  var o;
-  var e;
-  var f;
-  var c;
-  var a;
-  var s;
-  var h2;
-  var p;
-  var v;
-  var y;
-  var d = {};
-  var w = [];
-  var _ = /acit|ex(?:s|g|n|p|$)|rph|grid|ows|mnc|ntw|ine[ch]|zoo|^ord|itera/i;
-  var g = Array.isArray;
-  function m(n2, l2) {
-    for (var u3 in l2) n2[u3] = l2[u3];
-    return n2;
-  }
-  function b(n2) {
-    n2 && n2.parentNode && n2.parentNode.removeChild(n2);
-  }
-  function x(n2, t2, i2, r2, o2) {
-    var e2 = { type: n2, props: t2, key: i2, ref: r2, __k: null, __: null, __b: 0, __e: null, __c: null, constructor: void 0, __v: null == o2 ? ++u : o2, __i: -1, __u: 0 };
-    return null == o2 && null != l.vnode && l.vnode(e2), e2;
-  }
-  function S(n2) {
-    return n2.children;
-  }
-  function C(n2, l2) {
-    this.props = n2, this.context = l2;
-  }
-  function $2(n2, l2) {
-    if (null == l2) return n2.__ ? $2(n2.__, n2.__i + 1) : null;
-    for (var u3; l2 < n2.__k.length; l2++) if (null != (u3 = n2.__k[l2]) && null != u3.__e) return u3.__e;
-    return "function" == typeof n2.type ? $2(n2) : null;
-  }
-  function I(n2) {
-    if (n2.__P && n2.__d) {
-      var u3 = n2.__v, t2 = u3.__e, i2 = [], r2 = [], o2 = m({}, u3);
-      o2.__v = u3.__v + 1, l.vnode && l.vnode(o2), q(n2.__P, o2, u3, n2.__n, n2.__P.namespaceURI, 32 & u3.__u ? [t2] : null, i2, null == t2 ? $2(u3) : t2, !!(32 & u3.__u), r2), o2.__v = u3.__v, o2.__.__k[o2.__i] = o2, D(i2, o2, r2), u3.__e = u3.__ = null, o2.__e != t2 && P(o2);
-    }
-  }
-  function P(n2) {
-    if (null != (n2 = n2.__) && null != n2.__c) return n2.__e = n2.__c.base = null, n2.__k.some(function(l2) {
-      if (null != l2 && null != l2.__e) return n2.__e = n2.__c.base = l2.__e;
-    }), P(n2);
-  }
-  function A(n2) {
-    (!n2.__d && (n2.__d = true) && i.push(n2) && !H.__r++ || r != l.debounceRendering) && ((r = l.debounceRendering) || o)(H);
-  }
-  function H() {
-    try {
-      for (var n2, l2 = 1; i.length; ) i.length > l2 && i.sort(e), n2 = i.shift(), l2 = i.length, I(n2);
-    } finally {
-      i.length = H.__r = 0;
-    }
-  }
-  function L(n2, l2, u3, t2, i2, r2, o2, e2, f2, c2, a2) {
-    var s2, h4, p2, v2, y2, _2, g2, m2 = t2 && t2.__k || w, b2 = l2.length;
-    for (f2 = T(u3, l2, m2, f2, b2), s2 = 0; s2 < b2; s2++) null != (p2 = u3.__k[s2]) && (h4 = -1 != p2.__i && m2[p2.__i] || d, p2.__i = s2, _2 = q(n2, p2, h4, i2, r2, o2, e2, f2, c2, a2), v2 = p2.__e, p2.ref && h4.ref != p2.ref && (h4.ref && J(h4.ref, null, p2), a2.push(p2.ref, p2.__c || v2, p2)), null == y2 && null != v2 && (y2 = v2), (g2 = !!(4 & p2.__u)) || h4.__k === p2.__k ? (f2 = j(p2, f2, n2, g2), g2 && h4.__e && (h4.__e = null)) : "function" == typeof p2.type && void 0 !== _2 ? f2 = _2 : v2 && (f2 = v2.nextSibling), p2.__u &= -7);
-    return u3.__e = y2, f2;
-  }
-  function T(n2, l2, u3, t2, i2) {
-    var r2, o2, e2, f2, c2, a2 = u3.length, s2 = a2, h4 = 0;
-    for (n2.__k = new Array(i2), r2 = 0; r2 < i2; r2++) null != (o2 = l2[r2]) && "boolean" != typeof o2 && "function" != typeof o2 ? ("string" == typeof o2 || "number" == typeof o2 || "bigint" == typeof o2 || o2.constructor == String ? o2 = n2.__k[r2] = x(null, o2, null, null, null) : g(o2) ? o2 = n2.__k[r2] = x(S, { children: o2 }, null, null, null) : void 0 === o2.constructor && o2.__b > 0 ? o2 = n2.__k[r2] = x(o2.type, o2.props, o2.key, o2.ref ? o2.ref : null, o2.__v) : n2.__k[r2] = o2, f2 = r2 + h4, o2.__ = n2, o2.__b = n2.__b + 1, e2 = null, -1 != (c2 = o2.__i = O(o2, u3, f2, s2)) && (s2--, (e2 = u3[c2]) && (e2.__u |= 2)), null == e2 || null == e2.__v ? (-1 == c2 && (i2 > a2 ? h4-- : i2 < a2 && h4++), "function" != typeof o2.type && (o2.__u |= 4)) : c2 != f2 && (c2 == f2 - 1 ? h4-- : c2 == f2 + 1 ? h4++ : (c2 > f2 ? h4-- : h4++, o2.__u |= 4))) : n2.__k[r2] = null;
-    if (s2) for (r2 = 0; r2 < a2; r2++) null != (e2 = u3[r2]) && 0 == (2 & e2.__u) && (e2.__e == t2 && (t2 = $2(e2)), K(e2, e2));
-    return t2;
-  }
-  function j(n2, l2, u3, t2) {
-    var i2, r2;
-    if ("function" == typeof n2.type) {
-      for (i2 = n2.__k, r2 = 0; i2 && r2 < i2.length; r2++) i2[r2] && (i2[r2].__ = n2, l2 = j(i2[r2], l2, u3, t2));
-      return l2;
-    }
-    n2.__e != l2 && (t2 && (l2 && n2.type && !l2.parentNode && (l2 = $2(n2)), u3.insertBefore(n2.__e, l2 || null)), l2 = n2.__e);
-    do {
-      l2 = l2 && l2.nextSibling;
-    } while (null != l2 && 8 == l2.nodeType);
-    return l2;
-  }
-  function O(n2, l2, u3, t2) {
-    var i2, r2, o2, e2 = n2.key, f2 = n2.type, c2 = l2[u3], a2 = null != c2 && 0 == (2 & c2.__u);
-    if (null === c2 && null == e2 || a2 && e2 == c2.key && f2 == c2.type) return u3;
-    if (t2 > (a2 ? 1 : 0)) {
-      for (i2 = u3 - 1, r2 = u3 + 1; i2 >= 0 || r2 < l2.length; ) if (null != (c2 = l2[o2 = i2 >= 0 ? i2-- : r2++]) && 0 == (2 & c2.__u) && e2 == c2.key && f2 == c2.type) return o2;
-    }
-    return -1;
-  }
-  function z(n2, l2, u3) {
-    "-" == l2[0] ? n2.setProperty(l2, null == u3 ? "" : u3) : n2[l2] = null == u3 ? "" : "number" != typeof u3 || _.test(l2) ? u3 : u3 + "px";
-  }
-  function N(n2, l2, u3, t2, i2) {
-    var r2, o2;
-    n: if ("style" == l2) if ("string" == typeof u3) n2.style.cssText = u3;
-    else {
-      if ("string" == typeof t2 && (n2.style.cssText = t2 = ""), t2) for (l2 in t2) u3 && l2 in u3 || z(n2.style, l2, "");
-      if (u3) for (l2 in u3) t2 && u3[l2] == t2[l2] || z(n2.style, l2, u3[l2]);
-    }
-    else if ("o" == l2[0] && "n" == l2[1]) r2 = l2 != (l2 = l2.replace(s, "$1")), o2 = l2.toLowerCase(), l2 = o2 in n2 || "onFocusOut" == l2 || "onFocusIn" == l2 ? o2.slice(2) : l2.slice(2), n2.l || (n2.l = {}), n2.l[l2 + r2] = u3, u3 ? t2 ? u3[a] = t2[a] : (u3[a] = h2, n2.addEventListener(l2, r2 ? v : p, r2)) : n2.removeEventListener(l2, r2 ? v : p, r2);
-    else {
-      if ("http://www.w3.org/2000/svg" == i2) l2 = l2.replace(/xlink(H|:h)/, "h").replace(/sName$/, "s");
-      else if ("width" != l2 && "height" != l2 && "href" != l2 && "list" != l2 && "form" != l2 && "tabIndex" != l2 && "download" != l2 && "rowSpan" != l2 && "colSpan" != l2 && "role" != l2 && "popover" != l2 && l2 in n2) try {
-        n2[l2] = null == u3 ? "" : u3;
-        break n;
-      } catch (n3) {
-      }
-      "function" == typeof u3 || (null == u3 || false === u3 && "-" != l2[4] ? n2.removeAttribute(l2) : n2.setAttribute(l2, "popover" == l2 && 1 == u3 ? "" : u3));
-    }
-  }
-  function V(n2) {
-    return function(u3) {
-      if (this.l) {
-        var t2 = this.l[u3.type + n2];
-        if (null == u3[c]) u3[c] = h2++;
-        else if (u3[c] < t2[a]) return;
-        return t2(l.event ? l.event(u3) : u3);
-      }
-    };
-  }
-  function q(n2, u3, t2, i2, r2, o2, e2, f2, c2, a2) {
-    var s2, h4, p2, v2, y2, d2, _2, k, x2, M, $3, I2, P2, A2, H2, T2 = u3.type;
-    if (void 0 !== u3.constructor) return null;
-    128 & t2.__u && (c2 = !!(32 & t2.__u), o2 = [f2 = u3.__e = t2.__e]), (s2 = l.__b) && s2(u3);
-    n: if ("function" == typeof T2) try {
-      if (k = u3.props, x2 = T2.prototype && T2.prototype.render, M = (s2 = T2.contextType) && i2[s2.__c], $3 = s2 ? M ? M.props.value : s2.__ : i2, t2.__c ? _2 = (h4 = u3.__c = t2.__c).__ = h4.__E : (x2 ? u3.__c = h4 = new T2(k, $3) : (u3.__c = h4 = new C(k, $3), h4.constructor = T2, h4.render = Q), M && M.sub(h4), h4.state || (h4.state = {}), h4.__n = i2, p2 = h4.__d = true, h4.__h = [], h4._sb = []), x2 && null == h4.__s && (h4.__s = h4.state), x2 && null != T2.getDerivedStateFromProps && (h4.__s == h4.state && (h4.__s = m({}, h4.__s)), m(h4.__s, T2.getDerivedStateFromProps(k, h4.__s))), v2 = h4.props, y2 = h4.state, h4.__v = u3, p2) x2 && null == T2.getDerivedStateFromProps && null != h4.componentWillMount && h4.componentWillMount(), x2 && null != h4.componentDidMount && h4.__h.push(h4.componentDidMount);
-      else {
-        if (x2 && null == T2.getDerivedStateFromProps && k !== v2 && null != h4.componentWillReceiveProps && h4.componentWillReceiveProps(k, $3), u3.__v == t2.__v || !h4.__e && null != h4.shouldComponentUpdate && false === h4.shouldComponentUpdate(k, h4.__s, $3)) {
-          u3.__v != t2.__v && (h4.props = k, h4.state = h4.__s, h4.__d = false), u3.__e = t2.__e, u3.__k = t2.__k, u3.__k.some(function(n3) {
-            n3 && (n3.__ = u3);
-          }), w.push.apply(h4.__h, h4._sb), h4._sb = [], h4.__h.length && e2.push(h4);
-          break n;
-        }
-        null != h4.componentWillUpdate && h4.componentWillUpdate(k, h4.__s, $3), x2 && null != h4.componentDidUpdate && h4.__h.push(function() {
-          h4.componentDidUpdate(v2, y2, d2);
-        });
-      }
-      if (h4.context = $3, h4.props = k, h4.__P = n2, h4.__e = false, I2 = l.__r, P2 = 0, x2) h4.state = h4.__s, h4.__d = false, I2 && I2(u3), s2 = h4.render(h4.props, h4.state, h4.context), w.push.apply(h4.__h, h4._sb), h4._sb = [];
-      else do {
-        h4.__d = false, I2 && I2(u3), s2 = h4.render(h4.props, h4.state, h4.context), h4.state = h4.__s;
-      } while (h4.__d && ++P2 < 25);
-      h4.state = h4.__s, null != h4.getChildContext && (i2 = m(m({}, i2), h4.getChildContext())), x2 && !p2 && null != h4.getSnapshotBeforeUpdate && (d2 = h4.getSnapshotBeforeUpdate(v2, y2)), A2 = null != s2 && s2.type === S && null == s2.key ? E(s2.props.children) : s2, f2 = L(n2, g(A2) ? A2 : [A2], u3, t2, i2, r2, o2, e2, f2, c2, a2), h4.base = u3.__e, u3.__u &= -161, h4.__h.length && e2.push(h4), _2 && (h4.__E = h4.__ = null);
-    } catch (n3) {
-      if (u3.__v = null, c2 || null != o2) if (n3.then) {
-        for (u3.__u |= c2 ? 160 : 128; f2 && 8 == f2.nodeType && f2.nextSibling; ) f2 = f2.nextSibling;
-        o2[o2.indexOf(f2)] = null, u3.__e = f2;
-      } else {
-        for (H2 = o2.length; H2--; ) b(o2[H2]);
-        B(u3);
-      }
-      else u3.__e = t2.__e, u3.__k = t2.__k, n3.then || B(u3);
-      l.__e(n3, u3, t2);
-    }
-    else null == o2 && u3.__v == t2.__v ? (u3.__k = t2.__k, u3.__e = t2.__e) : f2 = u3.__e = G(t2.__e, u3, t2, i2, r2, o2, e2, c2, a2);
-    return (s2 = l.diffed) && s2(u3), 128 & u3.__u ? void 0 : f2;
-  }
-  function B(n2) {
-    n2 && (n2.__c && (n2.__c.__e = true), n2.__k && n2.__k.some(B));
-  }
-  function D(n2, u3, t2) {
-    for (var i2 = 0; i2 < t2.length; i2++) J(t2[i2], t2[++i2], t2[++i2]);
-    l.__c && l.__c(u3, n2), n2.some(function(u4) {
-      try {
-        n2 = u4.__h, u4.__h = [], n2.some(function(n3) {
-          n3.call(u4);
-        });
-      } catch (n3) {
-        l.__e(n3, u4.__v);
-      }
-    });
-  }
-  function E(n2) {
-    return "object" != typeof n2 || null == n2 || n2.__b > 0 ? n2 : g(n2) ? n2.map(E) : void 0 !== n2.constructor ? null : m({}, n2);
-  }
-  function G(u3, t2, i2, r2, o2, e2, f2, c2, a2) {
-    var s2, h4, p2, v2, y2, w2, _2, m2 = i2.props || d, k = t2.props, x2 = t2.type;
-    if ("svg" == x2 ? o2 = "http://www.w3.org/2000/svg" : "math" == x2 ? o2 = "http://www.w3.org/1998/Math/MathML" : o2 || (o2 = "http://www.w3.org/1999/xhtml"), null != e2) {
-      for (s2 = 0; s2 < e2.length; s2++) if ((y2 = e2[s2]) && "setAttribute" in y2 == !!x2 && (x2 ? y2.localName == x2 : 3 == y2.nodeType)) {
-        u3 = y2, e2[s2] = null;
-        break;
-      }
-    }
-    if (null == u3) {
-      if (null == x2) return document.createTextNode(k);
-      u3 = document.createElementNS(o2, x2, k.is && k), c2 && (l.__m && l.__m(t2, e2), c2 = false), e2 = null;
-    }
-    if (null == x2) m2 === k || c2 && u3.data == k || (u3.data = k);
-    else {
-      if (e2 = "textarea" == x2 && null != k.defaultValue ? null : e2 && n.call(u3.childNodes), !c2 && null != e2) for (m2 = {}, s2 = 0; s2 < u3.attributes.length; s2++) m2[(y2 = u3.attributes[s2]).name] = y2.value;
-      for (s2 in m2) y2 = m2[s2], "dangerouslySetInnerHTML" == s2 ? p2 = y2 : "children" == s2 || s2 in k || "value" == s2 && "defaultValue" in k || "checked" == s2 && "defaultChecked" in k || N(u3, s2, null, y2, o2);
-      for (s2 in k) y2 = k[s2], "children" == s2 ? v2 = y2 : "dangerouslySetInnerHTML" == s2 ? h4 = y2 : "value" == s2 ? w2 = y2 : "checked" == s2 ? _2 = y2 : c2 && "function" != typeof y2 || m2[s2] === y2 || N(u3, s2, y2, m2[s2], o2);
-      if (h4) c2 || p2 && (h4.__html == p2.__html || h4.__html == u3.innerHTML) || (u3.innerHTML = h4.__html), t2.__k = [];
-      else if (p2 && (u3.innerHTML = ""), L("template" == t2.type ? u3.content : u3, g(v2) ? v2 : [v2], t2, i2, r2, "foreignObject" == x2 ? "http://www.w3.org/1999/xhtml" : o2, e2, f2, e2 ? e2[0] : i2.__k && $2(i2, 0), c2, a2), null != e2) for (s2 = e2.length; s2--; ) b(e2[s2]);
-      c2 && "textarea" != x2 || (s2 = "value", "progress" == x2 && null == w2 ? u3.removeAttribute("value") : null != w2 && (w2 !== u3[s2] || "progress" == x2 && !w2 || "option" == x2 && w2 != m2[s2]) && N(u3, s2, w2, m2[s2], o2), s2 = "checked", null != _2 && _2 != u3[s2] && N(u3, s2, _2, m2[s2], o2));
-    }
-    return u3;
-  }
-  function J(n2, u3, t2) {
-    try {
-      if ("function" == typeof n2) {
-        var i2 = "function" == typeof n2.__u;
-        i2 && n2.__u(), i2 && null == u3 || (n2.__u = n2(u3));
-      } else n2.current = u3;
-    } catch (n3) {
-      l.__e(n3, t2);
-    }
-  }
-  function K(n2, u3, t2) {
-    var i2, r2;
-    if (l.unmount && l.unmount(n2), (i2 = n2.ref) && (i2.current && i2.current != n2.__e || J(i2, null, u3)), null != (i2 = n2.__c)) {
-      if (i2.componentWillUnmount) try {
-        i2.componentWillUnmount();
-      } catch (n3) {
-        l.__e(n3, u3);
-      }
-      i2.base = i2.__P = null;
-    }
-    if (i2 = n2.__k) for (r2 = 0; r2 < i2.length; r2++) i2[r2] && K(i2[r2], u3, t2 || "function" != typeof n2.type);
-    t2 || b(n2.__e), n2.__c = n2.__ = n2.__e = void 0;
-  }
-  function Q(n2, l2, u3) {
-    return this.constructor(n2, u3);
-  }
-  n = w.slice, l = { __e: function(n2, l2, u3, t2) {
-    for (var i2, r2, o2; l2 = l2.__; ) if ((i2 = l2.__c) && !i2.__) try {
-      if ((r2 = i2.constructor) && null != r2.getDerivedStateFromError && (i2.setState(r2.getDerivedStateFromError(n2)), o2 = i2.__d), null != i2.componentDidCatch && (i2.componentDidCatch(n2, t2 || {}), o2 = i2.__d), o2) return i2.__E = i2;
-    } catch (l3) {
-      n2 = l3;
-    }
-    throw n2;
-  } }, u = 0, t = function(n2) {
-    return null != n2 && void 0 === n2.constructor;
-  }, C.prototype.setState = function(n2, l2) {
-    var u3;
-    u3 = null != this.__s && this.__s != this.state ? this.__s : this.__s = m({}, this.state), "function" == typeof n2 && (n2 = n2(m({}, u3), this.props)), n2 && m(u3, n2), null != n2 && this.__v && (l2 && this._sb.push(l2), A(this));
-  }, C.prototype.forceUpdate = function(n2) {
-    this.__v && (this.__e = true, n2 && this.__h.push(n2), A(this));
-  }, C.prototype.render = S, i = [], o = "function" == typeof Promise ? Promise.prototype.then.bind(Promise.resolve()) : setTimeout, e = function(n2, l2) {
-    return n2.__v.__b - l2.__v.__b;
-  }, H.__r = 0, f = Math.random().toString(8), c = "__d" + f, a = "__a" + f, s = /(PointerCapture)$|Capture$/i, h2 = 0, p = V(false), v = V(true), y = 0;
 
   // js/ui/components/chip.tsx
   function renderChip(options) {
@@ -2564,7 +2935,7 @@ ${fromPart}${joinPart}${wherePart}`);
     const draggableAttr = draggable ? 'draggable="true"' : "";
     const tooltipAttr = tooltip ? `data-tip="${tooltip}"` : "";
     const styleAttr = inlineStyle ? `style="${inlineStyle}"` : "";
-    const extraAttrs = dataAttrs ? Object.entries(dataAttrs).map(([k, v2]) => `${k}="${v2}"`).join(" ") : "";
+    const extraAttrs = dataAttrs ? Object.entries(dataAttrs).map(([k3, v3]) => `${k3}="${v3}"`).join(" ") : "";
     return `<span class="${classes}" ${draggableAttr} data-col="${col}" ${extraAttrs} ${tooltipAttr} ${styleAttr}>${label}${badgeHtml}</span>`;
   }
   function getChipCol(chip) {
@@ -2578,10 +2949,10 @@ ${fromPart}${joinPart}${wherePart}`);
 
   // js/ui/utils/events.ts
   function delegate(parent, selector, event, handler) {
-    parent.addEventListener(event, ((e2) => {
-      const target = e2.target.closest(selector);
+    parent.addEventListener(event, ((e3) => {
+      const target = e3.target.closest(selector);
       if (target && parent.contains(target)) {
-        handler(target, e2);
+        handler(target, e3);
       }
     }));
   }
@@ -2592,7 +2963,7 @@ ${fromPart}${joinPart}${wherePart}`);
   var _disabledCardCols = /* @__PURE__ */ new Set();
   function _sampleTipFor(tid, col, extra = []) {
     const tbl = db.tables?.[tid];
-    const vals = (tbl?.samples?.[col] || []).slice(0, 3).map((v2) => String(v2));
+    const vals = (tbl?.samples?.[col] || []).slice(0, 3).map((v3) => String(v3));
     return [
       `From sheet: ${tbl?.name || tid}`,
       vals.length ? `Sample values: ${vals.join(" \xB7 ")}` : "Sample values: (none found)",
@@ -2637,9 +3008,9 @@ ${fromPart}${joinPart}${wherePart}`);
   }
   function _lookupColumnUsedElsewhere(tid, col, excludeLookupIndex = -1) {
     const lookups = Array.isArray(db.lookups) ? db.lookups : [];
-    for (let i2 = 0; i2 < lookups.length; i2++) {
-      if (i2 === excludeLookupIndex) continue;
-      const lk = lookups[i2];
+    for (let i3 = 0; i3 < lookups.length; i3++) {
+      if (i3 === excludeLookupIndex) continue;
+      const lk = lookups[i3];
       if (!lk || lk.rightId !== tid) continue;
       if (Array.isArray(lk.cols) && lk.cols.includes(col)) return true;
     }
@@ -2649,9 +3020,9 @@ ${fromPart}${joinPart}${wherePart}`);
     const rt = tid ? db.tables?.[tid] : null;
     if (!rt || !Array.isArray(rt.cols)) return;
     const cols = col === null ? rt.cols : [col];
-    for (const c2 of cols) {
-      if (_lookupColumnUsedElsewhere(tid, c2, excludeLookupIndex)) continue;
-      _hideLayoutAliasesForSource(tid, c2);
+    for (const c3 of cols) {
+      if (_lookupColumnUsedElsewhere(tid, c3, excludeLookupIndex)) continue;
+      _hideLayoutAliasesForSource(tid, c3);
     }
   }
   function _isAliasVisibleInLayout(alias, mode) {
@@ -2663,24 +3034,24 @@ ${fromPart}${joinPart}${wherePart}`);
   function _syncSubtotalByToLayout() {
     if (!Array.isArray(db.subtotalBy) || !db.subtotalBy.length) return;
     const order = Array.isArray(db.colOrder) ? db.colOrder : projectedCols();
-    const orderIdx = new Map(order.map((c2, i2) => [c2, i2]));
+    const orderIdx = new Map(order.map((c3, i3) => [c3, i3]));
     const seen = /* @__PURE__ */ new Set();
-    db.subtotalBy = db.subtotalBy.filter((c2) => orderIdx.has(c2) && !seen.has(c2) && (seen.add(c2), true)).sort((a2, b2) => (orderIdx.get(a2) ?? Number.MAX_SAFE_INTEGER) - (orderIdx.get(b2) ?? Number.MAX_SAFE_INTEGER));
+    db.subtotalBy = db.subtotalBy.filter((c3) => orderIdx.has(c3) && !seen.has(c3) && (seen.add(c3), true)).sort((a3, b2) => (orderIdx.get(a3) ?? Number.MAX_SAFE_INTEGER) - (orderIdx.get(b2) ?? Number.MAX_SAFE_INTEGER));
   }
   function _afterCombineChange() {
     invalidateValidation();
     const nowCols = projectedCols();
     const selCols = db.selCols;
     if (selCols) {
-      nowCols.forEach((c2) => {
-        if (!_seenCols.has(c2)) {
-          selCols.add(c2);
-          _seenCols.add(c2);
+      nowCols.forEach((c3) => {
+        if (!_seenCols.has(c3)) {
+          selCols.add(c3);
+          _seenCols.add(c3);
         }
       });
       const nowSet = new Set(nowCols);
-      for (const c2 of [...selCols]) {
-        if (!nowSet.has(c2) && !_disabledCardCols.has(c2)) selCols.delete(c2);
+      for (const c3 of [...selCols]) {
+        if (!nowSet.has(c3) && !_disabledCardCols.has(c3)) selCols.delete(c3);
       }
     }
     const colOrder = db.colOrder;
@@ -2689,8 +3060,8 @@ ${fromPart}${joinPart}${wherePart}`);
     } else {
       const nowSet = new Set(nowCols);
       db.colOrder = [
-        ...colOrder.filter((c2) => nowSet.has(c2)),
-        ...nowCols.filter((c2) => !colOrder.includes(c2))
+        ...colOrder.filter((c3) => nowSet.has(c3)),
+        ...nowCols.filter((c3) => !colOrder.includes(c3))
       ];
     }
     _syncSubtotalByToLayout();
@@ -2699,7 +3070,7 @@ ${fromPart}${joinPart}${wherePart}`);
 
   // js/ui/components/calc-builder.ts
   function renderMathBuilder(ctx) {
-    const { calc, i: i2, colOptsFor } = ctx;
+    const { calc, i: i3, colOptsFor } = ctx;
     const math = calc.math;
     const steps = math?.steps || [];
     const firstStep = steps[0] || {};
@@ -2713,7 +3084,7 @@ ${fromPart}${joinPart}${wherePart}`);
     return `
     <div class="pl-key-pair" style="margin-top:8px">
       <span class="pl-key-pair-label">Type</span>
-      <select data-ci="${i2}" data-cp="mathOp" style="width:140px;flex-shrink:0">
+      <select data-ci="${i3}" data-cp="mathOp" style="width:140px;flex-shrink:0">
         <option value="ARITH" ${!isRollingAvg && !isPctTotal ? "selected" : ""}>Arithmetic</option>
         <option value="ROLLAVG" ${isRollingAvg ? "selected" : ""}>Rolling Avg</option>
         <option value="PCTTOTAL" ${isPctTotal ? "selected" : ""}>% of Total</option>
@@ -2721,38 +3092,38 @@ ${fromPart}${joinPart}${wherePart}`);
     </div>
     ${!isRollingAvg && !isPctTotal ? `
     <div class="pl-key-pair" style="margin-top:6px">
-      <select data-ci="${i2}" data-cp="leftCol" style="min-width:160px">
+      <select data-ci="${i3}" data-cp="leftCol" style="min-width:160px">
         <option value="">\u2014 column \u2014</option>${colOptsFor(leftCol)}
       </select>
-      <select data-ci="${i2}" data-cp="mathOperator" style="width:70px;flex-shrink:0">
+      <select data-ci="${i3}" data-cp="mathOperator" style="width:70px;flex-shrink:0">
         <option value="+" ${mathOp === "+" ? "selected" : ""}>+</option>
         <option value="-" ${mathOp === "-" ? "selected" : ""}>\u2212</option>
         <option value="*" ${mathOp === "*" ? "selected" : ""}>\xD7</option>
         <option value="/" ${mathOp === "/" ? "selected" : ""}>\xF7</option>
       </select>
-      <select data-ci="${i2}" data-cp="rightCol" style="min-width:160px">
+      <select data-ci="${i3}" data-cp="rightCol" style="min-width:160px">
         <option value="">\u2014 column \u2014</option>${colOptsFor(rightCol)}
       </select>
     </div>` : ""}
     ${isRollingAvg ? `
     <div class="pl-key-pair" style="margin-top:6px">
       <span class="pl-key-pair-label">Source</span>
-      <select data-ci="${i2}" data-cp="leftCol" style="min-width:190px">
+      <select data-ci="${i3}" data-cp="leftCol" style="min-width:190px">
         <option value="">\u2014 column \u2014</option>${colOptsFor(leftCol)}
       </select>
       <span class="pl-key-pair-label" style="margin-left:6px">Window</span>
-      <input type="number" min="1" step="1" value="${windowVal}" data-ci="${i2}" data-cp="window" style="width:80px;flex-shrink:0">
+      <input type="number" min="1" step="1" value="${windowVal}" data-ci="${i3}" data-cp="window" style="width:80px;flex-shrink:0">
     </div>` : ""}
     ${isPctTotal ? `
     <div class="pl-key-pair" style="margin-top:6px">
       <span class="pl-key-pair-label">Source</span>
-      <select data-ci="${i2}" data-cp="leftCol" style="min-width:190px">
+      <select data-ci="${i3}" data-cp="leftCol" style="min-width:190px">
         <option value="">\u2014 column \u2014</option>${colOptsFor(leftCol)}
       </select>
     </div>` : ""}`;
   }
   function renderTextBuilder(ctx) {
-    const { calc, i: i2, colOptsFor } = ctx;
+    const { calc, i: i3, colOptsFor } = ctx;
     const text = calc.text;
     const op = text?.operation || "combine";
     if (op === "combine") {
@@ -2768,11 +3139,11 @@ ${fromPart}${joinPart}${wherePart}`);
       return `
       <div class="pl-key-pair" style="margin-top:8px">
         <span class="pl-key-pair-label">Source</span>
-        <select data-ci="${i2}" data-cp="textSource" style="min-width:190px">
+        <select data-ci="${i3}" data-cp="textSource" style="min-width:190px">
           <option value="">\u2014 column \u2014</option>${colOptsFor(srcCol)}
         </select>
         <span class="pl-key-pair-label" style="margin-left:6px">Count</span>
-        <input type="number" min="1" step="1" value="${count}" data-ci="${i2}" data-cp="textCount" style="width:80px;flex-shrink:0">
+        <input type="number" min="1" step="1" value="${count}" data-ci="${i3}" data-cp="textCount" style="width:80px;flex-shrink:0">
       </div>`;
     }
     if (op === "substring") {
@@ -2783,43 +3154,43 @@ ${fromPart}${joinPart}${wherePart}`);
       return `
       <div class="pl-key-pair" style="margin-top:8px">
         <span class="pl-key-pair-label">Source</span>
-        <select data-ci="${i2}" data-cp="textSource" style="min-width:190px">
+        <select data-ci="${i3}" data-cp="textSource" style="min-width:190px">
           <option value="">\u2014 column \u2014</option>${colOptsFor(srcCol)}
         </select>
       </div>
       <div class="pl-key-pair" style="margin-top:4px">
         <span class="pl-key-pair-label">Start</span>
-        <input type="number" min="1" step="1" value="${start}" data-ci="${i2}" data-cp="textStart" style="width:80px;flex-shrink:0">
+        <input type="number" min="1" step="1" value="${start}" data-ci="${i3}" data-cp="textStart" style="width:80px;flex-shrink:0">
         <span class="pl-key-pair-label" style="margin-left:6px">Length</span>
-        <input type="number" min="1" step="1" value="${length}" data-ci="${i2}" data-cp="textLength" style="width:80px;flex-shrink:0">
+        <input type="number" min="1" step="1" value="${length}" data-ci="${i3}" data-cp="textLength" style="width:80px;flex-shrink:0">
       </div>`;
     }
     return "";
   }
   function renderCompareBuilder(ctx) {
-    const { calc, i: i2, colOptsFor } = ctx;
+    const { calc, i: i3, colOptsFor } = ctx;
     const compare = calc.compare;
     const glue = compare?.compareMode || "AND";
     const conditions = compare?.conditions || [];
     const trueVal = compare?.trueValue;
     const falseVal = compare?.falseValue;
     const COND_OPS = ["=", "!=", ">", ">=", "<", "<="];
-    const condOptsFor = (selOp) => COND_OPS.map((o2) => `<option value="${h(o2)}" ${selOp === o2 ? "selected" : ""}>${h(o2)}</option>`).join("");
-    const conditionsHtml = conditions.map((cond, j2) => `
-    <div class="pl-key-pair" style="margin-top:${j2 === 0 ? "6px" : "4px"}">
-      <span class="pl-key-pair-label">${j2 === 0 ? "Where" : glue}</span>
-      <select data-ci="${i2}" data-cond="${j2}" data-cp="col" style="min-width:140px">
+    const condOptsFor = (selOp) => COND_OPS.map((o3) => `<option value="${h(o3)}" ${selOp === o3 ? "selected" : ""}>${h(o3)}</option>`).join("");
+    const conditionsHtml = conditions.map((cond, j4) => `
+    <div class="pl-key-pair" style="margin-top:${j4 === 0 ? "6px" : "4px"}">
+      <span class="pl-key-pair-label">${j4 === 0 ? "Where" : glue}</span>
+      <select data-ci="${i3}" data-cond="${j4}" data-cp="col" style="min-width:140px">
         <option value="">\u2014 column \u2014</option>${colOptsFor(cond.col || "")}
       </select>
-      <select data-ci="${i2}" data-cond="${j2}" data-cp="op" style="width:62px;flex-shrink:0">
+      <select data-ci="${i3}" data-cond="${j4}" data-cp="op" style="width:62px;flex-shrink:0">
         ${condOptsFor(cond.op || "=")}
       </select>
-      <input type="text" data-ci="${i2}" data-cond="${j2}" data-cp="val" placeholder="value" value="${h(cond.val || "")}" style="min-width:100px">
+      <input type="text" data-ci="${i3}" data-cond="${j4}" data-cp="val" placeholder="value" value="${h(cond.val || "")}" style="min-width:100px">
     </div>`).join("");
     return `
     <div class="pl-key-pair" style="margin-top:8px">
       <span class="pl-key-pair-label">Match</span>
-      <select data-ci="${i2}" data-cp="compareMode" style="width:80px;flex-shrink:0">
+      <select data-ci="${i3}" data-cp="compareMode" style="width:80px;flex-shrink:0">
         <option value="AND" ${glue === "AND" ? "selected" : ""}>ALL</option>
         <option value="OR" ${glue === "OR" ? "selected" : ""}>ANY</option>
       </select>
@@ -2831,7 +3202,7 @@ ${fromPart}${joinPart}${wherePart}`);
     </div>`;
   }
   function renderDateBuilder(ctx) {
-    const { calc, i: i2, colOptsFor } = ctx;
+    const { calc, i: i3, colOptsFor } = ctx;
     const date = calc.date;
     const src = date?.source;
     const srcCol = src?.type === "column" ? src.value || "" : "";
@@ -2843,13 +3214,13 @@ ${fromPart}${joinPart}${wherePart}`);
     return `
     <div class="pl-key-pair" style="margin-top:8px">
       <span class="pl-key-pair-label">Source</span>
-      <select data-ci="${i2}" data-cp="dateSource" style="min-width:190px">
+      <select data-ci="${i3}" data-cp="dateSource" style="min-width:190px">
         <option value="">\u2014 column \u2014</option>${colOptsFor(srcCol)}
       </select>
     </div>
     <div class="pl-key-pair" style="margin-top:4px">
       <span class="pl-key-pair-label">Extract</span>
-      <select data-ci="${i2}" data-cp="datePart" style="width:140px;flex-shrink:0">
+      <select data-ci="${i3}" data-cp="datePart" style="width:140px;flex-shrink:0">
         <option value="year" ${part === "year" ? "selected" : ""}>Year</option>
         <option value="month" ${part === "month" ? "selected" : ""}>Month</option>
         <option value="day" ${part === "day" ? "selected" : ""}>Day</option>
@@ -2862,9 +3233,9 @@ ${fromPart}${joinPart}${wherePart}`);
     <div class="pl-key-pair" style="margin-top:4px">
       <span class="pl-key-pair-label">Format</span>
       <div class="tab-row" style="margin-left:0">
-        <label class="tab-opt"><input type="radio" name="dateOutput_${i2}" value="number" ${output === "number" ? "checked" : ""} data-ci="${i2}" data-cp="dateOutput"><span>Number</span></label>
-        <label class="tab-opt${textOnly ? " tab-opt--disabled" : ""}"><input type="radio" name="dateOutput_${i2}" value="short" ${output === "short" ? "checked" : ""}${shortDisabled} data-ci="${i2}" data-cp="dateOutput"><span>Short</span></label>
-        <label class="tab-opt${textOnly ? " tab-opt--disabled" : ""}"><input type="radio" name="dateOutput_${i2}" value="text" ${output === "text" && !textOnly ? "checked" : ""}${fullDisabled} data-ci="${i2}" data-cp="dateOutput"><span>Full</span></label>
+        <label class="tab-opt"><input type="radio" name="dateOutput_${i3}" value="number" ${output === "number" ? "checked" : ""} data-ci="${i3}" data-cp="dateOutput"><span>Number</span></label>
+        <label class="tab-opt${textOnly ? " tab-opt--disabled" : ""}"><input type="radio" name="dateOutput_${i3}" value="short" ${output === "short" ? "checked" : ""}${shortDisabled} data-ci="${i3}" data-cp="dateOutput"><span>Short</span></label>
+        <label class="tab-opt${textOnly ? " tab-opt--disabled" : ""}"><input type="radio" name="dateOutput_${i3}" value="text" ${output === "text" && !textOnly ? "checked" : ""}${fullDisabled} data-ci="${i3}" data-cp="dateOutput"><span>Full</span></label>
       </div>
     </div>`;
   }
@@ -2909,13 +3280,13 @@ ${fromPart}${joinPart}${wherePart}`);
         delete lk._prevSelState;
       }
     },
-    rightId: (lk, inp, i2) => {
+    rightId: (lk, inp, i3) => {
       const prevRightId = lk.rightId;
       lk.rightId = inp.value;
       lk.keyPairs = [{ left: "", right: "" }];
       const rt = lk.rightId && db.tables[lk.rightId];
       lk.cols = rt ? [...rt.cols] : [];
-      if (prevRightId && prevRightId !== lk.rightId) _hideLookupLayoutAliasesSafely(prevRightId, null, i2);
+      if (prevRightId && prevRightId !== lk.rightId) _hideLookupLayoutAliasesSafely(prevRightId, null, i3);
       if (lk.rightId) _showLayoutAliasesForSource(lk.rightId);
     },
     required: (lk, inp) => {
@@ -2939,60 +3310,60 @@ ${fromPart}${joinPart}${wherePart}`);
     }
   };
   var calcPropHandlers = {
-    enabled: (c2, inp) => {
-      const wasEnabled = c2.enabled !== false;
+    enabled: (c3, inp) => {
+      const wasEnabled = c3.enabled !== false;
       const nowEnabled = inp.checked;
-      c2.enabled = nowEnabled;
-      const alias = (c2.alias || "").trim();
+      c3.enabled = nowEnabled;
+      const alias = (c3.alias || "").trim();
       if (!alias) return;
       if (wasEnabled && !nowEnabled) {
         if (db.selCols instanceof Set && _isAliasVisibleInLayout(alias, db.aggMode || "none")) {
-          c2._prevSelState = true;
+          c3._prevSelState = true;
           _disabledCardCols.add(alias);
         } else {
-          c2._prevSelState = false;
+          c3._prevSelState = false;
         }
       } else if (!wasEnabled && nowEnabled) {
-        if (c2._prevSelState && db.selCols instanceof Set) {
+        if (c3._prevSelState && db.selCols instanceof Set) {
           db.selCols.add(alias);
           _disabledCardCols.delete(alias);
         }
-        delete c2._prevSelState;
+        delete c3._prevSelState;
       }
     },
-    alias: (c2, inp) => {
-      const oldAlias = (c2.alias || "").trim();
-      c2.alias = inp.value;
-      const newAlias = (c2.alias || "").trim();
+    alias: (c3, inp) => {
+      const oldAlias = (c3.alias || "").trim();
+      c3.alias = inp.value;
+      const newAlias = (c3.alias || "").trim();
       _renameProjectedAliasRefs(oldAlias, newAlias);
     },
-    mode: (c2, inp) => {
+    mode: (c3, inp) => {
       const newMode = inp.value;
-      c2.mode = newMode;
-      delete c2.math;
-      delete c2.compare;
-      delete c2.text;
-      delete c2.date;
+      c3.mode = newMode;
+      delete c3.math;
+      delete c3.compare;
+      delete c3.text;
+      delete c3.date;
       const modeDefaults = {
         math: () => ({ strategy: "stepChain", steps: [{ type: "column", value: "" }, { type: "column", value: "", op: "+" }] }),
         text: () => ({ operation: "combine", parts: [{ type: "column", value: "" }] }),
         compare: () => ({ compareMode: "AND", conditions: [{ col: "", op: "=", val: "" }], trueValue: { type: "number", value: "1" }, falseValue: { type: "number", value: "0" } }),
         date: () => ({ operation: "extract", source: { type: "column", value: "" }, part: "year", output: "number" })
       };
-      c2[newMode] = modeDefaults[newMode]();
+      c3[newMode] = modeDefaults[newMode]();
     },
-    mathOp: (c2, inp) => {
+    mathOp: (c3, inp) => {
       const mathOp = inp.value;
-      c2.mathOp = mathOp;
+      c3.mathOp = mathOp;
       const mathOpDefaults = {
         ARITH: () => ({ strategy: "stepChain", steps: [{ type: "column", value: "" }, { type: "column", value: "", op: "+" }] }),
         ROLLAVG: () => ({ strategy: "stepChain", steps: [{ type: "column", value: "" }] }),
         PCTTOTAL: () => ({ strategy: "stepChain", steps: [{ type: "column", value: "" }] })
       };
-      c2.math = mathOpDefaults[mathOp]?.();
+      c3.math = mathOpDefaults[mathOp]?.();
     },
-    mathOperator: (c2, inp) => {
-      const math = c2.math;
+    mathOperator: (c3, inp) => {
+      const math = c3.math;
       if (math?.steps) {
         if (math.steps.length < 2) {
           math.steps.push({ type: "column", value: "", op: inp.value });
@@ -3001,14 +3372,14 @@ ${fromPart}${joinPart}${wherePart}`);
         }
       }
     },
-    leftCol: (c2, inp) => {
-      const math = c2.math;
+    leftCol: (c3, inp) => {
+      const math = c3.math;
       if (math?.steps && math.steps.length > 0) {
         math.steps[0] = { type: "column", value: inp.value };
       }
     },
-    rightCol: (c2, inp) => {
-      const math = c2.math;
+    rightCol: (c3, inp) => {
+      const math = c3.math;
       if (math?.steps) {
         if (math.steps.length < 2) {
           math.steps.push({ type: "column", value: "", op: "+" });
@@ -3016,47 +3387,47 @@ ${fromPart}${joinPart}${wherePart}`);
         math.steps[1] = { ...math.steps[1], type: "column", value: inp.value };
       }
     },
-    window: (c2, inp) => {
-      c2.window = String(Math.max(1, parseInt(inp.value, 10) || 7));
+    window: (c3, inp) => {
+      c3.window = String(Math.max(1, parseInt(inp.value, 10) || 7));
     },
-    textSource: (c2, inp) => {
-      const text = c2.text;
+    textSource: (c3, inp) => {
+      const text = c3.text;
       if (text) {
         text.source = { type: "column", value: inp.value };
       }
     },
-    textCount: (c2, inp) => {
-      const text = c2.text;
+    textCount: (c3, inp) => {
+      const text = c3.text;
       if (text) {
         text.count = Math.max(1, parseInt(inp.value, 10) || 1);
       }
     },
-    textStart: (c2, inp) => {
-      const text = c2.text;
+    textStart: (c3, inp) => {
+      const text = c3.text;
       if (text) {
         text.start = Math.max(1, parseInt(inp.value, 10) || 1);
       }
     },
-    textLength: (c2, inp) => {
-      const text = c2.text;
+    textLength: (c3, inp) => {
+      const text = c3.text;
       if (text) {
         text.length = Math.max(1, parseInt(inp.value, 10) || 1);
       }
     },
-    compareMode: (c2, inp) => {
-      const compare = c2.compare;
+    compareMode: (c3, inp) => {
+      const compare = c3.compare;
       if (compare) {
         compare.compareMode = inp.value;
       }
     },
-    dateSource: (c2, inp) => {
-      const date = c2.date;
+    dateSource: (c3, inp) => {
+      const date = c3.date;
       if (date) {
         date.source = { type: "column", value: inp.value };
       }
     },
-    datePart: (c2, inp) => {
-      const date = c2.date;
+    datePart: (c3, inp) => {
+      const date = c3.date;
       if (date) {
         date.part = inp.value;
         if ((inp.value === "year" || inp.value === "week") && date.output !== "number") {
@@ -3064,8 +3435,8 @@ ${fromPart}${joinPart}${wherePart}`);
         }
       }
     },
-    dateOutput: (c2, inp) => {
-      const date = c2.date;
+    dateOutput: (c3, inp) => {
+      const date = c3.date;
       if (date) {
         date.output = inp.value;
       }
@@ -3084,8 +3455,8 @@ ${fromPart}${joinPart}${wherePart}`);
   };
   function renderPipeline(ids) {
     const pl = document.getElementById("pipeline");
-    const sortedIds = ids.sort((a2, b2) => db.tables[a2].name.localeCompare(db.tables[b2].name));
-    const usedAsLookup = new Set((db.lookups || []).map((l2) => l2.rightId).filter(Boolean));
+    const sortedIds = ids.sort((a3, b2) => db.tables[a3].name.localeCompare(db.tables[b2].name));
+    const usedAsLookup = new Set((db.lookups || []).map((l3) => l3.rightId).filter(Boolean));
     const usedAsStack = new Set(db.stacks || []);
     const layoutColMap = db.base && db.tables[db.base] ? buildColSourceMap() : /* @__PURE__ */ new Map();
     const layoutMode = db.aggMode || "none";
@@ -3111,19 +3482,19 @@ ${fromPart}${joinPart}${wherePart}`);
       return `<div class="pl-lookup-cols" style="margin-top:6px">
       <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Columns:</span>
       ${renderTip("Right-click any chip to rename it.")}
-      ${allCols.map((c2) => {
-        const isLayoutVisible = _isSourceVisibleInLayout(db.base, c2, layoutColMap, layoutMode);
+      ${allCols.map((c3) => {
+        const isLayoutVisible = _isSourceVisibleInLayout(db.base, c3, layoutColMap, layoutMode);
         const color = getTableColor(db.base);
         const chipStyle = `background:${color};border-color:${color};color:${chipFgColor(color)}`;
         return renderChip({
-          col: c2,
-          label: colUserLabel(db.base, c2),
+          col: c3,
+          label: colUserLabel(db.base, c3),
           selected: true,
           draggable: false,
           chipClass: "pl-col-chip",
           className: isLayoutVisible ? "" : "pl-col-chip-layout-hidden",
-          tooltip: _sampleTipFor(db.base, c2, ["Click to show/hide this column in the report layout."]),
-          dataAttrs: { "data-bcc": c2 },
+          tooltip: _sampleTipFor(db.base, c3, ["Click to show/hide this column in the report layout."]),
+          dataAttrs: { "data-bcc": c3 },
           inlineStyle: chipStyle
         });
       }).join("")}
@@ -3153,13 +3524,13 @@ ${fromPart}${joinPart}${wherePart}`);
       return;
     }
     html += _plArrow("base");
-    (db.lookups || []).forEach((lk, i2) => {
-      html += _plLookupStage(lk, i2, sortedIds, usedAsLookup, usedAsStack, layoutColMap, layoutMode);
-      html += _plArrow(`lk${i2}`);
+    (db.lookups || []).forEach((lk, i3) => {
+      html += _plLookupStage(lk, i3, sortedIds, usedAsLookup, usedAsStack, layoutColMap, layoutMode);
+      html += _plArrow(`lk${i3}`);
     });
-    (db.calcStages || []).forEach((calc, i2) => {
-      html += _plCalcStage(calc, i2);
-      html += _plArrow(`calc${i2}`);
+    (db.calcStages || []).forEach((calc, i3) => {
+      html += _plCalcStage(calc, i3);
+      html += _plArrow(`calc${i3}`);
     });
     html += `<div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;padding:2px 0 8px">
     <div class="pl-add-btn" onclick="addLookup()">\uFF0B Look up columns from another sheet</div>
@@ -3172,9 +3543,9 @@ ${fromPart}${joinPart}${wherePart}`);
     if (addBtn && addSel) {
       addBtn.addEventListener("click", () => {
         addSel.style.cssText = "position:absolute;opacity:1;pointer-events:auto;width:auto;height:auto";
-        const r2 = addBtn.getBoundingClientRect();
-        addSel.style.top = r2.bottom + window.scrollY + 2 + "px";
-        addSel.style.left = r2.left + "px";
+        const r3 = addBtn.getBoundingClientRect();
+        addSel.style.top = r3.bottom + window.scrollY + 2 + "px";
+        addSel.style.left = r3.left + "px";
         document.body.appendChild(addSel);
         addSel.focus();
         addSel.addEventListener("blur", () => {
@@ -3210,63 +3581,63 @@ ${fromPart}${joinPart}${wherePart}`);
       });
     });
     qs("[data-li]").forEach((el) => {
-      el.addEventListener("change", (e2) => {
-        const t2 = e2.target;
-        const i2 = +t2.dataset.li;
-        const lp = t2.dataset.lp;
+      el.addEventListener("change", (e3) => {
+        const t3 = e3.target;
+        const i3 = +t3.dataset.li;
+        const lp = t3.dataset.lp;
         if (!lp) return;
-        const lk = db.lookups[i2];
-        const inp = t2;
+        const lk = db.lookups[i3];
+        const inp = t3;
         const handler = lookupPropHandlers[lp];
         if (handler) {
-          handler(lk, inp, i2, el);
+          handler(lk, inp, i3, el);
           _afterCombineChange();
         }
       });
     });
     qs("[data-ci]").forEach((el) => {
-      el.addEventListener("change", (e2) => {
-        const t2 = e2.target;
-        const i2 = +t2.dataset.ci;
-        const cp = t2.dataset.cp;
+      el.addEventListener("change", (e3) => {
+        const t3 = e3.target;
+        const i3 = +t3.dataset.ci;
+        const cp = t3.dataset.cp;
         if (!cp) return;
-        const c2 = db.calcStages?.[i2];
-        if (!c2) return;
-        const inp = t2;
+        const c3 = db.calcStages?.[i3];
+        if (!c3) return;
+        const inp = t3;
         const handler = calcPropHandlers[cp];
         if (handler) {
-          handler(c2, inp, i2);
+          handler(c3, inp, i3);
           _afterCombineChange();
         }
       });
     });
     qs("[data-cond]").forEach((el) => {
-      el.addEventListener("change", (e2) => {
-        const t2 = e2.target;
-        const i2 = +t2.dataset.ci;
-        const j2 = +t2.dataset.cond;
-        const cp = t2.dataset.cp;
+      el.addEventListener("change", (e3) => {
+        const t3 = e3.target;
+        const i3 = +t3.dataset.ci;
+        const j4 = +t3.dataset.cond;
+        const cp = t3.dataset.cp;
         if (!cp) return;
-        const c2 = db.calcStages?.[i2];
-        if (!c2 || c2.mode !== "compare") return;
-        const compare = c2.compare;
-        if (!compare?.conditions?.[j2]) return;
-        const inp = t2;
+        const c3 = db.calcStages?.[i3];
+        if (!c3 || c3.mode !== "compare") return;
+        const compare = c3.compare;
+        if (!compare?.conditions?.[j4]) return;
+        const inp = t3;
         const handler = condPropHandlers[cp];
         if (handler) {
-          handler(compare.conditions[j2], inp);
+          handler(compare.conditions[j4], inp);
           _afterCombineChange();
         }
       });
     });
     qs("[data-lcc]").forEach((el) => {
       el.addEventListener("click", () => {
-        const i2 = +el.dataset.li;
+        const i3 = +el.dataset.li;
         const col = el.dataset.lcc;
-        const lk = db.lookups[i2];
+        const lk = db.lookups[i3];
         const colMap = buildColSourceMap();
         const isLayoutVisible = _isSourceVisibleInLayout(lk.rightId, col, colMap, db.aggMode || "none");
-        if (isLayoutVisible) _hideLookupLayoutAliasesSafely(lk.rightId, col, i2);
+        if (isLayoutVisible) _hideLookupLayoutAliasesSafely(lk.rightId, col, i3);
         else _showLayoutAliasesForSource(lk.rightId, col);
         _afterCombineChange();
       });
@@ -3283,37 +3654,37 @@ ${fromPart}${joinPart}${wherePart}`);
     });
     qs("[data-ccc]").forEach((el) => {
       el.addEventListener("click", () => {
-        const i2 = +el.dataset.ci;
-        const c2 = db.calcStages?.[i2];
-        const alias = (c2?.alias || "").trim();
+        const i3 = +el.dataset.ci;
+        const c3 = db.calcStages?.[i3];
+        const alias = (c3?.alias || "").trim();
         if (!alias) return;
         if (!db.selCols) db.selCols = new Set(projectedCols());
-        const s2 = db.selCols;
-        if (s2.has(alias)) s2.delete(alias);
-        else s2.add(alias);
+        const s3 = db.selCols;
+        if (s3.has(alias)) s3.delete(alias);
+        else s3.add(alias);
         _afterCombineChange();
       });
     });
-    delegate(pl, "[data-bcc]", "contextmenu", (el, e2) => {
-      e2.preventDefault();
-      showContextMenu(e2.clientX, e2.clientY, [
+    delegate(pl, "[data-bcc]", "contextmenu", (el, e3) => {
+      e3.preventDefault();
+      showContextMenu(e3.clientX, e3.clientY, [
         { label: "Rename", action: () => renameSourceCol(db.base, el.dataset.bcc, () => _afterCombineChange()) }
       ]);
     });
-    delegate(pl, "[data-lcc]", "contextmenu", (el, e2) => {
-      e2.preventDefault();
+    delegate(pl, "[data-lcc]", "contextmenu", (el, e3) => {
+      e3.preventDefault();
       const lk = db.lookups[+el.dataset.li];
       if (!lk?.rightId) return;
-      showContextMenu(e2.clientX, e2.clientY, [
+      showContextMenu(e3.clientX, e3.clientY, [
         { label: "Rename", action: () => renameSourceCol(lk.rightId, el.dataset.lcc, () => _afterCombineChange()) }
       ]);
     });
-    delegate(pl, "[data-ccc]", "contextmenu", (el, e2) => {
-      e2.preventDefault();
-      const c2 = db.calcStages?.[+el.dataset.ci];
-      const alias = (c2?.alias || "").trim();
+    delegate(pl, "[data-ccc]", "contextmenu", (el, e3) => {
+      e3.preventDefault();
+      const c3 = db.calcStages?.[+el.dataset.ci];
+      const alias = (c3?.alias || "").trim();
       if (!alias) return;
-      showContextMenu(e2.clientX, e2.clientY, [
+      showContextMenu(e3.clientX, e3.clientY, [
         { label: "Rename", action: () => {
           const target = resolveRenameTarget(alias);
           if (!target) return;
@@ -3351,113 +3722,113 @@ ${fromPart}${joinPart}${wherePart}`);
     ${isOpen ? `<div class="pl-mini-preview" id="preview_${key}">${_buildPreviewHTML(key)}</div>` : ""}
   </div>`;
   }
-  function _plLookupStage(lk, i2, sortedIds, usedAsLookup, usedAsStack, layoutColMap, layoutMode) {
+  function _plLookupStage(lk, i3, sortedIds, usedAsLookup, usedAsStack, layoutColMap, layoutMode) {
     const rt = lk.rightId && db.tables[lk.rightId];
-    const leftCols = projectedColsUpToLookup(i2);
+    const leftCols = projectedColsUpToLookup(i3);
     const rightCols = rt ? rt.cols : [];
     if (!Array.isArray(lk.keyPairs) || !lk.keyPairs.length) lk.keyPairs = [{ left: "", right: "" }];
     const pairs = lk.keyPairs;
     const sheetOpts = sortedIds.filter((id) => id !== db.base && (!usedAsLookup.has(id) || id === lk.rightId) && !usedAsStack.has(id)).map((id) => `<option value="${id}" ${lk.rightId === id ? "selected" : ""}>${h(db.tables[id].name)}</option>`).join("");
     const lkColorCls = lk.rightId ? getTableColorClass(lk.rightId) : "";
     const lkColMap = buildColSourceMap();
-    const leftOptsFor = (val) => leftCols.map((c2) => `<option value="${h(c2)}" ${val === c2 ? "selected" : ""}>${h(colDisplayLabel(c2, lkColMap))}</option>`).join("");
-    const rightOptsFor = (val) => rightCols.map((c2) => `<option value="${h(c2)}" ${val === c2 ? "selected" : ""}>${h(`${db.tables[lk.rightId]?.name || lk.rightId} \u2192 ${colUserLabel(lk.rightId, c2)}`)}</option>`).join("");
+    const leftOptsFor = (val) => leftCols.map((c3) => `<option value="${h(c3)}" ${val === c3 ? "selected" : ""}>${h(colDisplayLabel(c3, lkColMap))}</option>`).join("");
+    const rightOptsFor = (val) => rightCols.map((c3) => `<option value="${h(c3)}" ${val === c3 ? "selected" : ""}>${h(`${db.tables[lk.rightId]?.name || lk.rightId} \u2192 ${colUserLabel(lk.rightId, c3)}`)}</option>`).join("");
     const keyPairsHTML = pairs.map((pair, pi) => `
     <div class="pl-key-pair">
       <span class="pl-key-pair-label">${pi === 0 ? "Where" : "AND"}</span>
-      <select data-li="${i2}" data-lkp="${pi}" data-lp="kpLeft">
+      <select data-li="${i3}" data-lkp="${pi}" data-lp="kpLeft">
         <option value="">\u2014 column \u2014</option>${leftOptsFor(pair.left)}
       </select>
       <span class="pl-lookup-eq">=</span>
-      <select data-li="${i2}" data-lkp="${pi}" data-lp="kpRight">
+      <select data-li="${i3}" data-lkp="${pi}" data-lp="kpRight">
         <option value="">\u2014 column \u2014</option>${rightOptsFor(pair.right)}
       </select>
-      ${pairs.length > 1 ? `<button class="pl-rm-kp" data-rmlkp="1" data-li="${i2}" data-lkp="${pi}" title="Remove this condition">\u2715</button>` : ""}
+      ${pairs.length > 1 ? `<button class="pl-rm-kp" data-rmlkp="1" data-li="${i3}" data-lkp="${pi}" title="Remove this condition">\u2715</button>` : ""}
     </div>`).join("");
-    const colChips = rt ? rt.cols.map((c2) => {
-      const isLayoutVisible = _isSourceVisibleInLayout(lk.rightId, c2, layoutColMap, layoutMode);
+    const colChips = rt ? rt.cols.map((c3) => {
+      const isLayoutVisible = _isSourceVisibleInLayout(lk.rightId, c3, layoutColMap, layoutMode);
       return renderChip({
-        col: c2,
-        label: colUserLabel(lk.rightId, c2),
+        col: c3,
+        label: colUserLabel(lk.rightId, c3),
         selected: true,
         draggable: false,
         chipClass: "pl-col-chip",
         colorClass: lkColorCls,
         className: isLayoutVisible ? "" : "pl-col-chip-layout-hidden",
-        tooltip: _sampleTipFor(lk.rightId, c2, ["Click to show/hide this lookup column in the report layout."]),
-        dataAttrs: { "data-li": String(i2), "data-lcc": c2 }
+        tooltip: _sampleTipFor(lk.rightId, c3, ["Click to show/hide this lookup column in the report layout."]),
+        dataAttrs: { "data-li": String(i3), "data-lcc": c3 }
       });
     }).join("") : "";
     const lkEnabled = lk.enabled !== false;
-    const lkV = getValidation().items[`lookup_${i2}`];
+    const lkV = getValidation().items[`lookup_${i3}`];
     const lkVBlocked = lkV && lkV.blocking;
     const lkVUnresolved = lkV && !lkV.resolved;
     const lkVMsg = lkVUnresolved && lkV.issues[0] ? lkV.issues[0].message : null;
     return `<div class="pl-lookup-stage${lkVBlocked ? " pl-lookup-stage--invalid" : lkVUnresolved && !lkEnabled ? " pl-lookup-stage--disabled-issue" : ""} ${!lkEnabled ? "pl-stage-disabled" : ""}">
     <div class="pl-stage-label">Look up columns from ${renderTip("Pull columns from another sheet by matching a shared value \u2014 like VLOOKUP. Use '+ AND' to match on multiple columns at once.")}
-      <label class="pl-enable-toggle" title="${lkEnabled ? "Disable this lookup (won't block report)" : "Enable this lookup"}"><input type="checkbox" data-li="${i2}" data-lp="enabled" ${lkEnabled ? "checked" : ""}><span class="pl-enable-label">${lkEnabled ? "Enabled" : "Disabled"}</span></label>
+      <label class="pl-enable-toggle" title="${lkEnabled ? "Disable this lookup (won't block report)" : "Enable this lookup"}"><input type="checkbox" data-li="${i3}" data-lp="enabled" ${lkEnabled ? "checked" : ""}><span class="pl-enable-label">${lkEnabled ? "Enabled" : "Disabled"}</span></label>
     </div>
     ${lkVMsg ? `<div class="pl-lookup-error">${lkVBlocked ? "\u26D4" : "\u26A0"} ${h(lkVMsg)}</div>` : ""}
     <div class="pl-lookup-header">
-      <select data-li="${i2}" data-lp="rightId">
+      <select data-li="${i3}" data-lp="rightId">
         <option value="">\u2014 pick a sheet \u2014</option>
         ${sheetOpts}
       </select>
-      <button class="btn btn-danger" style="flex-shrink:0" data-rmlookup="${i2}">\u2715</button>
+      <button class="btn btn-danger" style="flex-shrink:0" data-rmlookup="${i3}">\u2715</button>
     </div>
     ${rt ? `
     <div class="pl-lookup-keys">
       ${keyPairsHTML}
-      <button class="btn btn-ghost pl-add-kp" data-addlkp="${i2}">\uFF0B AND \u2026</button>
+      <button class="btn btn-ghost pl-add-kp" data-addlkp="${i3}">\uFF0B AND \u2026</button>
     </div>
     <div class="pl-lookup-required">
       <span style="flex-shrink:0">If no match:</span>
-      <label><input type="radio" name="lkreq_${i2}" data-li="${i2}" data-lp="required" value="0" ${!lk.required ? "checked" : ""}> Leave blank</label>
-      <label><input type="radio" name="lkreq_${i2}" data-li="${i2}" data-lp="required" value="1" ${lk.required ? "checked" : ""}> Skip row</label>
+      <label><input type="radio" name="lkreq_${i3}" data-li="${i3}" data-lp="required" value="0" ${!lk.required ? "checked" : ""}> Leave blank</label>
+      <label><input type="radio" name="lkreq_${i3}" data-li="${i3}" data-lp="required" value="1" ${lk.required ? "checked" : ""}> Skip row</label>
       ${renderTip("Leave blank: keep all rows even if no match.\nSkip row: only keep rows that match.")}
     </div>
     <div class="pl-lookup-required">
       <span style="flex-shrink:0">Duplicate keys:</span>
-      <label><input type="radio" name="lkdup_${i2}" data-li="${i2}" data-lp="dupMode" value="block" ${(lk.duplicatePolicy && lk.duplicatePolicy.mode) !== "combine" ? "checked" : ""}> Block (error)</label>
-      <label><input type="radio" name="lkdup_${i2}" data-li="${i2}" data-lp="dupMode" value="combine" ${(lk.duplicatePolicy && lk.duplicatePolicy.mode) === "combine" ? "checked" : ""}> Combine values</label>
+      <label><input type="radio" name="lkdup_${i3}" data-li="${i3}" data-lp="dupMode" value="block" ${(lk.duplicatePolicy && lk.duplicatePolicy.mode) !== "combine" ? "checked" : ""}> Block (error)</label>
+      <label><input type="radio" name="lkdup_${i3}" data-li="${i3}" data-lp="dupMode" value="combine" ${(lk.duplicatePolicy && lk.duplicatePolicy.mode) === "combine" ? "checked" : ""}> Combine values</label>
       ${renderTip("Block: the report cannot run if the same key appears more than once in the lookup sheet.\nCombine: concatenate matching values into a single cell, e.g. 'Tag1; Tag2'.")}
     </div>
     <div class="pl-lookup-cols">
       <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Bring in:</span>
       ${renderTip("Right-click any chip to rename it.")}
       ${colChips}
-      <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-lk-all="${i2}">All</button>
-      <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-lk-none="${i2}">None</button>
+      <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-lk-all="${i3}">All</button>
+      <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" data-lk-none="${i3}">None</button>
     </div>` : ""}
   </div>`;
   }
-  function _plCalcStage(calc, i2) {
+  function _plCalcStage(calc, i3) {
     const cols = projectedCols();
     const colMap = buildColSourceMap();
     const alias = (calc.alias || "").trim();
     const mode = calc.mode || "math";
     const calcEnabled = calc.enabled !== false;
-    const calcV = getValidation().items[`calc_${i2}`];
+    const calcV = getValidation().items[`calc_${i3}`];
     const calcVBlocked = calcV && calcV.blocking;
     const calcVUnresolved = calcV && !calcV.resolved;
     const calcVMsg = calcVUnresolved && calcV.issues[0] ? calcV.issues[0].message : null;
-    const colOptsFor = (sel) => cols.filter((c2) => c2 !== alias).map((c2) => `<option value="${h(c2)}" ${sel === c2 ? "selected" : ""}>${h(colDisplayLabel(c2, colMap))}</option>`).join("");
-    const builderCtx = { calc, i: i2, cols, colOptsFor };
+    const colOptsFor = (sel) => cols.filter((c3) => c3 !== alias).map((c3) => `<option value="${h(c3)}" ${sel === c3 ? "selected" : ""}>${h(colDisplayLabel(c3, colMap))}</option>`).join("");
+    const builderCtx = { calc, i: i3, cols, colOptsFor };
     const builderHtml = calcModeRenderers[mode](builderCtx);
     return `<div class="pl-lookup-stage${calcVBlocked ? " pl-lookup-stage--invalid" : calcVUnresolved && !calcEnabled ? " pl-lookup-stage--disabled-issue" : ""} ${!calcEnabled ? "pl-stage-disabled" : ""}">
     <div class="pl-stage-label">Calculated column ${renderTip("Create a virtual column from existing columns.\nMath: arithmetic, rolling averages, percentages.\nText: string operations.\nCompare: conditional logic.\nDate: extract date parts.")}
-      <label class="pl-enable-toggle" title="${calcEnabled ? "Disable this calculated column" : "Enable this calculated column"}"><input type="checkbox" data-ci="${i2}" data-cp="enabled" ${calcEnabled ? "checked" : ""}><span class="pl-enable-label">${calcEnabled ? "Enabled" : "Disabled"}</span></label>
+      <label class="pl-enable-toggle" title="${calcEnabled ? "Disable this calculated column" : "Enable this calculated column"}"><input type="checkbox" data-ci="${i3}" data-cp="enabled" ${calcEnabled ? "checked" : ""}><span class="pl-enable-label">${calcEnabled ? "Enabled" : "Disabled"}</span></label>
     </div>
     ${calcVMsg ? `<div class="pl-lookup-error">${calcVBlocked ? "\u26D4" : "\u26A0"} ${h(calcVMsg)}</div>` : ""}
     <div class="pl-lookup-header" style="gap:8px;flex-wrap:wrap">
-      <input type="text" data-ci="${i2}" data-cp="alias" placeholder="Output column name" value="${h(calc.alias || "")}" style="flex:1;min-width:180px">
-      <button class="btn btn-danger" style="flex-shrink:0" data-rmcalc="${i2}">\u2715</button>
+      <input type="text" data-ci="${i3}" data-cp="alias" placeholder="Output column name" value="${h(calc.alias || "")}" style="flex:1;min-width:180px">
+      <button class="btn btn-danger" style="flex-shrink:0" data-rmcalc="${i3}">\u2715</button>
     </div>
     <div class="tab-row" style="margin-top:8px">
-      <label class="tab-opt"><input type="radio" name="calcMode_${i2}" value="math" ${mode === "math" ? "checked" : ""} data-ci="${i2}" data-cp="mode"><span>Math</span></label>
-      <label class="tab-opt"><input type="radio" name="calcMode_${i2}" value="text" ${mode === "text" ? "checked" : ""} data-ci="${i2}" data-cp="mode"><span>Text</span></label>
-      <label class="tab-opt"><input type="radio" name="calcMode_${i2}" value="compare" ${mode === "compare" ? "checked" : ""} data-ci="${i2}" data-cp="mode"><span>Compare</span></label>
-      <label class="tab-opt"><input type="radio" name="calcMode_${i2}" value="date" ${mode === "date" ? "checked" : ""} data-ci="${i2}" data-cp="mode"><span>Date</span></label>
+      <label class="tab-opt"><input type="radio" name="calcMode_${i3}" value="math" ${mode === "math" ? "checked" : ""} data-ci="${i3}" data-cp="mode"><span>Math</span></label>
+      <label class="tab-opt"><input type="radio" name="calcMode_${i3}" value="text" ${mode === "text" ? "checked" : ""} data-ci="${i3}" data-cp="mode"><span>Text</span></label>
+      <label class="tab-opt"><input type="radio" name="calcMode_${i3}" value="compare" ${mode === "compare" ? "checked" : ""} data-ci="${i3}" data-cp="mode"><span>Compare</span></label>
+      <label class="tab-opt"><input type="radio" name="calcMode_${i3}" value="date" ${mode === "date" ? "checked" : ""} data-ci="${i3}" data-cp="mode"><span>Date</span></label>
     </div>
     ${builderHtml}
     ${alias ? `<div class="pl-lookup-cols" style="margin-top:8px">
@@ -3469,14 +3840,14 @@ ${fromPart}${joinPart}${wherePart}`);
       selected: _isAliasVisibleInLayout(alias, db.aggMode || "none"),
       draggable: false,
       chipClass: "pl-col-chip",
-      dataAttrs: { "data-ci": String(i2), "data-ccc": alias }
+      dataAttrs: { "data-ci": String(i3), "data-ccc": alias }
     })}
     </div>` : ""}
   </div>`;
   }
 
   // js/ui/views/output-card.ts
-  function _buildTooltip(c2, src) {
+  function _buildTooltip(c3, src) {
     if (src?.kind === "calc") {
       const calc = db.calcStages?.[src.idx];
       const mode = calc?.mode || "unknown";
@@ -3503,7 +3874,7 @@ ${fromPart}${joinPart}${wherePart}`);
       const vals = (samples?.[phys.col] || []).slice(0, 3);
       const from = `From: ${tbl?.name ?? phys.tid}`;
       return vals.length ? `${from}
-Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
+Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
 (no sample values)`;
     }
     return "";
@@ -3516,15 +3887,15 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     if (!db.selCols) {
       db.selCols = new Set(cols);
       _seenCols.clear();
-      cols.forEach((c2) => _seenCols.add(c2));
+      cols.forEach((c3) => _seenCols.add(c3));
     }
     if (!db.colOrder) {
       db.colOrder = [...cols];
     } else {
       const colSet = new Set(cols);
       db.colOrder = [
-        ...db.colOrder.filter((c2) => colSet.has(c2)),
-        ...cols.filter((c2) => !db.colOrder.includes(c2))
+        ...db.colOrder.filter((c3) => colSet.has(c3)),
+        ...cols.filter((c3) => !db.colOrder.includes(c3))
       ];
     }
     _syncSubtotalByToLayout();
@@ -3532,20 +3903,20 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     const showBadges = mode === "group" && groupSet.size > 0;
     const selSet = db.selCols;
     const colOrder = db.colOrder;
-    $("colChips").innerHTML = colOrder.map((c2) => {
-      const src = colMap.get(c2);
+    $3("colChips").innerHTML = colOrder.map((c3) => {
+      const src = colMap.get(c3);
       const colorCls = src ? getTableColorClass(src.tid) : "";
-      const label = colDisplayLabel(c2, colMap);
-      if (selSet && !selSet.has(c2)) return "";
-      const tip = _buildTooltip(c2, src);
+      const label = colDisplayLabel(c3, colMap);
+      if (selSet && !selSet.has(c3)) return "";
+      const tip = _buildTooltip(c3, src);
       if (mode === "group") {
-        const isOn2 = groupSet.has(c2);
-        const hasAgg = db.aggregates.some((a2) => a2.col === c2);
+        const isOn2 = groupSet.has(c3);
+        const hasAgg = db.aggregates.some((a3) => a3.col === c3);
         const isOrphan = showBadges && !isOn2 && !hasAgg;
         const badge = isOrphan ? "\u26A0" : "";
         const badgeTip = isOrphan ? "No calculation for this column \u2014 it will be dropped from results. Click \u26A0 to add one automatically." : "";
         return renderChip({
-          col: c2,
+          col: c3,
           label,
           colorClass: colorCls,
           selected: isOn2,
@@ -3556,15 +3927,15 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
           className: isOrphan ? "chip-orphan" : ""
         });
       } else if (mode === "subtotals") {
-        const isOn2 = (db.subtotalBy || []).includes(c2);
-        return renderChip({ col: c2, label, colorClass: colorCls, selected: isOn2, draggable: true, tooltip: tip });
+        const isOn2 = (db.subtotalBy || []).includes(c3);
+        return renderChip({ col: c3, label, colorClass: colorCls, selected: isOn2, draggable: true, tooltip: tip });
       }
-      const isOn = selSet ? selSet.has(c2) : false;
-      return renderChip({ col: c2, label, colorClass: colorCls, selected: isOn, draggable: true, tooltip: tip });
+      const isOn = selSet ? selSet.has(c3) : false;
+      return renderChip({ col: c3, label, colorClass: colorCls, selected: isOn, draggable: true, tooltip: tip });
     }).join("");
-    const btnRow = $("colBtnRow");
+    const btnRow = $3("colBtnRow");
     if (btnRow) btnRow.style.display = mode === "group" || mode === "subtotals" ? "none" : "";
-    const hint = $("colCardHint");
+    const hint = $3("colCardHint");
     if (hint) {
       if (mode === "group") {
         hint.textContent = "\u2014 double-click to group by \xB7 drag to reorder \xB7 right-click to rename";
@@ -3576,36 +3947,36 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     }
   }
   if (typeof document !== "undefined") {
-    let _chipAtPoint = function(el, x2, y2) {
-      const chips = [...el.querySelectorAll("[data-col]")].filter((c2) => c2.dataset.col !== _dragCol);
+    let _chipAtPoint = function(el, x3, y3) {
+      const chips = [...el.querySelectorAll("[data-col]")].filter((c3) => c3.dataset.col !== _dragCol);
       if (!chips.length) return null;
-      const direct = document.elementFromPoint(x2, y2)?.closest("[data-col]");
+      const direct = document.elementFromPoint(x3, y3)?.closest("[data-col]");
       if (direct && direct.dataset.col !== _dragCol) return direct;
-      const sameRow = chips.filter((c2) => {
-        const r2 = c2.getBoundingClientRect();
-        return y2 >= r2.top && y2 <= r2.bottom;
+      const sameRow = chips.filter((c3) => {
+        const r3 = c3.getBoundingClientRect();
+        return y3 >= r3.top && y3 <= r3.bottom;
       });
       const pool = sameRow.length ? sameRow : chips;
       let best = null, bestDist = Infinity;
       for (const chip of pool) {
-        const r2 = chip.getBoundingClientRect();
-        const cx = (r2.left + r2.right) / 2;
-        const cy = (r2.top + r2.bottom) / 2;
-        const d2 = sameRow.length ? Math.abs(x2 - cx) : Math.hypot(x2 - cx, y2 - cy);
-        if (d2 < bestDist) {
-          bestDist = d2;
+        const r3 = chip.getBoundingClientRect();
+        const cx = (r3.left + r3.right) / 2;
+        const cy = (r3.top + r3.bottom) / 2;
+        const d3 = sameRow.length ? Math.abs(x3 - cx) : Math.hypot(x3 - cx, y3 - cy);
+        if (d3 < bestDist) {
+          bestDist = d3;
           best = chip;
         }
       }
       return best;
     };
     _chipAtPoint2 = _chipAtPoint;
-    const container = () => $("colChips");
+    const container = () => $3("colChips");
     let _dragCol = null;
-    delegate(container(), "[data-autowarn]", "click", (badge, e2) => {
-      e2.stopPropagation();
+    delegate(container(), "[data-autowarn]", "click", (badge, e3) => {
+      e3.stopPropagation();
       const col = badge.dataset.autowarn;
-      if (!db.aggregates.some((a2) => a2.col === col)) {
+      if (!db.aggregates.some((a3) => a3.col === col)) {
         db.aggregates.push({ fn: smartDefaultFn(col), col, alias: "", auto: true });
       }
       renderColChips();
@@ -3619,17 +3990,17 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         if (idx >= 0) {
           db.groupBy.splice(idx, 1);
           if (db.groupBy.length === 0) {
-            db.aggregates = db.aggregates.filter((a2) => !a2.auto);
-          } else if (!db.aggregates.some((a2) => a2.col === col)) {
+            db.aggregates = db.aggregates.filter((a3) => !a3.auto);
+          } else if (!db.aggregates.some((a3) => a3.col === col)) {
             db.aggregates.push({ fn: smartDefaultFn(col), col, alias: "", auto: true });
           }
         } else {
           db.groupBy.push(col);
-          db.aggregates = db.aggregates.filter((a2) => !(a2.auto && a2.col === col));
+          db.aggregates = db.aggregates.filter((a3) => !(a3.auto && a3.col === col));
           const allCols = projectedCols();
-          for (const c2 of allCols) {
-            if (!db.groupBy.includes(c2) && !db.aggregates.some((a2) => a2.col === c2)) {
-              db.aggregates.push({ fn: smartDefaultFn(c2), col: c2, alias: "", auto: true });
+          for (const c3 of allCols) {
+            if (!db.groupBy.includes(c3) && !db.aggregates.some((a3) => a3.col === c3)) {
+              db.aggregates.push({ fn: smartDefaultFn(c3), col: c3, alias: "", auto: true });
             }
           }
         }
@@ -3647,15 +4018,15 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         renderAggregation();
       } else {
         if (!db.selCols) db.selCols = new Set(projectedCols());
-        const s2 = db.selCols;
-        if (s2.has(col)) s2.delete(col);
+        const s3 = db.selCols;
+        if (s3.has(col)) s3.delete(col);
         renderQueryBuilder();
       }
     });
-    delegate(container(), ".chip[data-col]", "contextmenu", (chip, e2) => {
-      e2.preventDefault();
+    delegate(container(), ".chip[data-col]", "contextmenu", (chip, e3) => {
+      e3.preventDefault();
       const alias = getChipCol(chip);
-      showContextMenu(e2.clientX, e2.clientY, [
+      showContextMenu(e3.clientX, e3.clientY, [
         {
           label: "Rename",
           action: () => {
@@ -3669,25 +4040,25 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         }
       ]);
     });
-    delegate(container(), "[data-col]", "dragstart", (chip, e2) => {
+    delegate(container(), "[data-col]", "dragstart", (chip, e3) => {
       _dragCol = chip.dataset.col;
       chip.classList.add("dragging");
-      if (e2.dataTransfer) e2.dataTransfer.effectAllowed = "move";
+      if (e3.dataTransfer) e3.dataTransfer.effectAllowed = "move";
     });
     delegate(container(), "[data-col]", "dragend", () => {
       _dragCol = null;
-      container().querySelectorAll(".chip").forEach((c2) => c2.classList.remove("dragging", "drag-over"));
+      container().querySelectorAll(".chip").forEach((c3) => c3.classList.remove("dragging", "drag-over"));
     });
-    delegate(container(), "[data-col]", "dragover", (_chip, e2) => {
-      e2.preventDefault();
-      if (e2.dataTransfer) e2.dataTransfer.dropEffect = "move";
-      const nearest = _chipAtPoint(container(), e2.clientX, e2.clientY);
-      container().querySelectorAll(".chip").forEach((c2) => c2.classList.remove("drag-over"));
+    delegate(container(), "[data-col]", "dragover", (_chip, e3) => {
+      e3.preventDefault();
+      if (e3.dataTransfer) e3.dataTransfer.dropEffect = "move";
+      const nearest = _chipAtPoint(container(), e3.clientX, e3.clientY);
+      container().querySelectorAll(".chip").forEach((c3) => c3.classList.remove("drag-over"));
       if (nearest) nearest.classList.add("drag-over");
     });
-    delegate(container(), "[data-col]", "drop", (_chip, e2) => {
-      e2.preventDefault();
-      const nearest = _chipAtPoint(container(), e2.clientX, e2.clientY);
+    delegate(container(), "[data-col]", "drop", (_chip, e3) => {
+      e3.preventDefault();
+      const nearest = _chipAtPoint(container(), e3.clientX, e3.clientY);
       if (!nearest || !_dragCol || nearest.dataset.col === _dragCol) return;
       if (!db.colOrder) db.colOrder = projectedCols();
       const from = db.colOrder.indexOf(_dragCol);
@@ -3699,7 +4070,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       renderQueryBuilder();
       if ((db.aggMode || "none") === "subtotals") {
         const projected = projectedCols();
-        const ordered = Array.isArray(db.colOrder) ? db.colOrder.filter((c2) => projected.includes(c2)) : projected;
+        const ordered = Array.isArray(db.colOrder) ? db.colOrder.filter((c3) => projected.includes(c3)) : projected;
         renderSubtotalsSection(ordered);
       }
     });
@@ -3716,16 +4087,16 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
   }
   if (typeof window !== "undefined") window.selectNoneCols = selectNoneCols;
   function renderMergeToggles(cols) {
-    const wrap = $("mergeToggles");
+    const wrap = $3("mergeToggles");
     if (!wrap) return;
-    const ulChk = $("chkMergeGroupUnderline");
+    const ulChk = $3("chkMergeGroupUnderline");
     if (ulChk) ulChk.checked = !!db.mergeGroupUnderline;
-    const baseDisplayCols = (cols || []).filter((c2) => c2 !== "_rowno" && c2 !== "_row_type" && c2 !== "_isTotalsRow");
-    const visibleDisplayCols = db.selCols?.has ? baseDisplayCols.filter((c2) => db.selCols.has(c2)) : baseDisplayCols;
-    const orderedFromLayout = Array.isArray(db.colOrder) ? db.colOrder.filter((c2) => visibleDisplayCols.includes(c2)) : [];
+    const baseDisplayCols = (cols || []).filter((c3) => c3 !== "_rowno" && c3 !== "_row_type" && c3 !== "_isTotalsRow");
+    const visibleDisplayCols = db.selCols?.has ? baseDisplayCols.filter((c3) => db.selCols.has(c3)) : baseDisplayCols;
+    const orderedFromLayout = Array.isArray(db.colOrder) ? db.colOrder.filter((c3) => visibleDisplayCols.includes(c3)) : [];
     const displayCols = [
       ...orderedFromLayout,
-      ...visibleDisplayCols.filter((c2) => !orderedFromLayout.includes(c2))
+      ...visibleDisplayCols.filter((c3) => !orderedFromLayout.includes(c3))
     ];
     if (!displayCols.length) {
       wrap.innerHTML = '<span style="font-size:0.76rem;color:var(--muted)">No result columns</span>';
@@ -3735,9 +4106,9 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     const mergedSet = new Set(db.mergedCols);
     const colMap = buildColSourceMap();
     wrap.innerHTML = "";
-    for (const c2 of displayCols) {
-      const label = colDisplayLabel(c2, colMap);
-      const checked = mergedSet.has(c2);
+    for (const c3 of displayCols) {
+      const label = colDisplayLabel(c3, colMap);
+      const checked = mergedSet.has(c3);
       const lbl = document.createElement("label");
       lbl.style.cssText = "display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.76rem;font-weight:normal;margin-top:4px";
       const chk = document.createElement("input");
@@ -3745,9 +4116,9 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       chk.checked = checked;
       chk.addEventListener("change", () => {
         if (chk.checked) {
-          if (!db.mergedCols.includes(c2)) db.mergedCols.push(c2);
+          if (!db.mergedCols.includes(c3)) db.mergedCols.push(c3);
         } else {
-          db.mergedCols = db.mergedCols.filter((x2) => x2 !== c2);
+          db.mergedCols = db.mergedCols.filter((x3) => x3 !== c3);
         }
         if (db.result) renderResults(db.result);
       });
@@ -3773,7 +4144,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       return {
         selCols: _selColsToArray(db.selCols),
         groupBy: [...db.groupBy || []],
-        aggregates: (db.aggregates || []).map((a2) => ({ ...a2 }))
+        aggregates: (db.aggregates || []).map((a3) => ({ ...a3 }))
       };
     }
     if (mode === "totals") {
@@ -3843,7 +4214,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         db.selCols = Array.isArray(state.selCols) ? new Set(state.selCols) : null;
       }
       db.groupBy = Array.isArray(state.groupBy) ? [...state.groupBy] : [];
-      db.aggregates = Array.isArray(state.aggregates) ? state.aggregates.map((a2) => ({ ...a2 })) : [];
+      db.aggregates = Array.isArray(state.aggregates) ? state.aggregates.map((a3) => ({ ...a3 })) : [];
       return;
     }
     if (mode === "totals") {
@@ -3901,8 +4272,8 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         const chkOnTop = document.getElementById("chkSubtotalOnTop");
         if (chkOnTop) chkOnTop.checked = !!db.subtotalOnTop;
         const strat = db.subtotalStrategy || "combined";
-        document.querySelectorAll('input[name="subtotalStrategy"]').forEach((r2) => {
-          r2.checked = r2.value === strat;
+        document.querySelectorAll('input[name="subtotalStrategy"]').forEach((r3) => {
+          r3.checked = r3.value === strat;
         });
         renderSubtotalsSection(cols);
       },
@@ -3916,16 +4287,16 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
   function renderAggregation() {
     if (!db.base || !db.tables[db.base]) return;
     const projected = projectedCols();
-    const allCols = db.colOrder ? db.colOrder.filter((c2) => projected.includes(c2)) : projected;
+    const allCols = db.colOrder ? db.colOrder.filter((c3) => projected.includes(c3)) : projected;
     const selSet = db.selCols;
-    const cols = selSet ? allCols.filter((c2) => selSet.has(c2)) : allCols;
+    const cols = selSet ? allCols.filter((c3) => selSet.has(c3)) : allCols;
     const mode = db.aggMode || "none";
     const aggSection = document.getElementById("aggSection");
     const totSec = document.getElementById("totalsSection");
     const subSec = document.getElementById("subtotalsSection");
     const hint = document.getElementById("aggHint");
-    document.querySelectorAll('input[name="aggMode"]').forEach((r2) => {
-      r2.checked = r2.value === mode;
+    document.querySelectorAll('input[name="aggMode"]').forEach((r3) => {
+      r3.checked = r3.value === mode;
     });
     const handler = AGG_MODE_HANDLERS[mode];
     const { showSections } = handler;
@@ -3964,7 +4335,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     const colMap = buildColSourceMap();
     if (!wrap) return;
     const selSet2 = db.selCols;
-    const visibleCols = cols.filter((c2) => !selSet2 || selSet2.has(c2));
+    const visibleCols = cols.filter((c3) => !selSet2 || selSet2.has(c3));
     wrap.innerHTML = visibleCols.map((col) => {
       const cur = db.colTotals[col] || "skip";
       const label = colDisplayLabel(col, colMap);
@@ -3973,15 +4344,15 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       <span class="totals-col-name" title="${h(col)}">${h(label)}</span>
       <select class="totals-fn-sel" data-tcol="${h(col)}">
         ${TOTAL_FNS.map(
-        (f2) => `<option value="${f2}" ${cur === f2 ? "selected" : ""}>${TOTAL_LABELS[f2]}</option>`
+        (f4) => `<option value="${f4}" ${cur === f4 ? "selected" : ""}>${TOTAL_LABELS[f4]}</option>`
       ).join("")}
       </select>
     </div>`;
     }).join("");
   }
   if (typeof document !== "undefined") {
-    document.getElementById("totalsItems").addEventListener("change", (e2) => {
-      const sel = e2.target.closest("[data-tcol]");
+    document.getElementById("totalsItems").addEventListener("change", (e3) => {
+      const sel = e3.target.closest("[data-tcol]");
       if (!sel) return;
       const col = sel.dataset.tcol;
       if (sel.value === "skip") delete db.colTotals[col];
@@ -3998,7 +4369,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       return;
     }
     const selSet3 = db.selCols;
-    const visibleCols = cols.filter((c2) => (!selSet3 || selSet3.has(c2)) && !subtotalBy.includes(c2));
+    const visibleCols = cols.filter((c3) => (!selSet3 || selSet3.has(c3)) && !subtotalBy.includes(c3));
     if (!visibleCols.length) {
       wrap.innerHTML = '<span style="font-size:0.76rem;color:var(--muted)">All columns are group keys.</span>';
       return;
@@ -4020,7 +4391,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       <span class="totals-col-name" title="${h(col)}">${h(label)}</span>
       <select class="totals-fn-sel" data-stcol="${h(col)}">
         ${fnList.map(
-        (f2) => `<option value="${f2}" ${cur === f2 ? "selected" : ""}>${SUBTOTAL_LABELS[f2]}</option>`
+        (f4) => `<option value="${f4}" ${cur === f4 ? "selected" : ""}>${SUBTOTAL_LABELS[f4]}</option>`
       ).join("")}
       </select>
     </div>`;
@@ -4028,8 +4399,8 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
   }
   if (typeof window !== "undefined") window.renderSubtotalsSection = renderSubtotalsSection;
   if (typeof document !== "undefined") {
-    document.getElementById("subtotalsItems").addEventListener("change", (e2) => {
-      const sel = e2.target.closest("[data-stcol]");
+    document.getElementById("subtotalsItems").addEventListener("change", (e3) => {
+      const sel = e3.target.closest("[data-stcol]");
       if (!sel) return;
       const col = sel.dataset.stcol;
       if (sel.value === "skip") delete db.subtotalFns[col];
@@ -4056,7 +4427,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     const wrap = document.getElementById("aggItems");
     const colMap = buildColSourceMap();
     const selSet4 = db.selCols;
-    cols = selSet4 instanceof Set ? cols.filter((c2) => selSet4.has(c2)) : cols;
+    cols = selSet4 instanceof Set ? cols.filter((c3) => selSet4.has(c3)) : cols;
     if (!db.aggregates.length) {
       if (db.groupBy.length > 0) {
         wrap.innerHTML = '<span style="font-size:0.76rem;color:var(--muted)">No calculations \u2014 add one below or click ungrouped chips above</span>';
@@ -4065,65 +4436,65 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       }
       return;
     }
-    wrap.innerHTML = db.aggregates.map((agg, i2) => {
+    wrap.innerHTML = db.aggregates.map((agg, i3) => {
       const needsCol = AGG_NEEDS_COL(agg.fn);
       const colLabel = needsCol ? agg.col ? colDisplayLabel(agg.col, colMap) : "" : "all rows";
       const ph = h(defaultAggAlias(agg.fn, colLabel));
       const autoMark = agg.auto ? `<span class="agg-auto-badge" title="Auto-added \u2014 edit or delete to customize.">auto</span>` : "";
       const colPicker = needsCol ? `<span class="agg-eq">of</span>
-         <select data-ai="${i2}" data-ap="col">
+         <select data-ai="${i3}" data-ap="col">
            ${cols.map(
-        (c2) => `<option value="${h(c2)}" ${agg.col === c2 ? "selected" : ""}>${h(colDisplayLabel(c2, colMap))}</option>`
+        (c3) => `<option value="${h(c3)}" ${agg.col === c3 ? "selected" : ""}>${h(colDisplayLabel(c3, colMap))}</option>`
       ).join("")}
          </select>` : "";
       return `
     <div class="agg-row${agg.auto ? " agg-row-auto" : ""}">
       ${autoMark}
       <input type="text" class="agg-alias" placeholder="${ph}" value="${h(agg.alias)}"
-             data-ai="${i2}" data-ap="alias">
+             data-ai="${i3}" data-ap="alias">
       <span class="agg-eq">=</span>
-      <select data-ai="${i2}" data-ap="fn">
-        ${AGG_FNS.map((f2) => `<option value="${f2}" ${agg.fn === f2 ? "selected" : ""}>${AGG_LABELS[f2]}</option>`).join("")}
+      <select data-ai="${i3}" data-ap="fn">
+        ${AGG_FNS.map((f4) => `<option value="${f4}" ${agg.fn === f4 ? "selected" : ""}>${AGG_LABELS[f4]}</option>`).join("")}
       </select>
       ${colPicker}
-      <button class="btn btn-danger" data-rmagg="${i2}">\u2715</button>
+      <button class="btn btn-danger" data-rmagg="${i3}">\u2715</button>
     </div>`;
     }).join("");
   }
   if (typeof window !== "undefined") window.renderAggregateItems = renderAggregateItems;
   function addAggregate() {
     const cols = projectedCols();
-    const col = cols.find((c2) => !db.groupBy.includes(c2)) || cols[0] || "";
+    const col = cols.find((c3) => !db.groupBy.includes(c3)) || cols[0] || "";
     db.aggregates.push({ fn: "SUM", col, alias: "", auto: false });
     renderAggregateItems(cols);
   }
   if (typeof window !== "undefined") window.addAggregate = addAggregate;
-  function removeAggregate(i2) {
-    db.aggregates.splice(i2, 1);
+  function removeAggregate(i3) {
+    db.aggregates.splice(i3, 1);
     renderAggregation();
   }
-  function touchAggregate(i2) {
-    if (db.aggregates[i2]) db.aggregates[i2].auto = false;
+  function touchAggregate(i3) {
+    if (db.aggregates[i3]) db.aggregates[i3].auto = false;
   }
   if (typeof document !== "undefined") {
-    document.getElementById("aggItems").addEventListener("change", (e2) => {
-      const target = e2.target;
+    document.getElementById("aggItems").addEventListener("change", (e3) => {
+      const target = e3.target;
       const { ai, ap } = target.dataset;
       if (ai === void 0 || !ap) return;
       db.aggregates[+ai][ap] = target.value;
       touchAggregate(+ai);
       if (ap === "fn") renderAggregateItems(projectedCols());
     });
-    document.getElementById("aggItems").addEventListener("input", (e2) => {
-      const target = e2.target;
+    document.getElementById("aggItems").addEventListener("input", (e3) => {
+      const target = e3.target;
       const { ai, ap } = target.dataset;
       if (ai !== void 0 && ap === "alias") {
         db.aggregates[+ai].alias = target.value;
         touchAggregate(+ai);
       }
     });
-    document.getElementById("aggItems").addEventListener("click", (e2) => {
-      const btn = e2.target.closest("[data-rmagg]");
+    document.getElementById("aggItems").addEventListener("click", (e3) => {
+      const btn = e3.target.closest("[data-rmagg]");
       if (btn) removeAggregate(+btn.dataset.rmagg);
     });
   }
@@ -4143,8 +4514,8 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     "not empty"
   ];
   var NO_VAL_OPS = /* @__PURE__ */ new Set(["is empty", "not empty"]);
-  function _populateFilterDatalist(i2, alias) {
-    const dl2 = $("fdl_" + i2);
+  function _populateFilterDatalist(i3, alias) {
+    const dl2 = $3("fdl_" + i3);
     if (!dl2 || !alias) {
       if (dl2) dl2.innerHTML = "";
       return;
@@ -4157,11 +4528,11 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
        WHERE ${quoteId(src.col)} IS NOT NULL
        ORDER BY ${quoteId(src.col)} LIMIT 100`
       );
-      dl2.innerHTML = rows.map((r2) => {
-        const v2 = String(Object.values(r2)[0]).trim();
-        return v2 ? `<option value="${h(v2)}">` : "";
+      dl2.innerHTML = rows.map((r3) => {
+        const v3 = String(Object.values(r3)[0]).trim();
+        return v3 ? `<option value="${h(v3)}">` : "";
       }).join("");
-    } catch (_2) {
+    } catch (_3) {
     }
   }
   function addFilter() {
@@ -4169,144 +4540,144 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     renderFilters();
   }
   if (typeof window !== "undefined") window.addFilter = addFilter;
-  function removeFilter(i2) {
-    db.filters.splice(i2, 1);
+  function removeFilter(i3) {
+    db.filters.splice(i3, 1);
     renderFilters();
   }
   function renderFilters() {
     const colMap = buildColSourceMap();
     const cols = projectedCols();
-    const wrap = $("filterItems");
+    const wrap = $3("filterItems");
     if (!db.filters.length) {
       wrap.innerHTML = '<span style="font-size:0.76rem;color:var(--muted)">No filters \u2014 all rows returned</span>';
       return;
     }
-    wrap.innerHTML = db.filters.map((f2, i2) => {
-      const noVal = NO_VAL_OPS.has(f2.op);
-      const vals = Array.isArray(f2.vals) ? f2.vals : [""];
-      const fEnabled = f2.enabled !== false;
-      const fV = getValidation().items[`filter_${i2}`];
+    wrap.innerHTML = db.filters.map((f4, i3) => {
+      const noVal = NO_VAL_OPS.has(f4.op);
+      const vals = Array.isArray(f4.vals) ? f4.vals : [""];
+      const fEnabled = f4.enabled !== false;
+      const fV = getValidation().items[`filter_${i3}`];
       const fBlocked = fV && fV.blocking;
       const fUnresolved = fV && !fV.resolved;
       const fIssueMsg = fUnresolved && fV.issues[0] ? fV.issues[0].message : null;
-      const orValInputs = vals.map((v2, j2) => `
-      ${j2 > 0 ? '<span style="font-size:0.7rem;color:var(--muted);padding:0 1px;flex-shrink:0">OR</span>' : ""}
-      <input type="text" list="fdl_${i2}" placeholder="value" value="${h(v2)}"
-             data-fi="${i2}" data-vi="${j2}" data-fp="val" style="width:120px">
-      ${j2 > 0 ? `<button class="btn btn-danger" style="padding:2px 5px;font-size:0.75rem;flex-shrink:0" data-rmval="${j2}" data-fi="${i2}" title="Remove this OR value">\u2715</button>` : ""}
+      const orValInputs = vals.map((v3, j4) => `
+      ${j4 > 0 ? '<span style="font-size:0.7rem;color:var(--muted);padding:0 1px;flex-shrink:0">OR</span>' : ""}
+      <input type="text" list="fdl_${i3}" placeholder="value" value="${h(v3)}"
+             data-fi="${i3}" data-vi="${j4}" data-fp="val" style="width:120px">
+      ${j4 > 0 ? `<button class="btn btn-danger" style="padding:2px 5px;font-size:0.75rem;flex-shrink:0" data-rmval="${j4}" data-fi="${i3}" title="Remove this OR value">\u2715</button>` : ""}
     `).join("");
       return `
     <div class="filter-row${fBlocked ? " pl-lookup-stage--invalid" : fUnresolved && !fEnabled ? " pl-lookup-stage--disabled-issue" : ""} ${!fEnabled ? "pl-stage-disabled" : ""}">
       ${fIssueMsg ? `<div class="pl-lookup-error" style="width:100%;font-size:0.72rem;margin-bottom:3px">${fBlocked ? "\u26D4" : "\u26A0"} ${h(fIssueMsg)}</div>` : ""}
-      <label class="pl-enable-toggle" style="margin-left:auto;order:99" title="${fEnabled ? "Disable filter" : "Enable filter"}"><input type="checkbox" data-fi="${i2}" data-fp="enabled" ${fEnabled ? "checked" : ""}><span class="pl-enable-label">${fEnabled ? "" : "Off"}</span></label>
-      <select data-fi="${i2}" data-fp="col">
+      <label class="pl-enable-toggle" style="margin-left:auto;order:99" title="${fEnabled ? "Disable filter" : "Enable filter"}"><input type="checkbox" data-fi="${i3}" data-fp="enabled" ${fEnabled ? "checked" : ""}><span class="pl-enable-label">${fEnabled ? "" : "Off"}</span></label>
+      <select data-fi="${i3}" data-fp="col">
         <option value="">Column\u2026</option>
-        ${cols.map((c2) => `<option value="${h(c2)}" ${f2.col === c2 ? "selected" : ""}>${h(colDisplayLabel(c2, colMap))}</option>`).join("")}
+        ${cols.map((c3) => `<option value="${h(c3)}" ${f4.col === c3 ? "selected" : ""}>${h(colDisplayLabel(c3, colMap))}</option>`).join("")}
       </select>
-      <select class="fop" data-fi="${i2}" data-fp="op">
-        ${FILTER_OPS.map((op) => `<option value="${op}" ${f2.op === op ? "selected" : ""}>${op}</option>`).join("")}
+      <select class="fop" data-fi="${i3}" data-fp="op">
+        ${FILTER_OPS.map((op) => `<option value="${op}" ${f4.op === op ? "selected" : ""}>${op}</option>`).join("")}
       </select>
       <span class="filter-or-wrap" style="display:${noVal ? "none" : "flex"};gap:4px;align-items:center;flex-wrap:wrap">
         ${orValInputs}
-        <button class="btn btn-ghost" style="padding:2px 7px;font-size:0.76rem;flex-shrink:0" data-addorval="${i2}" title="Add OR value">\uFF0B</button>
-        <datalist id="fdl_${i2}"></datalist>
+        <button class="btn btn-ghost" style="padding:2px 7px;font-size:0.76rem;flex-shrink:0" data-addorval="${i3}" title="Add OR value">\uFF0B</button>
+        <datalist id="fdl_${i3}"></datalist>
       </span>
-      <button class="btn btn-danger" data-rmf="${i2}">\u2715</button>
+      <button class="btn btn-danger" data-rmf="${i3}">\u2715</button>
     </div>`;
     }).join("");
-    db.filters.forEach((f2, i2) => {
-      if (f2.col) _populateFilterDatalist(i2, f2.col);
+    db.filters.forEach((f4, i3) => {
+      if (f4.col) _populateFilterDatalist(i3, f4.col);
     });
   }
   if (typeof document !== "undefined") {
-    delegate($("filterItems"), "[data-fi]", "change", (el) => {
+    delegate($3("filterItems"), "[data-fi]", "change", (el) => {
       const { fi, fp } = el.dataset;
       if (fi === void 0 || !fp) return;
-      const f2 = db.filters[+fi];
-      if (!f2) return;
+      const f4 = db.filters[+fi];
+      if (!f4) return;
       if (fp === "enabled") {
-        f2.enabled = el.checked;
+        f4.enabled = el.checked;
         invalidateValidation();
         renderFilters();
         return;
       }
-      const i2 = +fi;
+      const i3 = +fi;
       if (fp === "col") {
-        f2.col = el.value;
-        f2.vals = [""];
+        f4.col = el.value;
+        f4.vals = [""];
         renderFilters();
-        if (f2.col) _populateFilterDatalist(i2, f2.col);
+        if (f4.col) _populateFilterDatalist(i3, f4.col);
       } else if (fp === "op") {
-        f2.op = el.value;
+        f4.op = el.value;
         const orWrap = el.closest(".filter-row").querySelector(".filter-or-wrap");
         if (orWrap) orWrap.style.display = NO_VAL_OPS.has(el.value) ? "none" : "flex";
       }
     });
-    delegate($("filterItems"), "[data-fi][data-vi]", "input", (el) => {
+    delegate($3("filterItems"), "[data-fi][data-vi]", "input", (el) => {
       const { fi, vi, fp } = el.dataset;
       if (fi !== void 0 && fp === "val" && vi !== void 0) {
-        const f2 = db.filters[+fi];
-        if (f2) {
-          if (!Array.isArray(f2.vals)) f2.vals = [""];
-          f2.vals[+vi] = el.value;
+        const f4 = db.filters[+fi];
+        if (f4) {
+          if (!Array.isArray(f4.vals)) f4.vals = [""];
+          f4.vals[+vi] = el.value;
         }
       }
     });
-    delegate($("filterItems"), "[data-rmf]", "click", (el) => {
+    delegate($3("filterItems"), "[data-rmf]", "click", (el) => {
       removeFilter(+el.dataset.rmf);
     });
-    delegate($("filterItems"), "[data-addorval]", "click", (el) => {
-      const i2 = +el.dataset.addorval;
-      const f2 = db.filters[i2];
-      if (!f2) return;
-      if (!Array.isArray(f2.vals)) f2.vals = [""];
-      f2.vals.push("");
+    delegate($3("filterItems"), "[data-addorval]", "click", (el) => {
+      const i3 = +el.dataset.addorval;
+      const f4 = db.filters[i3];
+      if (!f4) return;
+      if (!Array.isArray(f4.vals)) f4.vals = [""];
+      f4.vals.push("");
       renderFilters();
-      if (f2.col) _populateFilterDatalist(i2, f2.col);
+      if (f4.col) _populateFilterDatalist(i3, f4.col);
     });
-    delegate($("filterItems"), "[data-rmval]", "click", (el) => {
-      const i2 = +el.dataset.fi;
-      const j2 = +el.dataset.rmval;
-      const f2 = db.filters[i2];
-      if (!f2) return;
-      if (!Array.isArray(f2.vals)) f2.vals = [""];
-      if (f2.vals.length <= 1) return;
-      f2.vals.splice(j2, 1);
+    delegate($3("filterItems"), "[data-rmval]", "click", (el) => {
+      const i3 = +el.dataset.fi;
+      const j4 = +el.dataset.rmval;
+      const f4 = db.filters[i3];
+      if (!f4) return;
+      if (!Array.isArray(f4.vals)) f4.vals = [""];
+      if (f4.vals.length <= 1) return;
+      f4.vals.splice(j4, 1);
       renderFilters();
-      if (f2.col) _populateFilterDatalist(i2, f2.col);
+      if (f4.col) _populateFilterDatalist(i3, f4.col);
     });
   }
   function renderSorts() {
     const selCols = db.selCols;
     const colOrder = db.colOrder || projectedCols();
-    const cols = colOrder.filter((c2) => !selCols || selCols.has(c2));
+    const cols = colOrder.filter((c3) => !selCols || selCols.has(c3));
     const colMap = buildColSourceMap();
-    const wrap = $("sortItems");
+    const wrap = $3("sortItems");
     if (!wrap) return;
     if (!db.sorts.length) {
       wrap.innerHTML = '<span style="font-size:0.76rem;color:var(--muted)">No sort \u2014 rows returned in natural order</span>';
       return;
     }
-    wrap.innerHTML = db.sorts.map((s2, i2) => {
-      const sEnabled = s2.enabled !== false;
-      const sV = getValidation().items[`sort_${i2}`];
+    wrap.innerHTML = db.sorts.map((s3, i3) => {
+      const sEnabled = s3.enabled !== false;
+      const sV = getValidation().items[`sort_${i3}`];
       const sBlocked = sV && sV.blocking;
       const sUnresolved = sV && !sV.resolved;
       const sIssueMsg = sUnresolved && sV.issues[0] ? sV.issues[0].message : null;
       return `
     <div class="sort-row${sBlocked ? " pl-lookup-stage--invalid" : sUnresolved && !sEnabled ? " pl-lookup-stage--disabled-issue" : ""} ${!sEnabled ? "pl-stage-disabled" : ""}">
       ${sIssueMsg ? `<div class="pl-lookup-error" style="width:100%;font-size:0.72rem;margin-bottom:3px">${sBlocked ? "\u26D4" : "\u26A0"} ${h(sIssueMsg)}</div>` : ""}
-      <span class="sort-level">${i2 + 1}.</span>
-      <select data-si="${i2}" data-sp="col" style="flex:1;min-width:0">
+      <span class="sort-level">${i3 + 1}.</span>
+      <select data-si="${i3}" data-sp="col" style="flex:1;min-width:0">
         <option value="">\u2014 column \u2014</option>
-        ${cols.map((c2) => `<option value="${h(c2)}" ${s2.col === c2 ? "selected" : ""}>${h(colDisplayLabel(c2, colMap))}</option>`).join("")}
+        ${cols.map((c3) => `<option value="${h(c3)}" ${s3.col === c3 ? "selected" : ""}>${h(colDisplayLabel(c3, colMap))}</option>`).join("")}
       </select>
-      <select data-si="${i2}" data-sp="dir" style="width:95px;flex-shrink:0">
-        <option value="ASC"  ${s2.dir === "ASC" ? "selected" : ""}>\u2191 A \u2192 Z</option>
-        <option value="DESC" ${s2.dir === "DESC" ? "selected" : ""}>\u2193 Z \u2192 A</option>
+      <select data-si="${i3}" data-sp="dir" style="width:95px;flex-shrink:0">
+        <option value="ASC"  ${s3.dir === "ASC" ? "selected" : ""}>\u2191 A \u2192 Z</option>
+        <option value="DESC" ${s3.dir === "DESC" ? "selected" : ""}>\u2193 Z \u2192 A</option>
       </select>
-      <label class="pl-enable-toggle" title="${sEnabled ? "Disable sort" : "Enable sort"}"><input type="checkbox" data-si="${i2}" data-sp="enabled" ${sEnabled ? "checked" : ""}><span class="pl-enable-label">${sEnabled ? "" : "Off"}</span></label>
-      <button class="btn btn-danger" data-rmsort="${i2}">\u2715</button>
+      <label class="pl-enable-toggle" title="${sEnabled ? "Disable sort" : "Enable sort"}"><input type="checkbox" data-si="${i3}" data-sp="enabled" ${sEnabled ? "checked" : ""}><span class="pl-enable-label">${sEnabled ? "" : "Off"}</span></label>
+      <button class="btn btn-danger" data-rmsort="${i3}">\u2715</button>
     </div>`;
     }).join("");
   }
@@ -4315,12 +4686,12 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     renderSorts();
   }
   if (typeof window !== "undefined") window.addSort = addSort;
-  function removeSort(i2) {
-    db.sorts.splice(i2, 1);
+  function removeSort(i3) {
+    db.sorts.splice(i3, 1);
     renderSorts();
   }
   if (typeof document !== "undefined") {
-    delegate($("sortItems"), "[data-si]", "change", (el) => {
+    delegate($3("sortItems"), "[data-si]", "change", (el) => {
       const { si, sp } = el.dataset;
       if (si !== void 0 && sp === "enabled") {
         db.sorts[+si].enabled = el.checked;
@@ -4330,7 +4701,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       }
       if (si !== void 0 && sp) db.sorts[+si][sp] = el.value;
     });
-    delegate($("sortItems"), "[data-rmsort]", "click", (el) => {
+    delegate($3("sortItems"), "[data-rmsort]", "click", (el) => {
       removeSort(+el.dataset.rmsort);
     });
   }
@@ -4338,27 +4709,27 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
   // js/ui/views/query-builder.ts
   function renderQueryBuilder() {
     invalidateValidation();
-    const ids = Object.keys(db.tables).sort((a2, b2) => db.tables[a2].name.localeCompare(db.tables[b2].name));
-    const qEmpty = $("qEmpty");
-    const qBuilder = $("qBuilder");
+    const ids = Object.keys(db.tables).sort((a3, b2) => db.tables[a3].name.localeCompare(db.tables[b2].name));
+    const qEmpty = $3("qEmpty");
+    const qBuilder = $3("qBuilder");
     if (qEmpty) qEmpty.style.display = ids.length ? "none" : "";
     if (qBuilder) qBuilder.style.display = ids.length ? "grid" : "none";
     if (!ids.length) return;
     const hasBase = !!db.base && !!db.tables[db.base];
     const hasBaseConfigured = !!db.base;
     ["colCard", "filterSortCard"].forEach((id) => {
-      const el = $(id);
+      const el = $3(id);
       if (el) el.style.display = hasBase ? "" : "none";
     });
-    const runRowEl = $("runRow");
+    const runRowEl = $3("runRow");
     if (runRowEl) runRowEl.style.display = hasBaseConfigured ? "" : "none";
     if (hasBaseConfigured) {
-      const v2 = getValidation();
-      const blocked = v2.reportStatus === "blocked";
-      const items = Object.values(v2.items);
+      const v3 = getValidation();
+      const blocked = v3.reportStatus === "blocked";
+      const items = Object.values(v3.items);
       const issueCount = items.filter((it) => it.blocking).length;
-      const pill = $("reportStatusPill");
-      const runBtn = $("runBtn");
+      const pill = $3("reportStatusPill");
+      const runBtn = $3("runBtn");
       if (pill) {
         pill.style.display = "";
         if (blocked) {
@@ -4383,7 +4754,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     renderAggregation();
     try {
       renderMergeToggles(projectedCols());
-    } catch (_2) {
+    } catch (_3) {
     }
   }
   function onBaseChange2(val) {
@@ -4403,7 +4774,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     } else {
       _previewOpen.add(key);
     }
-    const ids = Object.keys(db.tables).sort((a2, b2) => db.tables[a2].name.localeCompare(db.tables[b2].name));
+    const ids = Object.keys(db.tables).sort((a3, b2) => db.tables[a3].name.localeCompare(db.tables[b2].name));
     renderPipeline(ids);
   }
   function _buildPreviewSQL(key) {
@@ -4456,7 +4827,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         const baseCols = db.tables[db.base].cols;
         sql = ids.map((id) => {
           const tCols = db.tables[id].cols;
-          const sel = baseCols.map((c2) => tCols.includes(c2) ? quoteId(c2) : "NULL").join(", ");
+          const sel = baseCols.map((c3) => tCols.includes(c3) ? quoteId(c3) : "NULL").join(", ");
           return `SELECT ${sel} FROM ${quoteId(id)}`;
         }).join(" UNION ALL ");
         sql = `SELECT * FROM (${sql}) LIMIT 5`;
@@ -4472,9 +4843,9 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       const cols = Object.keys(rows[0]);
       const pvMap = buildColSourceMap();
       return `<table>
-      <thead><tr>${cols.map((c2) => `<th title="${h(c2)}">${h(colDisplayLabel(c2, pvMap))}</th>`).join("")}</tr></thead>
+      <thead><tr>${cols.map((c3) => `<th title="${h(c3)}">${h(colDisplayLabel(c3, pvMap))}</th>`).join("")}</tr></thead>
       <tbody>${rows.map(
-        (r2) => `<tr>${cols.map((c2) => `<td title="${h(String(r2[c2] ?? ""))}">${h(String(r2[c2] ?? ""))}</td>`).join("")}</tr>`
+        (r3) => `<tr>${cols.map((c3) => `<td title="${h(String(r3[c3] ?? ""))}">${h(String(r3[c3] ?? ""))}</td>`).join("")}</tr>`
       ).join("")}</tbody>
     </table>`;
     } catch (ex) {
@@ -4487,7 +4858,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     _afterCombineChange();
   }
   function removeStack(id) {
-    db.stacks = db.stacks.filter((s2) => s2 !== id);
+    db.stacks = db.stacks.filter((s3) => s3 !== id);
     _afterCombineChange();
   }
   function addLookup2() {
@@ -4507,34 +4878,34 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     });
     _afterCombineChange();
   }
-  function removeCalcStage(i2) {
+  function removeCalcStage(i3) {
     if (!Array.isArray(db.calcStages)) db.calcStages = [];
-    db.calcStages.splice(i2, 1);
+    db.calcStages.splice(i3, 1);
     _afterCombineChange();
   }
-  function removeLookup(i2) {
-    db.lookups.splice(i2, 1);
+  function removeLookup(i3) {
+    db.lookups.splice(i3, 1);
     _afterCombineChange();
   }
-  function selectAllLookupCols(i2) {
-    const lk = db.lookups[i2];
+  function selectAllLookupCols(i3) {
+    const lk = db.lookups[i3];
     const rt = lk.rightId && db.tables[lk.rightId];
     if (rt) {
       _showLayoutAliasesForSource(lk.rightId);
       _afterCombineChange();
     }
   }
-  function selectNoneLookupCols(i2) {
-    const lk = db.lookups[i2];
-    _hideLookupLayoutAliasesSafely(lk.rightId, null, i2);
+  function selectNoneLookupCols(i3) {
+    const lk = db.lookups[i3];
+    _hideLookupLayoutAliasesSafely(lk.rightId, null, i3);
     _afterCombineChange();
   }
   function runQuery() {
     if (!db.base || !db.tables[db.base]) return;
     invalidateValidation();
-    const v2 = getValidation();
-    if (v2.reportStatus === "blocked") {
-      const blockingItems = Object.values(v2.items).filter((item) => item.blocking);
+    const v3 = getValidation();
+    if (v3.reportStatus === "blocked") {
+      const blockingItems = Object.values(v3.items).filter((item) => item.blocking);
       const firstMsg = blockingItems[0]?.issues?.[0]?.message || "missing source data";
       toast(`Can't run \u2014 fix source issues first (${firstMsg}${blockingItems.length > 1 ? ` and ${blockingItems.length - 1} more` : ""}).`, "err");
       return;
@@ -4544,13 +4915,13 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       toast("No output columns selected \u2014 click All or pick at least one column.", "err");
       return;
     }
-    const status = $("runStatus");
+    const status = $3("runStatus");
     status.textContent = "Running\u2026";
     setTimeout(() => {
       try {
         const resultSet = runReport(db);
         if (!resultSet) throw new Error("No result set returned");
-        const displayRows = resultSet.rows.filter((r2) => !r2._row_type);
+        const displayRows = resultSet.rows.filter((r3) => !r3._row_type);
         const hasTotals = !!resultSet.metadata.totalsRow;
         const hasSubs = !!resultSet.metadata.hasSubtotals;
         db.result = {
@@ -4585,37 +4956,37 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     if (!gridResult) return;
     try {
       gridResult.resetRowHeights?.();
-    } catch (_2) {
+    } catch (_3) {
     }
     try {
       gridResult.refreshCells?.({ force: true });
-    } catch (_2) {
+    } catch (_3) {
     }
     try {
       gridResult.redrawRows?.();
-    } catch (_2) {
+    } catch (_3) {
     }
   }
   function refreshPreviewGridLayout() {
     if (!gridPreview) return;
     try {
       gridPreview.resetRowHeights?.();
-    } catch (_2) {
+    } catch (_3) {
     }
     try {
       gridPreview.refreshCells?.({ force: true });
-    } catch (_2) {
+    } catch (_3) {
     }
     try {
       gridPreview.redrawRows?.();
-    } catch (_2) {
+    } catch (_3) {
     }
   }
   function renderResults(result) {
-    const wrap = $("resultsWrap");
-    const meta = $("resultsMeta");
-    const btnXlsx = $("btnExpXlsx");
-    const btnCsv = $("btnExpCsv");
+    const wrap = $3("resultsWrap");
+    const meta = $3("resultsMeta");
+    const btnXlsx = $3("btnExpXlsx");
+    const btnCsv = $3("btnExpCsv");
     const { rows, totalsRow, cols } = result;
     const hasData = rows.length > 0 || totalsRow !== null;
     btnXlsx.style.display = hasData ? "" : "none";
@@ -4647,8 +5018,8 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         floatingFilter: true,
         minWidth: 80,
         cellRenderer: (params) => {
-          const v2 = params.value;
-          return v2 == null ? "" : String(v2);
+          const v3 = params.value;
+          return v3 == null ? "" : String(v3);
         }
       },
       pagination: true,
@@ -4659,7 +5030,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       onColumnResized: () => _saveResultColState(),
       onColumnVisible: () => _saveResultColState()
     };
-    const el = $("resGrid");
+    const el = $3("resGrid");
     gridResult = agGrid.createGrid(el, options);
     requestAnimationFrame(() => requestAnimationFrame(() => refreshResultGridLayout()));
     if (db.colState) {
@@ -4672,7 +5043,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     if (gridResult) db.colState = gridResult.getColumnState();
   }
   function renderPreviewDropdown() {
-    const sel = $("previewSel");
+    const sel = $3("previewSel");
     if (!sel) return;
     const prev = sel.value;
     const ids = Object.keys(db.tables);
@@ -4680,9 +5051,9 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     if (db.tables[prev]) sel.value = prev;
   }
   function loadPreview() {
-    const id = $("previewSel").value;
-    const wrap = $("previewWrap");
-    const meta = $("previewMeta");
+    const id = $3("previewSel").value;
+    const wrap = $3("previewWrap");
+    const meta = $3("previewMeta");
     if (gridPreview) {
       gridPreview.destroy();
       gridPreview = null;
@@ -4692,19 +5063,19 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       wrap.innerHTML = '<div class="empty"><div class="empty-icon">\u{1F446}</div><div>Select a table above</div></div>';
       return;
     }
-    const t2 = db.tables[id];
+    const t3 = db.tables[id];
     const cap = 1e4;
     const excluded = db.excludedRows[id] || /* @__PURE__ */ new Set();
     let rows;
     try {
-      rows = execQuery(`SELECT "_rowno", ${t2.cols.map((c2) => quoteId(c2)).join(", ")} FROM ${quoteId(id)} LIMIT ${cap}`);
+      rows = execQuery(`SELECT "_rowno", ${t3.cols.map((c3) => quoteId(c3)).join(", ")} FROM ${quoteId(id)} LIMIT ${cap}`);
     } catch (ex) {
       meta.textContent = "Error loading preview";
       wrap.innerHTML = '<div class="empty"><div class="empty-icon">\u274C</div><div>' + h(ex.message) + "</div></div>";
       return;
     }
     const excCount = excluded.size;
-    meta.textContent = t2.rowCount.toLocaleString() + " rows \xB7 " + t2.cols.length + " cols" + (excCount ? " \xB7 " + excCount + " excluded" : "") + (t2.rowCount > cap ? " (preview: first " + cap.toLocaleString() + ")" : "");
+    meta.textContent = t3.rowCount.toLocaleString() + " rows \xB7 " + t3.cols.length + " cols" + (excCount ? " \xB7 " + excCount + " excluded" : "") + (t3.rowCount > cap ? " (preview: first " + cap.toLocaleString() + ")" : "");
     let bannerHtml = "";
     if (excCount) {
       bannerHtml = `<div id="previewExclBanner" style="padding:4px 10px;font-size:12px;background:rgba(255,170,0,0.12);border-bottom:1px solid rgba(255,170,0,0.3);color:#c9a020;display:flex;align-items:center;gap:8px;">
@@ -4728,7 +5099,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         const isExcl = excluded.has(rowno);
         const btn = document.createElement("button");
         const rowData = params.data;
-        const preview = t2.cols.filter((c2) => c2 !== "_rowno").map((c2) => rowData[c2] == null ? "" : String(rowData[c2])).filter((v2) => v2 !== "").slice(0, 6).join(" \xB7 ");
+        const preview = t3.cols.filter((c3) => c3 !== "_rowno").map((c3) => rowData[c3] == null ? "" : String(rowData[c3])).filter((v3) => v3 !== "").slice(0, 6).join(" \xB7 ");
         const action = isExcl ? "Restore row to reports" : "Exclude row from reports";
         btn.title = `${action}
 \u2192 ${preview}`;
@@ -4738,10 +5109,10 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         return btn;
       }
     };
-    const el = $("prevGrid");
+    const el = $3("prevGrid");
     gridPreview = agGrid.createGrid(el, {
       rowData: rows,
-      columnDefs: [excludeColDef, ...makePreviewCols(id, t2.cols)],
+      columnDefs: [excludeColDef, ...makePreviewCols(id, t3.cols)],
       defaultColDef: {
         sortable: true,
         resizable: true,
@@ -4749,8 +5120,8 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         floatingFilter: true,
         minWidth: 80,
         cellRenderer: (params) => {
-          const v2 = params.value;
-          return v2 == null ? "" : String(v2);
+          const v3 = params.value;
+          return v3 == null ? "" : String(v3);
         }
       },
       pagination: true,
@@ -4787,15 +5158,15 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
   if (typeof window !== "undefined") window.clearExclusions = clearExclusions;
   function makeResultCols(cols) {
     const colMap = buildColSourceMap();
-    const dataCols = cols.filter((c2) => c2 !== "_rowno" && c2 !== "_row_type" && c2 !== "_isTotalsRow");
-    return dataCols.map((c2) => {
-      const src = colMap.get(c2);
-      const dispLabel = colDisplayLabel(c2, colMap);
+    const dataCols = cols.filter((c3) => c3 !== "_rowno" && c3 !== "_row_type" && c3 !== "_isTotalsRow");
+    return dataCols.map((c3) => {
+      const src = colMap.get(c3);
+      const dispLabel = colDisplayLabel(c3, colMap);
       const srcPhys = src;
       const renamed = src && src.kind !== "calc" ? db.columnLabels?.[srcPhys.tid]?.[srcPhys.col] : void 0;
       const color = src ? getTableColor(srcPhys?.tid || "") : null;
       const doRename = () => {
-        const target = resolveRenameTarget(c2);
+        const target = resolveRenameTarget(c3);
         if (!target) return;
         showRenameModal(target, () => {
           renderQueryBuilder();
@@ -4803,9 +5174,9 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         });
       };
       return {
-        field: c2,
+        field: c3,
         headerName: dispLabel,
-        tooltipField: c2,
+        tooltipField: c3,
         minWidth: 110,
         filter: "agTextColumnFilter",
         floatingFilter: true,
@@ -4824,42 +5195,42 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
           } : null
         ),
         cellRenderer: (params) => {
-          const v2 = params.value;
-          return v2 == null ? "" : String(v2);
+          const v3 = params.value;
+          return v3 == null ? "" : String(v3);
         }
       };
     });
   }
   function makePreviewCols(tid, physCols) {
     const color = getTableColor(tid);
-    return physCols.filter((c2) => c2 !== "_rowno").map((c2) => {
-      const renamed = db.columnLabels?.[tid]?.[c2];
-      const label = renamed || c2;
+    return physCols.filter((c3) => c3 !== "_rowno").map((c3) => {
+      const renamed = db.columnLabels?.[tid]?.[c3];
+      const label = renamed || c3;
       const doRename = () => {
-        renameSourceCol(tid, c2, () => {
+        renameSourceCol(tid, c3, () => {
           renderQueryBuilder();
           if (db.result) renderResults(db.result);
           loadPreview();
         });
       };
       const doClear = renamed ? () => {
-        setColLabel(tid, c2, c2);
+        setColLabel(tid, c3, c3);
         renderQueryBuilder();
         if (db.result) renderResults(db.result);
         loadPreview();
       } : null;
       return {
-        field: c2,
+        field: c3,
         headerName: label,
         minWidth: 110,
         filter: "agTextColumnFilter",
         floatingFilter: true,
         sortable: true,
         resizable: true,
-        headerComponent: _makeHeaderComponent(label, color, renamed, c2, doRename, doClear),
+        headerComponent: _makeHeaderComponent(label, color, renamed, c3, doRename, doClear),
         cellRenderer: (params) => {
-          const v2 = params.value;
-          return v2 == null ? "" : String(v2);
+          const v3 = params.value;
+          return v3 == null ? "" : String(v3);
         }
       };
     });
@@ -4881,15 +5252,15 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         txt.style.cssText = "flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer";
         txt.textContent = label;
         if (origCol) txt.title = renamed ? `Original: ${origCol}` : origCol;
-        txt.addEventListener("click", (e2) => params.progressSort(e2.shiftKey));
+        txt.addEventListener("click", (e3) => params.progressSort(e3.shiftKey));
         this._gui.appendChild(txt);
         if (onRename) {
           const more = document.createElement("button");
           more.textContent = "\u22EF";
           more.title = "Rename column";
           more.style.cssText = "background:none;border:none;cursor:pointer;font-size:13px;padding:0 2px;color:#aaa;flex-shrink:0;line-height:1";
-          more.addEventListener("click", (e2) => {
-            e2.stopPropagation();
+          more.addEventListener("click", (e3) => {
+            e3.stopPropagation();
             onRename();
           });
           this._gui.appendChild(more);
@@ -4899,8 +5270,8 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
           clr.textContent = "\xD7";
           clr.title = `Clear rename (original: ${origCol})`;
           clr.style.cssText = "background:none;border:none;cursor:pointer;font-size:10px;padding:0 1px;color:#aaa;flex-shrink:0;line-height:1";
-          clr.addEventListener("click", (e2) => {
-            e2.stopPropagation();
+          clr.addEventListener("click", (e3) => {
+            e3.stopPropagation();
             onClear();
           });
           this._gui.appendChild(clr);
@@ -4920,7 +5291,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
   // js/ui/tabs.ts
   function switchTab(name) {
     document.querySelectorAll(".tab-btn").forEach((b2) => b2.classList.toggle("active", b2.dataset.tab === name));
-    document.querySelectorAll(".tab-panel").forEach((p2) => p2.classList.toggle("active", p2.id === "tab-" + name));
+    document.querySelectorAll(".tab-panel").forEach((p3) => p3.classList.toggle("active", p3.id === "tab-" + name));
     if (name === "results") {
       requestAnimationFrame(() => requestAnimationFrame(() => refreshResultGridLayout()));
     }
@@ -4936,9 +5307,9 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
   // js/ui/export.ts
   function exportAs(fmt) {
     if (!db.result || !db.result.rows) return;
-    const v2 = getValidation();
-    if (v2.reportStatus === "blocked") {
-      const blockingItems = Object.values(v2.items).filter((item) => item.blocking);
+    const v3 = getValidation();
+    if (v3.reportStatus === "blocked") {
+      const blockingItems = Object.values(v3.items).filter((item) => item.blocking);
       const firstMsg = blockingItems[0]?.issues?.[0]?.message || "missing source data";
       toast(`Can't export \u2014 fix source issues first (${firstMsg}${blockingItems.length > 1 ? ` and ${blockingItems.length - 1} more` : ""}).`, "err");
       return;
@@ -4950,25 +5321,25 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     const colMap = buildColSourceMap();
     const hdrMap = buildExportHeaderMap(cols || [], colMap);
     const exportCols = (cols || []).filter(
-      (c2) => c2 !== "_rowno" && c2 !== "_row_type" && c2 !== "_isTotalsRow" && c2 !== "_sort_row_type" && !String(c2).startsWith("_sort_group_")
+      (c3) => c3 !== "_rowno" && c3 !== "_row_type" && c3 !== "_isTotalsRow" && c3 !== "_sort_row_type" && !String(c3).startsWith("_sort_group_")
     );
-    const exportHeaders = exportCols.map((c2) => hdrMap?.[c2] || c2);
+    const exportHeaders = exportCols.map((c3) => hdrMap?.[c3] || c3);
     const mergeHeaderSet = new Set(
-      exportCols.filter((c2) => (db.mergedCols || []).includes(c2)).map((c2) => hdrMap?.[c2] || c2)
+      exportCols.filter((c3) => (db.mergedCols || []).includes(c3)).map((c3) => hdrMap?.[c3] || c3)
     );
     const remap = (row) => {
       const out = {};
-      for (const c2 of exportCols) {
-        const header = hdrMap?.[c2];
-        out[header || c2] = row[c2];
+      for (const c3 of exportCols) {
+        const header = hdrMap?.[c3];
+        out[header || c3] = row[c3];
       }
       return out;
     };
     const dataRows = totalsRow ? [...rows, { ...totalsRow, _isTotalsRow: true }] : [...rows];
-    const rowKinds = dataRows.map((r2) => {
-      if (r2._isTotalsRow) return 3;
-      const t2 = Number(r2._row_type);
-      return Number.isFinite(t2) ? t2 : 0;
+    const rowKinds = dataRows.map((r3) => {
+      if (r3._isTotalsRow) return 3;
+      const t3 = Number(r3._row_type);
+      return Number.isFinite(t3) ? t3 : 0;
     });
     const clean = dataRows.map(remap);
     if (fmt === "csv") {
@@ -4993,39 +5364,39 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     if (!headers || !headers.length || !mergeHeaderSet || mergeHeaderSet.size === 0) return;
     const xlsxUtils = XLSX.utils;
     const merges = [];
-    headers.forEach((h4, cIdx) => {
-      if (!mergeHeaderSet.has(h4)) return;
+    headers.forEach((h5, cIdx) => {
+      if (!mergeHeaderSet.has(h5)) return;
       const leftGateHeaders = headers.slice(0, cIdx).filter((lh) => mergeHeaderSet.has(lh));
       const gateByLeft = leftGateHeaders.length > 0;
-      let i2 = 0;
-      while (i2 < cleanRows.length) {
-        if ((rowKinds[i2] ?? 0) !== 0) {
-          i2++;
+      let i3 = 0;
+      while (i3 < cleanRows.length) {
+        if ((rowKinds[i3] ?? 0) !== 0) {
+          i3++;
           continue;
         }
-        const v2 = cleanRows[i2]?.[h4];
-        if (v2 == null || String(v2) === "") {
-          i2++;
+        const v3 = cleanRows[i3]?.[h5];
+        if (v3 == null || String(v3) === "") {
+          i3++;
           continue;
         }
-        let j2 = i2 + 1;
-        while (j2 < cleanRows.length && (rowKinds[j2] ?? 0) === 0 && cleanRows[j2]?.[h4] === v2) {
-          if (gateByLeft && leftGateHeaders.some((lh) => cleanRows[j2]?.[lh] !== cleanRows[j2 - 1]?.[lh])) {
+        let j4 = i3 + 1;
+        while (j4 < cleanRows.length && (rowKinds[j4] ?? 0) === 0 && cleanRows[j4]?.[h5] === v3) {
+          if (gateByLeft && leftGateHeaders.some((lh) => cleanRows[j4]?.[lh] !== cleanRows[j4 - 1]?.[lh])) {
             break;
           }
-          j2++;
+          j4++;
         }
-        const span = j2 - i2;
+        const span = j4 - i3;
         if (span > 1) {
-          const s2 = { r: i2 + 1, c: cIdx };
-          const e2 = { r: j2, c: cIdx };
-          merges.push({ s: s2, e: e2 });
-          for (let rr = s2.r + 1; rr <= e2.r; rr++) {
+          const s3 = { r: i3 + 1, c: cIdx };
+          const e3 = { r: j4, c: cIdx };
+          merges.push({ s: s3, e: e3 });
+          for (let rr = s3.r + 1; rr <= e3.r; rr++) {
             const addr = xlsxUtils.encode_cell({ r: rr, c: cIdx });
             ws[addr] = { t: "z", v: void 0 };
           }
         }
-        i2 = j2;
+        i3 = j4;
       }
     });
     if (merges.length) ws["!merges"] = merges;
@@ -5043,7 +5414,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     const WIDTH_SAMPLE_ROWS = 300;
     const BODY_ROW_HPT = 18;
     const headers = cleanRows[0] ? Object.keys(cleanRows[0]) : [];
-    const mergeStartSet = new Set((ws["!merges"] || []).map((m2) => `${m2.s.r}:${m2.s.c}`));
+    const mergeStartSet = new Set((ws["!merges"] || []).map((m3) => `${m3.s.r}:${m3.s.c}`));
     const underlineMergedGroups = !!db?.mergeGroupUnderline;
     const mergeUnderlineStartByRow = /* @__PURE__ */ new Map();
     if (underlineMergedGroups) {
@@ -5054,50 +5425,50 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         const prev = mergeUnderlineStartByRow.get(sheetRow);
         mergeUnderlineStartByRow.set(sheetRow, prev == null ? colIdx : Math.min(prev, colIdx));
       };
-      headers.forEach((h4, cIdx) => {
-        if (!mergeHeaderSet.has(h4)) return;
+      headers.forEach((h5, cIdx) => {
+        if (!mergeHeaderSet.has(h5)) return;
         const leftGateHeaders = headers.slice(0, cIdx).filter((lh) => mergeHeaderSet.has(lh));
-        let i2 = 0;
-        while (i2 < cleanRows.length) {
-          if ((rowKinds[i2] ?? 0) !== 0) {
-            i2++;
+        let i3 = 0;
+        while (i3 < cleanRows.length) {
+          if ((rowKinds[i3] ?? 0) !== 0) {
+            i3++;
             continue;
           }
-          const v2 = cleanRows[i2]?.[h4];
-          if (v2 == null || String(v2) === "") {
-            i2++;
+          const v3 = cleanRows[i3]?.[h5];
+          if (v3 == null || String(v3) === "") {
+            i3++;
             continue;
           }
-          let j2 = i2 + 1;
-          while (j2 < cleanRows.length && (rowKinds[j2] ?? 0) === 0 && cleanRows[j2]?.[h4] === v2) {
-            if (leftGateHeaders.some((lh) => cleanRows[j2]?.[lh] !== cleanRows[j2 - 1]?.[lh])) break;
-            j2++;
+          let j4 = i3 + 1;
+          while (j4 < cleanRows.length && (rowKinds[j4] ?? 0) === 0 && cleanRows[j4]?.[h5] === v3) {
+            if (leftGateHeaders.some((lh) => cleanRows[j4]?.[lh] !== cleanRows[j4 - 1]?.[lh])) break;
+            j4++;
           }
-          const span = j2 - i2;
+          const span = j4 - i3;
           if (span > 1) {
-            let p2 = mergeParticipation.get(h4);
-            if (!p2) {
-              p2 = /* @__PURE__ */ new Set();
-              mergeParticipation.set(h4, p2);
+            let p3 = mergeParticipation.get(h5);
+            if (!p3) {
+              p3 = /* @__PURE__ */ new Set();
+              mergeParticipation.set(h5, p3);
             }
-            for (let r2 = i2; r2 < j2; r2++) p2.add(r2);
-            addUnderline(j2 - 1, cIdx);
+            for (let r3 = i3; r3 < j4; r3++) p3.add(r3);
+            addUnderline(j4 - 1, cIdx);
           } else {
-            const hasLeftMergeContext = leftGateHeaders.some((lh) => mergeParticipation.get(lh)?.has(i2));
-            if (hasLeftMergeContext) addUnderline(i2, cIdx);
+            const hasLeftMergeContext = leftGateHeaders.some((lh) => mergeParticipation.get(lh)?.has(i3));
+            if (hasLeftMergeContext) addUnderline(i3, cIdx);
           }
-          i2 = j2;
+          i3 = j4;
         }
       });
     }
     const ensureRowUnderlineSet = /* @__PURE__ */ new Set();
     if (underlineMergedGroups) {
-      for (const [r2, cStart] of mergeUnderlineStartByRow.entries()) {
-        for (let c2 = cStart; c2 <= range.e.c; c2++) ensureRowUnderlineSet.add(`${r2}:${c2}`);
+      for (const [r3, cStart] of mergeUnderlineStartByRow.entries()) {
+        for (let c3 = cStart; c3 <= range.e.c; c3++) ensureRowUnderlineSet.add(`${r3}:${c3}`);
       }
     }
-    for (let c2 = range.s.c; c2 <= range.e.c; c2++) {
-      const addr = xlsxUtils.encode_cell({ r: 0, c: c2 });
+    for (let c3 = range.s.c; c3 <= range.e.c; c3++) {
+      const addr = xlsxUtils.encode_cell({ r: 0, c: c3 });
       const cell = ws[addr];
       if (!cell) continue;
       cell.s = {
@@ -5110,8 +5481,8 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         }
       };
     }
-    for (let r2 = 1; r2 <= range.e.r; r2++) {
-      const rowType = rowKinds[r2 - 1] ?? 0;
+    for (let r3 = 1; r3 <= range.e.r; r3++) {
+      const rowType = rowKinds[r3 - 1] ?? 0;
       const isSubtotal = rowType === 1;
       const isGrand = rowType === 3;
       const isSpacer = rowType === 2;
@@ -5120,25 +5491,25 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         style: isGrand ? "thick" : "medium",
         color: isGrand ? grandBorderColor : borderColor
       };
-      const rowObj = cleanRows[r2 - 1] || {};
+      const rowObj = cleanRows[r3 - 1] || {};
       let lastDataColIdx = range.s.c;
       if (isSummary) {
         lastDataColIdx = range.e.c;
       } else {
-        for (let i2 = headers.length - 1; i2 >= 0; i2--) {
-          const v2 = rowObj[headers[i2]];
-          if (v2 != null && String(v2) !== "") {
-            lastDataColIdx = range.s.c + i2;
+        for (let i3 = headers.length - 1; i3 >= 0; i3--) {
+          const v3 = rowObj[headers[i3]];
+          if (v3 != null && String(v3) !== "") {
+            lastDataColIdx = range.s.c + i3;
             break;
           }
         }
       }
-      const rowUnderlineStart = mergeUnderlineStartByRow.get(r2);
+      const rowUnderlineStart = mergeUnderlineStartByRow.get(r3);
       const hasRowUnderline = rowUnderlineStart != null;
-      for (let c2 = range.s.c; c2 <= range.e.c; c2++) {
-        const addr = xlsxUtils.encode_cell({ r: r2, c: c2 });
+      for (let c3 = range.s.c; c3 <= range.e.c; c3++) {
+        const addr = xlsxUtils.encode_cell({ r: r3, c: c3 });
         let cell = ws[addr];
-        const shouldPersistBlank = isSummary || !isSummary && ensureRowUnderlineSet.has(`${r2}:${c2}`);
+        const shouldPersistBlank = isSummary || !isSummary && ensureRowUnderlineSet.has(`${r3}:${c3}`);
         const isStubOrUndefined = !!cell && (cell.t === "z" || cell.v === void 0);
         if (shouldPersistBlank && (!cell || isStubOrUndefined)) {
           cell = { t: "s", v: "" };
@@ -5156,15 +5527,15 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         if (isNumeric && !cell.z) {
           cell.z = Number.isInteger(cell.v) ? "#,##0" : "#,##0.00########";
         }
-        const isMergedAnchor = mergeStartSet.has(`${r2}:${c2}`);
+        const isMergedAnchor = mergeStartSet.has(`${r3}:${c3}`);
         const border = {};
         if (isSummary) {
           border.top = summaryBorder;
           border.bottom = summaryBorder;
-          if (c2 === range.s.c) border.left = summaryBorder;
-          if (c2 === lastDataColIdx) border.right = summaryBorder;
+          if (c3 === range.s.c) border.left = summaryBorder;
+          if (c3 === lastDataColIdx) border.right = summaryBorder;
         }
-        if (!isSummary && hasRowUnderline && c2 >= rowUnderlineStart) {
+        if (!isSummary && hasRowUnderline && c3 >= rowUnderlineStart) {
           border.bottom = { style: "thin", color: borderColor };
         }
         const style = {
@@ -5183,20 +5554,20 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     }
     ws["!autofilter"] = { ref };
     ws["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft", state: "frozen" };
-    ws["!cols"] = headers.map((h4) => {
-      let maxLen = String(h4 || "").length;
+    ws["!cols"] = headers.map((h5) => {
+      let maxLen = String(h5 || "").length;
       const sample = Math.min(cleanRows.length, WIDTH_SAMPLE_ROWS);
-      for (let i2 = 0; i2 < sample; i2++) {
-        const v2 = cleanRows[i2]?.[h4];
-        if (v2 == null) continue;
-        maxLen = Math.max(maxLen, String(v2).length);
+      for (let i3 = 0; i3 < sample; i3++) {
+        const v3 = cleanRows[i3]?.[h5];
+        if (v3 == null) continue;
+        maxLen = Math.max(maxLen, String(v3).length);
       }
       return { wch: Math.min(MAX_COL_WCH, Math.max(MIN_COL_WCH, maxLen + 2)), MDW: 6, customWidth: 1 };
     });
     ws["!rows"] = ws["!rows"] || [];
     ws["!rows"][0] = { ...ws["!rows"][0] || {}, hpt: 24 };
-    for (let r2 = 1; r2 <= range.e.r; r2++) {
-      ws["!rows"][r2] = { ...ws["!rows"][r2] || {}, hpt: BODY_ROW_HPT };
+    for (let r3 = 1; r3 <= range.e.r; r3++) {
+      ws["!rows"][r3] = { ...ws["!rows"][r3] || {}, hpt: BODY_ROW_HPT };
     }
   }
 
@@ -5232,33 +5603,33 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       base: db.base,
       baseCols: db.baseCols ? [...db.baseCols] : null,
       stacks: [...db.stacks || []],
-      lookups: (db.lookups || []).map((l2) => ({
-        rightId: l2.rightId,
-        keyPairs: (l2.keyPairs || []).map((p2) => ({ left: p2.left, right: p2.right })),
-        cols: [...l2.cols || []],
-        required: !!l2.required,
-        enabled: l2.enabled !== false,
-        duplicatePolicy: l2.duplicatePolicy ? { ...l2.duplicatePolicy } : { mode: "block" }
+      lookups: (db.lookups || []).map((l3) => ({
+        rightId: l3.rightId,
+        keyPairs: (l3.keyPairs || []).map((p3) => ({ left: p3.left, right: p3.right })),
+        cols: [...l3.cols || []],
+        required: !!l3.required,
+        enabled: l3.enabled !== false,
+        duplicatePolicy: l3.duplicatePolicy ? { ...l3.duplicatePolicy } : { mode: "block" }
       })),
-      calcStages: (db.calcStages || []).map((c2) => ({
-        alias: (c2.alias || "").trim(),
-        mode: c2.mode,
-        enabled: c2.enabled !== false,
-        ...c2.math ? { math: JSON.parse(JSON.stringify(c2.math)) } : {},
-        ...c2.compare ? { compare: JSON.parse(JSON.stringify(c2.compare)) } : {},
-        ...c2.text ? { text: JSON.parse(JSON.stringify(c2.text)) } : {}
+      calcStages: (db.calcStages || []).map((c3) => ({
+        alias: (c3.alias || "").trim(),
+        mode: c3.mode,
+        enabled: c3.enabled !== false,
+        ...c3.math ? { math: JSON.parse(JSON.stringify(c3.math)) } : {},
+        ...c3.compare ? { compare: JSON.parse(JSON.stringify(c3.compare)) } : {},
+        ...c3.text ? { text: JSON.parse(JSON.stringify(c3.text)) } : {}
       })),
       selCols: db.selCols ? [...db.selCols] : null,
       colOrder: db.colOrder ? [...db.colOrder] : null,
-      filters: db.filters.map((f2) => ({
-        col: f2.col || "",
-        op: f2.op || "contains",
-        vals: Array.isArray(f2.vals) ? [...f2.vals] : [""],
-        enabled: f2.enabled !== false
+      filters: db.filters.map((f4) => ({
+        col: f4.col || "",
+        op: f4.op || "contains",
+        vals: Array.isArray(f4.vals) ? [...f4.vals] : [""],
+        enabled: f4.enabled !== false
       })),
-      sorts: db.sorts.map((s2) => ({ col: s2.col || "", dir: s2.dir === "DESC" ? "DESC" : "ASC", enabled: s2.enabled !== false })),
+      sorts: db.sorts.map((s3) => ({ col: s3.col || "", dir: s3.dir === "DESC" ? "DESC" : "ASC", enabled: s3.enabled !== false })),
       groupBy: [...db.groupBy],
-      aggregates: db.aggregates.map((a2) => ({ ...a2 })),
+      aggregates: db.aggregates.map((a3) => ({ ...a3 })),
       aggMode: db.aggMode || "none",
       aggModeState: JSON.parse(JSON.stringify(db.aggModeState || {})),
       colTotals: { ...db.colTotals || {} },
@@ -5292,7 +5663,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     if (db.base) {
       try {
         renderMergeToggles(projectedCols());
-      } catch (_2) {
+      } catch (_3) {
       }
     }
   }
@@ -5305,8 +5676,8 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     const nextAvailableCols = () => {
       const cols = projectedColsUpToLookup((next.lookups || []).length, next);
       const colSet = new Set(cols);
-      for (const c2 of next.calcStages || []) {
-        if (c2.alias) colSet.add(c2.alias);
+      for (const c3 of next.calcStages || []) {
+        if (c3.alias) colSet.add(c3.alias);
       }
       return colSet;
     };
@@ -5317,7 +5688,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       brokenRefs.push(`Primary sheet "${savedBase || "(none)"}" is not loaded`);
     }
     if (Array.isArray(payload.baseCols)) {
-      const dropped = baseLoaded ? payload.baseCols.filter((c2) => !db.tables[savedBase].cols.includes(c2)) : [];
+      const dropped = baseLoaded ? payload.baseCols.filter((c3) => !db.tables[savedBase].cols.includes(c3)) : [];
       if (dropped.length) brokenRefs.push(`Base columns not available: ${dropped.join(", ")}`);
       next.baseCols = [...payload.baseCols];
     } else {
@@ -5339,7 +5710,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         brokenRefs.push(`Lookup sheet "${lk.rightId || "(none)"}" is not loaded`);
         next.lookups.push({
           rightId: lk.rightId || "",
-          keyPairs: Array.isArray(lk.keyPairs) ? lk.keyPairs.map((p2) => ({ left: p2.left || "", right: p2.right || "" })) : [{ left: "", right: "" }],
+          keyPairs: Array.isArray(lk.keyPairs) ? lk.keyPairs.map((p3) => ({ left: p3.left || "", right: p3.right || "" })) : [{ left: "", right: "" }],
           cols: Array.isArray(lk.cols) ? [...lk.cols] : [],
           required: !!lk.required,
           enabled: lk.enabled !== false,
@@ -5348,12 +5719,12 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         continue;
       }
       const leftAvail = baseLoaded ? projectedColsUpToLookup(next.lookups.length, next) : [];
-      const keyPairs = (Array.isArray(lk.keyPairs) ? lk.keyPairs : []).map((p2) => {
-        const leftOk = !baseLoaded || leftAvail.includes(p2.left);
-        const rightOk = rt.cols.includes(p2.right);
-        if (!leftOk && p2.left) brokenRefs.push(`Match column "${p2.left}" not found (left side of lookup from "${rt.name}")`);
-        if (!rightOk && p2.right) brokenRefs.push(`Match column "${p2.right}" not found in "${rt.name}"`);
-        return { left: p2.left || "", right: p2.right || "" };
+      const keyPairs = (Array.isArray(lk.keyPairs) ? lk.keyPairs : []).map((p3) => {
+        const leftOk = !baseLoaded || leftAvail.includes(p3.left);
+        const rightOk = rt.cols.includes(p3.right);
+        if (!leftOk && p3.left) brokenRefs.push(`Match column "${p3.left}" not found (left side of lookup from "${rt.name}")`);
+        if (!rightOk && p3.right) brokenRefs.push(`Match column "${p3.right}" not found in "${rt.name}"`);
+        return { left: p3.left || "", right: p3.right || "" };
       });
       const cols = Array.isArray(lk.cols) ? lk.cols : [...rt.cols];
       next.lookups.push({ rightId: lk.rightId, keyPairs, cols, required: !!lk.required, enabled: lk.enabled !== false, duplicatePolicy: lk.duplicatePolicy && lk.duplicatePolicy.mode ? { ...lk.duplicatePolicy } : { mode: "block" } });
@@ -5365,30 +5736,30 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       }
     }
     next.calcStages = [];
-    for (const c2 of payload.calcStages || []) {
-      const alias = (c2.alias || "").trim();
-      const enabled = c2.enabled !== false;
-      if (!c2.mode || !VALID_CALC_MODES.has(c2.mode)) {
+    for (const c3 of payload.calcStages || []) {
+      const alias = (c3.alias || "").trim();
+      const enabled = c3.enabled !== false;
+      if (!c3.mode || !VALID_CALC_MODES.has(c3.mode)) {
         brokenRefs.push(`Calculated column "${alias}" has an unsupported or missing mode`);
-        next.calcStages.push({ ...c2, alias, enabled });
+        next.calcStages.push({ ...c3, alias, enabled });
         continue;
       }
       if (!alias) {
         brokenRefs.push("Calculated stage has no alias");
-        next.calcStages.push({ ...c2, alias, enabled });
+        next.calcStages.push({ ...c3, alias, enabled });
         continue;
       }
       const availNow = nextAvailableCols();
-      if (c2.mode === "math") {
-        const math = c2.math;
+      if (c3.mode === "math") {
+        const math = c3.math;
         if (math && Array.isArray(math.steps)) {
           for (const step of math.steps) {
             _checkColRef(step.type === "column" ? step.value : null, baseLoaded, availNow, alias, brokenRefs);
           }
         }
       }
-      if (c2.mode === "compare") {
-        const compare = c2.compare;
+      if (c3.mode === "compare") {
+        const compare = c3.compare;
         if (compare && Array.isArray(compare.conditions)) {
           for (const cond of compare.conditions) {
             _checkColRef(cond.col, baseLoaded, availNow, alias, brokenRefs);
@@ -5401,8 +5772,8 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
           _checkColRef(compare.falseValue.type === "column" ? compare.falseValue.value : null, baseLoaded, availNow, alias, brokenRefs);
         }
       }
-      if (c2.mode === "text") {
-        const text = c2.text;
+      if (c3.mode === "text") {
+        const text = c3.text;
         if (text) {
           if (text.operation === "combine" && Array.isArray(text.parts)) {
             for (const part of text.parts) {
@@ -5414,19 +5785,19 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
           }
         }
       }
-      if (c2.mode === "date") {
-        const date = c2.date;
+      if (c3.mode === "date") {
+        const date = c3.date;
         if (date && date.operation === "extract" && date.source) {
           _checkColRef(date.source.type === "column" ? date.source.value : null, baseLoaded, availNow, alias, brokenRefs);
         }
       }
-      next.calcStages.push({ ...c2, alias, enabled });
+      next.calcStages.push({ ...c3, alias, enabled });
     }
     const available = nextAvailableCols();
     if (payload.selCols === null) {
       next.selCols = null;
     } else if (Array.isArray(payload.selCols)) {
-      const dropped = baseLoaded ? payload.selCols.filter((c2) => !available.has(c2)) : [];
+      const dropped = baseLoaded ? payload.selCols.filter((c3) => !available.has(c3)) : [];
       if (dropped.length) brokenRefs.push(`Selected columns not available: ${dropped.join(", ")}`);
       next.selCols = new Set(payload.selCols);
     } else {
@@ -5434,29 +5805,29 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     }
     next.colOrder = Array.isArray(payload.colOrder) ? [...payload.colOrder] : null;
     next.filters = [];
-    for (const f2 of payload.filters || []) {
-      if (f2.col && baseLoaded && !available.has(f2.col)) {
-        brokenRefs.push(`Filter on column "${f2.col}" is not available`);
+    for (const f4 of payload.filters || []) {
+      if (f4.col && baseLoaded && !available.has(f4.col)) {
+        brokenRefs.push(`Filter on column "${f4.col}" is not available`);
       }
-      const vals = Array.isArray(f2.vals) ? [...f2.vals] : f2.vals;
-      next.filters.push({ col: f2.col || "", op: f2.op || "contains", vals, enabled: f2.enabled !== false });
+      const vals = Array.isArray(f4.vals) ? [...f4.vals] : f4.vals;
+      next.filters.push({ col: f4.col || "", op: f4.op || "contains", vals, enabled: f4.enabled !== false });
     }
-    const gbDropped = baseLoaded ? (payload.groupBy || []).filter((c2) => !available.has(c2)) : [];
+    const gbDropped = baseLoaded ? (payload.groupBy || []).filter((c3) => !available.has(c3)) : [];
     if (gbDropped.length) brokenRefs.push(`Group By columns not available: ${gbDropped.join(", ")}`);
     next.groupBy = [...payload.groupBy || []];
     next.aggregates = [];
-    for (const a2 of payload.aggregates || []) {
-      if (a2.col && a2.col !== "*" && baseLoaded && !available.has(a2.col)) {
-        brokenRefs.push(`Aggregate "${a2.alias || a2.fn}" on column "${a2.col}" is not available`);
+    for (const a3 of payload.aggregates || []) {
+      if (a3.col && a3.col !== "*" && baseLoaded && !available.has(a3.col)) {
+        brokenRefs.push(`Aggregate "${a3.alias || a3.fn}" on column "${a3.col}" is not available`);
       }
-      next.aggregates.push({ fn: a2.fn || "SUM", col: a2.col || "*", alias: a2.alias || "" });
+      next.aggregates.push({ fn: a3.fn || "SUM", col: a3.col || "*", alias: a3.alias || "" });
     }
     next.sorts = [];
-    for (const s2 of payload.sorts || []) {
-      if (s2.col && baseLoaded && !available.has(s2.col)) {
-        brokenRefs.push(`Sort on column "${s2.col}" is not available`);
+    for (const s3 of payload.sorts || []) {
+      if (s3.col && baseLoaded && !available.has(s3.col)) {
+        brokenRefs.push(`Sort on column "${s3.col}" is not available`);
       }
-      next.sorts.push({ col: s2.col || "", dir: s2.dir === "DESC" ? "DESC" : "ASC", enabled: s2.enabled !== false });
+      next.sorts.push({ col: s3.col || "", dir: s3.dir === "DESC" ? "DESC" : "ASC", enabled: s3.enabled !== false });
     }
     next.aggMode = typeof payload.aggMode === "string" ? payload.aggMode : "none";
     next.colTotals = {};
@@ -5464,7 +5835,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       if (baseLoaded && !available.has(col)) brokenRefs.push(`Totals column "${col}" not available`);
       next.colTotals[col] = fn;
     }
-    const sbDropped = baseLoaded ? (payload.subtotalBy || []).filter((c2) => !available.has(c2)) : [];
+    const sbDropped = baseLoaded ? (payload.subtotalBy || []).filter((c3) => !available.has(c3)) : [];
     if (sbDropped.length) brokenRefs.push(`Subtotal By columns not available: ${sbDropped.join(", ")}`);
     next.subtotalBy = [...payload.subtotalBy || []];
     next.subtotalFns = {};
@@ -5490,7 +5861,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         } : null,
         group: rawGroup ? {
           groupBy: Array.isArray(rawGroup.groupBy) ? [...rawGroup.groupBy] : [],
-          aggregates: Array.isArray(rawGroup.aggregates) ? rawGroup.aggregates.map((a2) => ({ fn: a2.fn || "SUM", col: a2.col || "*", alias: a2.alias || "", auto: !!a2.auto })) : []
+          aggregates: Array.isArray(rawGroup.aggregates) ? rawGroup.aggregates.map((a3) => ({ fn: a3.fn || "SUM", col: a3.col || "*", alias: a3.alias || "", auto: !!a3.auto })) : []
         } : null,
         totals: rawTotals ? {
           selCols: Array.isArray(rawTotals.selCols) ? [...rawTotals.selCols] : null,
@@ -5507,7 +5878,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         } : null
       };
     }
-    next.mergedCols = (payload.mergedCols || []).filter((c2) => typeof c2 === "string");
+    next.mergedCols = (payload.mergedCols || []).filter((c3) => typeof c3 === "string");
     next.mergeGroupUnderline = !!payload.mergeGroupUnderline;
     next.colState = Array.isArray(payload.colState) ? payload.colState : null;
     const nextExcludedRows = {};
@@ -5540,10 +5911,10 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
   // js/core/state-loader.ts
   function loadState(file) {
     const reader = new FileReader();
-    reader.onload = (e2) => {
+    reader.onload = (e3) => {
       let payload = {};
       try {
-        payload = JSON.parse(e2.target.result);
+        payload = JSON.parse(e3.target.result);
       } catch {
         toast("Could not parse state file \u2014 is it a valid .rcjson file?", "err");
         return;
@@ -5587,7 +5958,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
 
   // js/ui/sidebar.ts
   function renderSidebar() {
-    const ids = Object.keys(db.tables).sort((a2, b2) => db.tables[a2].name.localeCompare(db.tables[b2].name));
+    const ids = Object.keys(db.tables).sort((a3, b2) => db.tables[a3].name.localeCompare(db.tables[b2].name));
     document.getElementById("tableCount").textContent = String(ids.length);
     const list = document.getElementById("tablesList");
     if (!ids.length) {
@@ -5595,18 +5966,18 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       return;
     }
     list.innerHTML = ids.map((id) => {
-      const t2 = db.tables[id];
+      const t3 = db.tables[id];
       return `<div class="tcard" data-tid="${id}" style="border-left:3px solid ${getTableColor(id)}">
       <div class="tcard-rm" data-rm="${id}">\u2715</div>
-      <div class="tcard-name" title="${h(t2.name)}">${h(t2.name)}</div>
-      <div class="tcard-meta">${t2.rowCount.toLocaleString()} rows &middot; ${t2.cols.length} cols</div>
+      <div class="tcard-name" title="${h(t3.name)}">${h(t3.name)}</div>
+      <div class="tcard-meta">${t3.rowCount.toLocaleString()} rows &middot; ${t3.cols.length} cols</div>
     </div>`;
     }).join("");
   }
   if (typeof document !== "undefined") {
-    document.getElementById("tablesList").addEventListener("click", (e2) => {
-      const rm = e2.target.closest("[data-rm]");
-      const card = e2.target.closest("[data-tid]");
+    document.getElementById("tablesList").addEventListener("click", (e3) => {
+      const rm = e3.target.closest("[data-rm]");
+      const card = e3.target.closest("[data-tid]");
       if (rm) removeTable(rm.dataset.rm);
       else if (card) previewTable(card.dataset.tid);
     });
@@ -5669,10 +6040,10 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       const ws = wb.Sheets[name];
       let rows = "?", cols = "?";
       try {
-        const r2 = XLSX.utils.decode_range(ws["!ref"]);
-        rows = (r2.e.r - r2.s.r).toLocaleString();
-        cols = r2.e.c - r2.s.c + 1;
-      } catch (_2) {
+        const r3 = XLSX.utils.decode_range(ws["!ref"]);
+        rows = (r3.e.r - r3.s.r).toLocaleString();
+        cols = r3.e.c - r3.s.c + 1;
+      } catch (_3) {
       }
       const id = "chk_" + Math.random().toString(36).slice(2);
       const row = document.createElement("div");
@@ -5716,8 +6087,8 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
   (function() {
     const overlay = document.getElementById("dropOverlay");
     let dragDepth = 0;
-    document.addEventListener("dragenter", (e2) => {
-      if (!e2.dataTransfer.types.includes("Files")) return;
+    document.addEventListener("dragenter", (e3) => {
+      if (!e3.dataTransfer.types.includes("Files")) return;
       dragDepth++;
       overlay.classList.add("active");
     });
@@ -5728,20 +6099,20 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
         overlay.classList.remove("active");
       }
     });
-    document.addEventListener("dragover", (e2) => {
-      e2.preventDefault();
+    document.addEventListener("dragover", (e3) => {
+      e3.preventDefault();
     });
-    document.addEventListener("drop", (e2) => {
+    document.addEventListener("drop", (e3) => {
       dragDepth = 0;
       overlay.classList.remove("active");
-      if (e2.defaultPrevented) return;
-      e2.preventDefault();
-      [...e2.dataTransfer.files].forEach(loadFile);
+      if (e3.defaultPrevented) return;
+      e3.preventDefault();
+      [...e3.dataTransfer.files].forEach(loadFile);
     });
   })();
   var fileInput = document.getElementById("fileInput");
-  fileInput.addEventListener("change", (e2) => {
-    const target = e2.target;
+  fileInput.addEventListener("change", (e3) => {
+    const target = e3.target;
     [...target.files].forEach(loadFile);
     fileInput.value = "";
   });
@@ -5812,30 +6183,30 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     if (!merges || !merges.length) return;
     const dense = Array.isArray(ws["!data"]) ? ws["!data"] : Array.isArray(ws) ? ws : null;
     if (dense) {
-      merges.forEach(({ s: s2, e: e2 }) => {
-        const srcCell = (dense[s2.r] || [])[s2.c];
+      merges.forEach(({ s: s3, e: e3 }) => {
+        const srcCell = (dense[s3.r] || [])[s3.c];
         if (!srcCell) return;
-        for (let r2 = s2.r; r2 <= e2.r; r2++) {
-          if (!dense[r2]) dense[r2] = [];
-          for (let c2 = s2.c; c2 <= e2.c; c2++) {
-            if (r2 === s2.r && c2 === s2.c) continue;
-            const tgt = dense[r2][c2];
+        for (let r3 = s3.r; r3 <= e3.r; r3++) {
+          if (!dense[r3]) dense[r3] = [];
+          for (let c3 = s3.c; c3 <= e3.c; c3++) {
+            if (r3 === s3.r && c3 === s3.c) continue;
+            const tgt = dense[r3][c3];
             if (!tgt || tgt.v == null || tgt.t === "z") {
-              dense[r2][c2] = { ...srcCell };
+              dense[r3][c3] = { ...srcCell };
             }
           }
         }
       });
       return;
     }
-    merges.forEach(({ s: s2, e: e2 }) => {
-      const srcAddr = XLSX.utils.encode_cell({ r: s2.r, c: s2.c });
+    merges.forEach(({ s: s3, e: e3 }) => {
+      const srcAddr = XLSX.utils.encode_cell({ r: s3.r, c: s3.c });
       const srcCell = ws[srcAddr];
       if (!srcCell) return;
-      for (let r2 = s2.r; r2 <= e2.r; r2++) {
-        for (let c2 = s2.c; c2 <= e2.c; c2++) {
-          if (r2 === s2.r && c2 === s2.c) continue;
-          const addr = XLSX.utils.encode_cell({ r: r2, c: c2 });
+      for (let r3 = s3.r; r3 <= e3.r; r3++) {
+        for (let c3 = s3.c; c3 <= e3.c; c3++) {
+          if (r3 === s3.r && c3 === s3.c) continue;
+          const addr = XLSX.utils.encode_cell({ r: r3, c: c3 });
           const tgt = ws[addr];
           if (!tgt || tgt.v == null || tgt.t === "z") {
             ws[addr] = { ...srcCell };
@@ -5863,10 +6234,10 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       return;
     }
     const _ROWNO = "_rowno";
-    rawData.forEach((row, i2) => {
-      row[_ROWNO] = i2 + 1;
+    rawData.forEach((row, i3) => {
+      row[_ROWNO] = i3 + 1;
     });
-    const cols = Object.keys(rawData[0]).filter((c2) => c2 !== _ROWNO);
+    const cols = Object.keys(rawData[0]).filter((c3) => c3 !== _ROWNO);
     const allCols = [_ROWNO, ...cols];
     const id = "t_" + label.replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "").toLowerCase();
     if (db.tables[id]) {
@@ -5885,10 +6256,10 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     const suggested = /* @__PURE__ */ new Set();
     const suggestedPreviews = /* @__PURE__ */ new Map();
     for (const row of rawData) {
-      for (const c2 of cols) {
-        const v2 = row[c2];
-        if (v2 == null) continue;
-        if (TOTAL_RE.test(String(v2))) {
+      for (const c3 of cols) {
+        const v3 = row[c3];
+        if (v3 == null) continue;
+        if (TOTAL_RE.test(String(v3))) {
           suggested.add(row[_ROWNO]);
           const snippets = cols.map((col) => row[col]).filter((val) => val != null && String(val).trim() !== "").slice(0, 5).map((val) => String(val).trim());
           suggestedPreviews.set(row[_ROWNO], snippets.join(" \xB7 "));
@@ -5901,12 +6272,12 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
       const seen = /* @__PURE__ */ new Set();
       const vals = [];
       for (const row of rawData) {
-        const v2 = row[col];
-        if (v2 == null) continue;
-        const s2 = String(v2).trim();
-        if (!s2 || seen.has(s2)) continue;
-        seen.add(s2);
-        vals.push(s2);
+        const v3 = row[col];
+        if (v3 == null) continue;
+        const s3 = String(v3).trim();
+        if (!s3 || seen.has(s3)) continue;
+        seen.add(s3);
+        vals.push(s3);
         if (vals.length >= 3) break;
       }
       samples[col] = vals;
@@ -5922,7 +6293,7 @@ Sample: ${vals.map((v2) => String(v2)).join(" \xB7 ")}` : `${from}
     renderPreviewDropdown();
     if (suggested.size) {
       const previews = [...suggestedPreviews.values()];
-      const previewStr = previews.length === 1 ? `"${previews[0]}"` : previews.map((p2) => `"${p2}"`).join(", ");
+      const previewStr = previews.length === 1 ? `"${previews[0]}"` : previews.map((p3) => `"${p3}"`).join(", ");
       const noun = suggested.size === 1 ? "row" : "rows";
       const btnLabel = suggested.size === 1 ? "Exclude it" : "Exclude them";
       stickyToast(
@@ -5974,22 +6345,22 @@ Row contents \u2192 ${previewStr}`,
       boxShadow: "0 4px 20px rgba(0,0,0,0.55)"
     });
     document.body.appendChild(tipBox);
-    document.addEventListener("mouseover", (e2) => {
+    document.addEventListener("mouseover", (e3) => {
       if (isContextMenuOpen()) return;
-      const src = e2.target.closest("[data-tip]");
+      const src = e3.target.closest("[data-tip]");
       if (!src) return;
       tipBox.textContent = src.dataset.tip;
       tipBox.style.display = "block";
-      const r2 = src.getBoundingClientRect();
+      const r3 = src.getBoundingClientRect();
       const bw = 304;
-      let left = r2.left + r2.width / 2 - bw / 2;
+      let left = r3.left + r3.width / 2 - bw / 2;
       left = Math.max(6, Math.min(left, window.innerWidth - bw - 6));
-      const top = r2.top - tipBox.offsetHeight - 8;
+      const top = r3.top - tipBox.offsetHeight - 8;
       tipBox.style.left = left + "px";
-      tipBox.style.top = (top < 6 ? r2.bottom + 8 : top) + "px";
+      tipBox.style.top = (top < 6 ? r3.bottom + 8 : top) + "px";
     });
-    document.addEventListener("mouseout", (e2) => {
-      if (e2.target.closest("[data-tip]")) tipBox.style.display = "none";
+    document.addEventListener("mouseout", (e3) => {
+      if (e3.target.closest("[data-tip]")) tipBox.style.display = "none";
     });
   }
 })();

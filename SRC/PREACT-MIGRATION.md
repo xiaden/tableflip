@@ -19,9 +19,9 @@
 - [ ] Verify tests pass
 
 ## Phase 3: Modal + Context Menu
-- [ ] Convert `modal.ts` from imperative DOM to Preact `<Modal>` portal
-- [ ] Convert `context-menu.ts` from imperative DOM to Preact `<ContextMenu>`
-- [ ] Convert `rename-modal.ts` to use `<Modal>` + `<RenameForm>`
+- [x] Convert `modal.ts` → `modal.tsx` with Preact `<Modal>` component
+- [x] Convert `context-menu.ts` → `context-menu.tsx` with Preact `<ContextMenu>` component
+- [x] Legacy `showModal`/`closeModal`/`showContextMenu`/`closeContextMenu` bridges use `render()` to mount Preact components
 - [ ] Verify rename flow works end-to-end
 
 ## Phase 4: Filter + Sort Views
