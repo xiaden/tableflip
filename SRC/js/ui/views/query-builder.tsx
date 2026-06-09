@@ -62,7 +62,7 @@ export function QueryBuilder() {
       <Pipeline />
 
       {hasBase && (
-        <div id="colCard">
+        <div id="colCard" class="qb-card">
           <div class="qb-title" style="margin-bottom:6px">
             Report Layout
             <span class="tip" id="colCardTip" data-tip="Choose which columns appear in your report and how they are summarized. Drag chips to reorder columns. Double-click a chip to hide/show it.">?</span>
@@ -75,7 +75,7 @@ export function QueryBuilder() {
       )}
 
       {hasBase && (
-        <div id="filterSortCard">
+        <div id="filterSortCard" class="qb-card">
           <div class="qb-title" style="margin-bottom:6px">Sort & Filter</div>
           <div style="margin-bottom:8px">
             <div style="font-size:0.76rem;margin-bottom:4px">Sort By</div>

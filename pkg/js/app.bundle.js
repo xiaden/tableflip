@@ -3908,7 +3908,7 @@ ${fromPart}${joinPart}${wherePart}`);
     const usedAsStack = new Set(db.stacks || []);
     const layoutColMap = db.base && db.tables[db.base] ? buildColSourceMap() : /* @__PURE__ */ new Map();
     const layoutMode = db.aggMode || "none";
-    return /* @__PURE__ */ u3("div", { children: [
+    return /* @__PURE__ */ u3("div", { id: "pipeline", class: "pipeline", children: [
       /* @__PURE__ */ u3(BaseStage, { sortedIds, usedAsLookup, usedAsStack, layoutColMap, layoutMode }),
       db.base && db.tables[db.base] && /* @__PURE__ */ u3(PipelineArrow, { id: "base" }),
       (db.lookups || []).map((lk, i3) => /* @__PURE__ */ u3("div", { children: [
@@ -4885,7 +4885,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     }
     return /* @__PURE__ */ u3(S, { children: [
       /* @__PURE__ */ u3(Pipeline, {}),
-      hasBase && /* @__PURE__ */ u3("div", { id: "colCard", children: [
+      hasBase && /* @__PURE__ */ u3("div", { id: "colCard", class: "qb-card", children: [
         /* @__PURE__ */ u3("div", { class: "qb-title", style: "margin-bottom:6px", children: [
           "Report Layout",
           /* @__PURE__ */ u3("span", { class: "tip", id: "colCardTip", "data-tip": "Choose which columns appear in your report and how they are summarized. Drag chips to reorder columns. Double-click a chip to hide/show it.", children: "?" })
@@ -4895,7 +4895,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
         /* @__PURE__ */ u3("div", { id: "totalsSection" }),
         /* @__PURE__ */ u3("div", { id: "subtotalsSection" })
       ] }),
-      hasBase && /* @__PURE__ */ u3("div", { id: "filterSortCard", children: [
+      hasBase && /* @__PURE__ */ u3("div", { id: "filterSortCard", class: "qb-card", children: [
         /* @__PURE__ */ u3("div", { class: "qb-title", style: "margin-bottom:6px", children: "Sort & Filter" }),
         /* @__PURE__ */ u3("div", { style: "margin-bottom:8px", children: [
           /* @__PURE__ */ u3("div", { style: "font-size:0.76rem;margin-bottom:4px", children: "Sort By" }),

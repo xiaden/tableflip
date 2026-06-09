@@ -660,7 +660,7 @@ export function Pipeline() {
   const layoutMode = db.aggMode || 'none';
 
   return (
-    <div>
+    <div id="pipeline" class="pipeline">
       <BaseStage sortedIds={sortedIds} usedAsLookup={usedAsLookup} usedAsStack={usedAsStack} layoutColMap={layoutColMap} layoutMode={layoutMode} />
 
       {db.base && db.tables[db.base] && (
