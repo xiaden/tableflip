@@ -58,7 +58,7 @@ export function QueryBuilder() {
   }
 
   return (
-    <div id="qBuilder" style={{ display: ids.length ? 'grid' : 'none' }}>
+    <>
       <Pipeline />
 
       {hasBase && (
@@ -109,7 +109,7 @@ export function QueryBuilder() {
           <span id="runStatus" style="font-size:0.72rem;color:var(--muted)" />
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -289,15 +289,23 @@ export function runQuery(): void {
   }, 20);
 }
 
-// Legacy render function — mounts Preact component
-let _root: HTMLElement | null = null;
-
+// Render function — mounts Preact component into existing HTML containers
 export function renderQueryBuilder(): void {
   invalidateValidation();
-  if (!_root) {
-    _root = document.getElementById('qBuilder') || document.getElementById('qEmpty')?.parentElement || document.body;
+
+  const ids = Object.keys(db.tables).sort((a, b) => db.tables[a].name.localeCompare(db.tables[b].name));
+  const qEmpty = document.getElementById('qEmpty');
+  const qBuilder = document.getElementById('qBuilder');
+
+  if (qEmpty) qEmpty.style.display = ids.length ? 'none' : '';
+  if (qBuilder) qBuilder.style.display = ids.length ? 'grid' : 'none';
+
+  if (!ids.length) {
+    if (qBuilder) render(null, qBuilder);
+    return;
   }
-  render(<QueryBuilder />, _root);
+
+  if (qBuilder) render(<QueryBuilder />, qBuilder);
 }
 
 if (typeof window !== 'undefined') (window as unknown as Record<string, unknown>).onBaseChange = onBaseChange;

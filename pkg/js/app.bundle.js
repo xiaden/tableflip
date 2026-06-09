@@ -4883,7 +4883,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
       }
       runDisabled = blocked;
     }
-    return /* @__PURE__ */ u3("div", { id: "qBuilder", style: { display: ids.length ? "grid" : "none" }, children: [
+    return /* @__PURE__ */ u3(S, { children: [
       /* @__PURE__ */ u3(Pipeline, {}),
       hasBase && /* @__PURE__ */ u3("div", { id: "colCard", children: [
         /* @__PURE__ */ u3("div", { class: "qb-title", style: "margin-bottom:6px", children: [
@@ -5111,13 +5111,18 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
       }
     }, 20);
   }
-  var _root = null;
   function renderQueryBuilder() {
     invalidateValidation();
-    if (!_root) {
-      _root = document.getElementById("qBuilder") || document.getElementById("qEmpty")?.parentElement || document.body;
+    const ids = Object.keys(db.tables).sort((a3, b2) => db.tables[a3].name.localeCompare(db.tables[b2].name));
+    const qEmpty = document.getElementById("qEmpty");
+    const qBuilder = document.getElementById("qBuilder");
+    if (qEmpty) qEmpty.style.display = ids.length ? "none" : "";
+    if (qBuilder) qBuilder.style.display = ids.length ? "grid" : "none";
+    if (!ids.length) {
+      if (qBuilder) nn(null, qBuilder);
+      return;
     }
-    nn(/* @__PURE__ */ u3(QueryBuilder, {}), _root);
+    if (qBuilder) nn(/* @__PURE__ */ u3(QueryBuilder, {}), qBuilder);
   }
   if (typeof window !== "undefined") window.onBaseChange = onBaseChange;
   if (typeof window !== "undefined") window.addStack = addStack;
