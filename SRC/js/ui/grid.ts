@@ -23,16 +23,16 @@ let gridPreview: AGridApi | null = null;
 
 export function refreshResultGridLayout(): void {
   if (!gridResult) return;
-  try { (gridResult as unknown as Record<string, Function>).resetRowHeights?.(); } catch (_) {}
+  try { (gridResult as unknown as Record<string, () => void>).resetRowHeights?.(); } catch (_) {}
   try { gridResult.refreshCells?.({ force: true }); } catch (_) {}
-  try { (gridResult as unknown as Record<string, Function>).redrawRows?.(); } catch (_) {}
+  try { (gridResult as unknown as Record<string, () => void>).redrawRows?.(); } catch (_) {}
 }
 
 export function refreshPreviewGridLayout(): void {
   if (!gridPreview) return;
-  try { (gridPreview as unknown as Record<string, Function>).resetRowHeights?.(); } catch (_) {}
+  try { (gridPreview as unknown as Record<string, () => void>).resetRowHeights?.(); } catch (_) {}
   try { gridPreview.refreshCells?.({ force: true }); } catch (_) {}
-  try { (gridPreview as unknown as Record<string, Function>).redrawRows?.(); } catch (_) {}
+  try { (gridPreview as unknown as Record<string, () => void>).redrawRows?.(); } catch (_) {}
 }
 
 export function renderResults(result: Record<string, unknown>): void {

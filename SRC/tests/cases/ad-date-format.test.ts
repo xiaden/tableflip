@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { normalizeDateExpr, getDateInputFormat, type DateInputFormat } from '../../js/core/date-format.js';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { normalizeDateExpr, getDateInputFormat, isISODate, getColumnSamples, type DateInputFormat } from '../../js/core/date-format.js';
+import { db } from '../../js/core/state.js';
 
 describe('Date Format', () => {
   describe('normalizeDateExpr()', () => {
@@ -75,6 +76,69 @@ describe('Date Format', () => {
     it('should return format when all three components present', () => {
       const fmt = { first: 'MM' as const, second: 'DD' as const, third: 'YYYY' as const };
       expect(getDateInputFormat({ inputFormat: fmt })).toEqual(fmt);
+    });
+  });
+
+  describe('isISODate()', () => {
+    it('should return true for ISO date strings', () => {
+      expect(isISODate(['2023-12-25', '2024-01-15'])).toBe(true);
+    });
+
+    it('should return true for ISO datetime strings', () => {
+      expect(isISODate(['2023-12-25T14:30:00', '2024-01-15T00:00:00'])).toBe(true);
+    });
+
+    it('should return true for mixed ISO formats', () => {
+      expect(isISODate(['2023-12-25', '2024-01-15T14:30:00'])).toBe(true);
+    });
+
+    it('should return false for MM/DD/YYYY', () => {
+      expect(isISODate(['12/25/2023', '01/15/2024'])).toBe(false);
+    });
+
+    it('should return false for DD MMM YYYY', () => {
+      expect(isISODate(['25-Dec-2023', '15-Jan-2024'])).toBe(false);
+    });
+
+    it('should return false for empty input', () => {
+      expect(isISODate([])).toBe(false);
+    });
+
+    it('should return false for non-date strings', () => {
+      expect(isISODate(['hello', 'world'])).toBe(false);
+    });
+
+    it('should return false when some are ISO and some are not', () => {
+      expect(isISODate(['2023-12-25', '12/25/2023'])).toBe(false);
+    });
+
+    it('should ignore empty strings', () => {
+      expect(isISODate(['2023-12-25', '', '2024-01-15'])).toBe(true);
+    });
+  });
+
+  describe('getColumnSamples()', () => {
+    beforeEach(() => {
+      db.tables = {} as typeof db.tables;
+    });
+
+    it('should return samples when available', () => {
+      (db.tables as Record<string, unknown>)['T1'] = {
+        id: 'T1', name: 'Test', cols: ['Date'], rowCount: 3,
+        samples: { Date: ['2023-12-25', '2024-01-15'] },
+      };
+      expect(getColumnSamples('T1', 'Date')).toEqual(['2023-12-25', '2024-01-15']);
+    });
+
+    it('should return empty array when no samples', () => {
+      (db.tables as Record<string, unknown>)['T1'] = {
+        id: 'T1', name: 'Test', cols: ['Date'], rowCount: 0,
+      };
+      expect(getColumnSamples('T1', 'Date')).toEqual([]);
+    });
+
+    it('should return empty array for missing table', () => {
+      expect(getColumnSamples('T1', 'Date')).toEqual([]);
     });
   });
 });

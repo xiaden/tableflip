@@ -595,7 +595,7 @@
     } catch (e3) {
       try {
         _sqlDb().run("ROLLBACK");
-      } catch (_3) {
+      } catch {
       }
       throw e3;
     }
@@ -615,14 +615,14 @@
   function dropTable(sqlName) {
     try {
       _sqlDb().run(`DROP TABLE IF EXISTS ${quoteId(sqlName)}`);
-    } catch (_3) {
+    } catch {
     }
   }
   function tableRowCount(sqlName) {
     try {
       const r3 = _sqlDb().exec(`SELECT COUNT(*) FROM ${quoteId(sqlName)}`);
       return r3[0]?.values[0]?.[0] ?? 0;
-    } catch (_3) {
+    } catch {
       return 0;
     }
   }
@@ -826,6 +826,23 @@
     const { first, second, third } = date.inputFormat;
     if (!first || !second || !third) return null;
     return { first, second, third };
+  }
+  var RE_ISO_DATE = /^\d{4}-\d{2}-\d{2}(T|\s|$)/;
+  function isISODate(values) {
+    let iso = 0;
+    let total = 0;
+    for (const v3 of values) {
+      const s3 = v3.trim();
+      if (!s3) continue;
+      total++;
+      if (RE_ISO_DATE.test(s3)) iso++;
+    }
+    return total > 0 && iso === total;
+  }
+  function getColumnSamples(tid, col) {
+    const tbl = db.tables?.[tid];
+    const samples = tbl?.samples;
+    return samples?.[col] || [];
   }
 
   // js/query/sql-calcs.ts
@@ -3245,6 +3262,15 @@ ${fromPart}${joinPart}${wherePart}`);
     const fmtFirst = fmt.first || "MM";
     const fmtSecond = fmt.second || "DD";
     const fmtThird = fmt.third || "YYYY";
+    let isoDetected = false;
+    if (srcCol) {
+      const colMap = buildColSourceMap();
+      const entry = colMap.get(srcCol);
+      if (entry && entry.kind !== "calc") {
+        const samples = getColumnSamples(entry.tid, entry.col);
+        isoDetected = isISODate(samples);
+      }
+    }
     const textOnly = part === "year" || part === "week";
     const shortDisabled = textOnly ? " disabled" : "";
     const fullDisabled = textOnly ? " disabled" : "";
@@ -3252,6 +3278,19 @@ ${fromPart}${joinPart}${wherePart}`);
       const opts = [["D", "D"], ["DD", "DD"], ["M", "M"], ["MM", "MM"], ["MMM", "MMM"], ["YY", "YY"], ["YYYY", "YYYY"]];
       return opts.map(([val, label]) => `<option value="${val}" ${sel === val ? "selected" : ""}>${label}</option>`).join("");
     };
+    const formatRow = isoDetected ? `<div class="pl-key-pair" style="margin-top:4px">
+        <span class="pl-key-pair-label">Input format</span>
+        <span style="font-size:0.72rem;color:var(--green)">ISO (auto-detected)</span>
+      </div>` : `<div class="pl-key-pair" style="margin-top:4px">
+        <span class="pl-key-pair-label">Input format <span class="tip" data-tip="D = day (1-9)&#10;DD = day (01-09)&#10;M = month (1-9)&#10;MM = month (01-09)&#10;MMM = month name (Jan, Feb, ...)&#10;YY = 2-digit year (23)&#10;YYYY = 4-digit year (2023)&#10;&#10;Pick the order your dates use.&#10;Example: 12/25/2023 \u2192 MM/DD/YYYY&#10;Example: 25-Dec-2023 \u2192 DD/MMM/YYYY">?</span></span>
+        <div style="display:flex;gap:2px;align-items:center">
+          <select data-ci="${i3}" data-cp="dateFmtFirst" style="width:65px">${fmtOpts(fmtFirst)}</select>
+          <span style="color:var(--muted)">/</span>
+          <select data-ci="${i3}" data-cp="dateFmtSecond" style="width:65px">${fmtOpts(fmtSecond)}</select>
+          <span style="color:var(--muted)">/</span>
+          <select data-ci="${i3}" data-cp="dateFmtThird" style="width:65px">${fmtOpts(fmtThird)}</select>
+        </div>
+      </div>`;
     return `
     <div class="pl-key-pair" style="margin-top:8px">
       <span class="pl-key-pair-label">Source</span>
@@ -3259,16 +3298,7 @@ ${fromPart}${joinPart}${wherePart}`);
         <option value="">\u2014 column \u2014</option>${colOptsFor(srcCol)}
       </select>
     </div>
-    <div class="pl-key-pair" style="margin-top:4px">
-      <span class="pl-key-pair-label">Input format <span class="tip" data-tip="D = day (1-9)&#10;DD = day (01-09)&#10;M = month (1-9)&#10;MM = month (01-09)&#10;MMM = month name (Jan, Feb, ...)&#10;YY = 2-digit year (23)&#10;YYYY = 4-digit year (2023)&#10;&#10;Pick the order your dates use.&#10;Example: 12/25/2023 \u2192 MM/DD/YYYY&#10;Example: 25-Dec-2023 \u2192 DD/MMM/YYYY">?</span></span>
-      <div style="display:flex;gap:2px;align-items:center">
-        <select data-ci="${i3}" data-cp="dateFmtFirst" style="width:65px">${fmtOpts(fmtFirst)}</select>
-        <span style="color:var(--muted)">/</span>
-        <select data-ci="${i3}" data-cp="dateFmtSecond" style="width:65px">${fmtOpts(fmtSecond)}</select>
-        <span style="color:var(--muted)">/</span>
-        <select data-ci="${i3}" data-cp="dateFmtThird" style="width:65px">${fmtOpts(fmtThird)}</select>
-      </div>
-    </div>
+    ${formatRow}
     <div class="pl-key-pair" style="margin-top:4px">
       <span class="pl-key-pair-label">Extract</span>
       <select data-ci="${i3}" data-cp="datePart" style="width:140px;flex-shrink:0">
@@ -4820,7 +4850,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
         f4.vals = [""];
         renderFilters();
       }, children: [
-        /* @__PURE__ */ u3("option", { value: "", children: "Column\\u2026" }),
+        /* @__PURE__ */ u3("option", { value: "", children: "Column\u2026" }),
         cols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: colDisplayLabel(c3, colMap) }, c3))
       ] }),
       /* @__PURE__ */ u3("select", { class: "fop", value: f4.op, onChange: (e3) => update("op", e3.target.value), children: FILTER_OPS.map((op) => /* @__PURE__ */ u3("option", { value: op, children: op }, op)) }),
@@ -4853,7 +4883,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
                   renderFilters();
                 }
               },
-              children: "\\u2715"
+              children: "\u2715"
             }
           )
         ] }, j4)),
@@ -4868,7 +4898,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
               f4.vals.push("");
               renderFilters();
             },
-            children: "\\uFF0B"
+            children: "\uFF0B"
           }
         ),
         /* @__PURE__ */ u3("datalist", { id: datalistId, children: distinct.map((v3) => /* @__PURE__ */ u3("option", { value: v3 }, v3)) })
@@ -4876,16 +4906,16 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
       /* @__PURE__ */ u3("button", { class: "btn btn-danger", onClick: () => {
         db.filters.splice(i3, 1);
         renderFilters();
-      }, children: "\\u2715" })
+      }, children: "\u2715" })
     ] });
   }
   function Filters() {
     const colMap = buildColSourceMap();
     const cols = projectedCols();
     if (!db.filters.length) {
-      return /* @__PURE__ */ u3("span", { style: "font-size:0.76rem;color:var(--muted)", children: "No filters \\u2014 all rows returned" });
+      return /* @__PURE__ */ u3("span", { style: "font-size:0.76rem;color:var(--muted)", children: "No filters \u2014 all rows returned" });
     }
-    return /* @__PURE__ */ u3("div", { id: "filterItems", children: db.filters.map((f4, i3) => /* @__PURE__ */ u3(FilterRow, { f: f4, i: i3, cols, colMap }, i3)) });
+    return /* @__PURE__ */ u3(S, { children: db.filters.map((f4, i3) => /* @__PURE__ */ u3(FilterRow, { f: f4, i: i3, cols, colMap }, i3)) });
   }
   function addFilter() {
     db.filters.push({ col: "", op: "contains", val: "", vals: [""], enabled: true });
@@ -4914,12 +4944,12 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
         "."
       ] }),
       /* @__PURE__ */ u3("select", { value: s3.col, style: "flex:1;min-width:0", onChange: (e3) => update("col", e3.target.value), children: [
-        /* @__PURE__ */ u3("option", { value: "", children: "\\u2014 column \\u2014" }),
+        /* @__PURE__ */ u3("option", { value: "", children: "\u2014 column \u2014" }),
         cols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: colDisplayLabel(c3, colMap) }, c3))
       ] }),
       /* @__PURE__ */ u3("select", { value: s3.dir, style: "width:95px;flex-shrink:0", onChange: (e3) => update("dir", e3.target.value), children: [
-        /* @__PURE__ */ u3("option", { value: "ASC", children: "\\u2191 A \\u2192 Z" }),
-        /* @__PURE__ */ u3("option", { value: "DESC", children: "\\u2193 Z \\u2192 A" })
+        /* @__PURE__ */ u3("option", { value: "ASC", children: "\u2191 A \u2192 Z" }),
+        /* @__PURE__ */ u3("option", { value: "DESC", children: "\u2193 Z \u2192 A" })
       ] }),
       /* @__PURE__ */ u3("label", { class: "pl-enable-toggle", title: sEnabled ? "Disable sort" : "Enable sort", children: [
         /* @__PURE__ */ u3("input", { type: "checkbox", checked: sEnabled, onChange: (e3) => update("enabled", e3.target.checked) }),
@@ -4928,7 +4958,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
       /* @__PURE__ */ u3("button", { class: "btn btn-danger", onClick: () => {
         db.sorts.splice(i3, 1);
         renderSorts();
-      }, children: "\\u2715" })
+      }, children: "\u2715" })
     ] });
   }
   function Sorts() {
@@ -4937,9 +4967,9 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     const cols = colOrder.filter((c3) => !selCols || selCols.has(c3));
     const colMap = buildColSourceMap();
     if (!db.sorts.length) {
-      return /* @__PURE__ */ u3("span", { style: "font-size:0.76rem;color:var(--muted)", children: "No sort \\u2014 rows returned in natural order" });
+      return /* @__PURE__ */ u3("span", { style: "font-size:0.76rem;color:var(--muted)", children: "No sort \u2014 rows returned in natural order" });
     }
-    return /* @__PURE__ */ u3("div", { id: "sortItems", children: db.sorts.map((s3, i3) => /* @__PURE__ */ u3(SortRow, { s: s3, i: i3, cols, colMap }, i3)) });
+    return /* @__PURE__ */ u3(S, { children: db.sorts.map((s3, i3) => /* @__PURE__ */ u3(SortRow, { s: s3, i: i3, cols, colMap }, i3)) });
   }
   function addSort() {
     db.sorts.push({ col: "", dir: "ASC", enabled: true });

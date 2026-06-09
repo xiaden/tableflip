@@ -62,7 +62,7 @@ function FilterRow({ f, i, cols, colMap }: { f: FilterSpec; i: number; cols: str
         <span class="pl-enable-label">{fEnabled ? '' : 'Off'}</span>
       </label>
       <select value={f.col} onChange={(e) => { f.col = (e.target as HTMLSelectElement).value; f.vals = ['']; renderFilters(); }}>
-        <option value="">Column\u2026</option>
+        <option value="">Column…</option>
         {cols.map(c => <option key={c} value={c}>{colDisplayLabel(c, colMap)}</option>)}
       </select>
       <select class="fop" value={f.op} onChange={(e) => update('op', (e.target as HTMLSelectElement).value)}>
@@ -86,20 +86,20 @@ function FilterRow({ f, i, cols, colMap }: { f: FilterSpec; i: number; cols: str
             {j > 0 && (
               <button class="btn btn-danger" style="padding:2px 5px;font-size:0.75rem;flex-shrink:0" title="Remove this OR value"
                 onClick={() => { if (f.vals!.length > 1) { f.vals!.splice(j, 1); renderFilters(); } }}>
-                \u2715
+                ✕
               </button>
             )}
           </span>
         ))}
         <button class="btn btn-ghost" style="padding:2px 7px;font-size:0.76rem;flex-shrink:0" title="Add OR value"
           onClick={() => { if (!Array.isArray(f.vals)) f.vals = ['']; f.vals.push(''); renderFilters(); }}>
-          \uFF0B
+          ＋
         </button>
         <datalist id={datalistId}>
           {distinct.map(v => <option key={v} value={v} />)}
         </datalist>
       </span>
-      <button class="btn btn-danger" onClick={() => { db.filters.splice(i, 1); renderFilters(); }}>\u2715</button>
+      <button class="btn btn-danger" onClick={() => { db.filters.splice(i, 1); renderFilters(); }}>✕</button>
     </div>
   );
 }
@@ -109,15 +109,15 @@ export function Filters() {
   const cols = projectedCols();
 
   if (!db.filters.length) {
-    return <span style="font-size:0.76rem;color:var(--muted)">No filters \u2014 all rows returned</span>;
+    return <span style="font-size:0.76rem;color:var(--muted)">No filters — all rows returned</span>;
   }
 
   return (
-    <div id="filterItems">
+    <>
       {db.filters.map((f, i) => (
         <FilterRow key={i} f={f} i={i} cols={cols} colMap={colMap} />
       ))}
-    </div>
+    </>
   );
 }
 
@@ -149,18 +149,18 @@ function SortRow({ s, i, cols, colMap }: { s: SortSpec; i: number; cols: string[
       )}
       <span class="sort-level">{i + 1}.</span>
       <select value={s.col} style="flex:1;min-width:0" onChange={(e) => update('col', (e.target as HTMLSelectElement).value)}>
-        <option value="">\u2014 column \u2014</option>
+        <option value="">— column —</option>
         {cols.map(c => <option key={c} value={c}>{colDisplayLabel(c, colMap)}</option>)}
       </select>
       <select value={s.dir} style="width:95px;flex-shrink:0" onChange={(e) => update('dir', (e.target as HTMLSelectElement).value)}>
-        <option value="ASC">\u2191 A \u2192 Z</option>
-        <option value="DESC">\u2193 Z \u2192 A</option>
+        <option value="ASC">↑ A → Z</option>
+        <option value="DESC">↓ Z → A</option>
       </select>
       <label class="pl-enable-toggle" title={sEnabled ? 'Disable sort' : 'Enable sort'}>
         <input type="checkbox" checked={sEnabled} onChange={(e) => update('enabled', (e.target as HTMLInputElement).checked)} />
         <span class="pl-enable-label">{sEnabled ? '' : 'Off'}</span>
       </label>
-      <button class="btn btn-danger" onClick={() => { db.sorts.splice(i, 1); renderSorts(); }}>\u2715</button>
+      <button class="btn btn-danger" onClick={() => { db.sorts.splice(i, 1); renderSorts(); }}>✕</button>
     </div>
   );
 }
@@ -172,15 +172,15 @@ export function Sorts() {
   const colMap = buildColSourceMap();
 
   if (!db.sorts.length) {
-    return <span style="font-size:0.76rem;color:var(--muted)">No sort \u2014 rows returned in natural order</span>;
+    return <span style="font-size:0.76rem;color:var(--muted)">No sort — rows returned in natural order</span>;
   }
 
   return (
-    <div id="sortItems">
+    <>
       {db.sorts.map((s, i) => (
         <SortRow key={i} s={s} i={i} cols={cols} colMap={colMap} />
       ))}
-    </div>
+    </>
   );
 }
 

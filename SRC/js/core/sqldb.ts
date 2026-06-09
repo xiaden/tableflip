@@ -53,7 +53,7 @@ export function insertRows(sqlName: string, cols: string[], data: Array<Record<s
     stmt.free();
     _sqlDb().run('COMMIT');
   } catch (e) {
-    try { _sqlDb().run('ROLLBACK'); } catch (_) {}
+    try { _sqlDb().run('ROLLBACK'); } catch {}
     throw e;
   }
 }
@@ -74,12 +74,12 @@ export function execQuery(sql: string, params?: unknown[]): Record<string, unkno
 }
 
 export function dropTable(sqlName: string): void {
-  try { _sqlDb().run(`DROP TABLE IF EXISTS ${quoteId(sqlName)}`); } catch (_) {}
+  try { _sqlDb().run(`DROP TABLE IF EXISTS ${quoteId(sqlName)}`); } catch {}
 }
 
 export function tableRowCount(sqlName: string): number {
   try {
     const r = _sqlDb().exec(`SELECT COUNT(*) FROM ${quoteId(sqlName)}`);
     return (r[0]?.values[0]?.[0] ?? 0) as number;
-  } catch (_) { return 0; }
+  } catch { return 0; }
 }

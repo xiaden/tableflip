@@ -1,4 +1,6 @@
 import { h } from '../../core/utils.js';
+import { isISODate, getColumnSamples } from '../../core/date-format.js';
+import { buildColSourceMap } from '../../catalog/column-catalog.js';
 
 export interface CalcBuilderCtx {
   calc: CalcStage;
@@ -163,6 +165,17 @@ export function renderDateBuilder(ctx: CalcBuilderCtx): string {
   const fmtSecond = fmt.second || 'DD';
   const fmtThird = fmt.third || 'YYYY';
 
+  // Check if source column has ISO dates
+  let isoDetected = false;
+  if (srcCol) {
+    const colMap = buildColSourceMap();
+    const entry = colMap.get(srcCol);
+    if (entry && entry.kind !== 'calc') {
+      const samples = getColumnSamples(entry.tid, entry.col);
+      isoDetected = isISODate(samples);
+    }
+  }
+
   const textOnly = part === 'year' || part === 'week';
   const shortDisabled = textOnly ? ' disabled' : '';
   const fullDisabled = textOnly ? ' disabled' : '';
@@ -172,6 +185,22 @@ export function renderDateBuilder(ctx: CalcBuilderCtx): string {
     return opts.map(([val, label]) => `<option value="${val}" ${sel === val ? 'selected' : ''}>${label}</option>`).join('');
   };
 
+  const formatRow = isoDetected
+    ? `<div class="pl-key-pair" style="margin-top:4px">
+        <span class="pl-key-pair-label">Input format</span>
+        <span style="font-size:0.72rem;color:var(--green)">ISO (auto-detected)</span>
+      </div>`
+    : `<div class="pl-key-pair" style="margin-top:4px">
+        <span class="pl-key-pair-label">Input format <span class="tip" data-tip="D = day (1-9)&#10;DD = day (01-09)&#10;M = month (1-9)&#10;MM = month (01-09)&#10;MMM = month name (Jan, Feb, ...)&#10;YY = 2-digit year (23)&#10;YYYY = 4-digit year (2023)&#10;&#10;Pick the order your dates use.&#10;Example: 12/25/2023 → MM/DD/YYYY&#10;Example: 25-Dec-2023 → DD/MMM/YYYY">?</span></span>
+        <div style="display:flex;gap:2px;align-items:center">
+          <select data-ci="${i}" data-cp="dateFmtFirst" style="width:65px">${fmtOpts(fmtFirst)}</select>
+          <span style="color:var(--muted)">/</span>
+          <select data-ci="${i}" data-cp="dateFmtSecond" style="width:65px">${fmtOpts(fmtSecond)}</select>
+          <span style="color:var(--muted)">/</span>
+          <select data-ci="${i}" data-cp="dateFmtThird" style="width:65px">${fmtOpts(fmtThird)}</select>
+        </div>
+      </div>`;
+
   return `
     <div class="pl-key-pair" style="margin-top:8px">
       <span class="pl-key-pair-label">Source</span>
@@ -179,16 +208,7 @@ export function renderDateBuilder(ctx: CalcBuilderCtx): string {
         <option value="">\u2014 column \u2014</option>${colOptsFor(srcCol)}
       </select>
     </div>
-    <div class="pl-key-pair" style="margin-top:4px">
-      <span class="pl-key-pair-label">Input format <span class="tip" data-tip="D = day (1-9)&#10;DD = day (01-09)&#10;M = month (1-9)&#10;MM = month (01-09)&#10;MMM = month name (Jan, Feb, ...)&#10;YY = 2-digit year (23)&#10;YYYY = 4-digit year (2023)&#10;&#10;Pick the order your dates use.&#10;Example: 12/25/2023 → MM/DD/YYYY&#10;Example: 25-Dec-2023 → DD/MMM/YYYY">?</span></span>
-      <div style="display:flex;gap:2px;align-items:center">
-        <select data-ci="${i}" data-cp="dateFmtFirst" style="width:65px">${fmtOpts(fmtFirst)}</select>
-        <span style="color:var(--muted)">/</span>
-        <select data-ci="${i}" data-cp="dateFmtSecond" style="width:65px">${fmtOpts(fmtSecond)}</select>
-        <span style="color:var(--muted)">/</span>
-        <select data-ci="${i}" data-cp="dateFmtThird" style="width:65px">${fmtOpts(fmtThird)}</select>
-      </div>
-    </div>
+    ${formatRow}
     <div class="pl-key-pair" style="margin-top:4px">
       <span class="pl-key-pair-label">Extract</span>
       <select data-ci="${i}" data-cp="datePart" style="width:140px;flex-shrink:0">

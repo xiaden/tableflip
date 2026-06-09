@@ -1,4 +1,4 @@
-import { quoteId } from './sqldb.js';
+import { db } from './state.js';
 
 export type DateComponent = 'D' | 'DD' | 'M' | 'MM' | 'MMM' | 'YY' | 'YYYY';
 
@@ -86,4 +86,32 @@ export function getDateInputFormat(date: { inputFormat?: DateInputFormat } | und
   const { first, second, third } = date.inputFormat;
   if (!first || !second || !third) return null;
   return { first, second, third };
+}
+
+// ── ISO detection ────────────────────────────────────────────────────────────
+
+const RE_ISO_DATE = /^\d{4}-\d{2}-\d{2}(T|\s|$)/;
+
+/**
+ * Check if sample values look like ISO dates (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS).
+ */
+export function isISODate(values: string[]): boolean {
+  let iso = 0;
+  let total = 0;
+  for (const v of values) {
+    const s = v.trim();
+    if (!s) continue;
+    total++;
+    if (RE_ISO_DATE.test(s)) iso++;
+  }
+  return total > 0 && iso === total;
+}
+
+/**
+ * Get sample values for a column from the database.
+ */
+export function getColumnSamples(tid: string, col: string): string[] {
+  const tbl = db.tables?.[tid] as unknown as Record<string, unknown> | undefined;
+  const samples = tbl?.samples as Record<string, string[]> | undefined;
+  return samples?.[col] || [];
 }

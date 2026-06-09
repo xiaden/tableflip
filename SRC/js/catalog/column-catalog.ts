@@ -253,31 +253,3 @@ export function buildColumnCatalog(reportSpec: Record<string, unknown>, sourceCa
 function getProjectedColumns(catalog: ColumnCatalog): string[] {
   return [...catalog.colMap.keys()];
 }
-
-function resolveOutputAlias(catalog: ColumnCatalog, alias: string): ColMapEntry | null {
-  return catalog.colMap.get(alias) || null;
-}
-
-function resolvePhysicalColumn(catalog: ColumnCatalog, alias: string): { tid: string; col: string } | null {
-  const entry = catalog.colMap.get(alias);
-  if (!entry || entry.kind === 'calc') return null;
-  return { tid: entry.tid, col: entry.col };
-}
-
-function getColumnsAvailableBeforeLookup(catalog: ColumnCatalog, lookupIndex: number): string[] {
-  const boundary = catalog.lookupBoundaries[lookupIndex];
-  if (!boundary) return [];
-  return [...boundary.keys()];
-}
-
-function getColumnsAvailableForFilter(catalog: ColumnCatalog): string[] {
-  return getProjectedColumns(catalog);
-}
-
-function getColumnsAvailableForSort(catalog: ColumnCatalog): string[] {
-  return getProjectedColumns(catalog);
-}
-
-function getColumnsAvailableForOutput(catalog: ColumnCatalog): string[] {
-  return getProjectedColumns(catalog);
-}
