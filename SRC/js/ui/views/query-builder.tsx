@@ -8,8 +8,8 @@ import { buildSourceCatalog } from '../../catalog/source-catalog.js';
 import { buildQueryPlan } from '../../query/query-plan.js';
 import { renderDetailSql } from '../../query/sql-detail.js';
 import { Pipeline } from './pipeline-card.js';
-import { renderAggregation } from '../aggregation.js';
-import { ColChips, MergeToggles } from './output-card.js';
+import { renderAggregation, setAggMode } from '../aggregation.js';
+import { ColChips, MergeToggles, selectAllCols, selectNoneCols } from './output-card.js';
 import { Filters, Sorts } from './filter-sort-card.js';
 import {
   _afterCombineChange, _showLayoutAliasesForSource,
@@ -67,10 +67,36 @@ export function QueryBuilder() {
             Report Layout
             <span class="tip" id="colCardTip" data-tip="Choose which columns appear in your report and how they are summarized. Drag chips to reorder columns. Double-click a chip to hide/show it.">?</span>
           </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <div class="tab-row">
+              <label class="tab-opt">
+                <input type="radio" name="aggMode" value="none" checked={db.aggMode === 'none' || !db.aggMode} onChange={() => setAggMode('none')} />
+                <span data-tip="Show every row as-is. Click chips to include/exclude columns.">No summary</span>
+              </label>
+              <label class="tab-opt">
+                <input type="radio" name="aggMode" value="group" checked={db.aggMode === 'group'} onChange={() => setAggMode('group')} />
+                <span data-tip="Roll rows up into groups. Click a chip to make it a group key — remaining chips get auto calculations.">Summarize</span>
+              </label>
+              <label class="tab-opt">
+                <input type="radio" name="aggMode" value="totals" checked={db.aggMode === 'totals'} onChange={() => setAggMode('totals')} />
+                <span data-tip="Keeps every row, then adds a grand totals row at the bottom.">Keep all rows + totals</span>
+              </label>
+              <label class="tab-opt">
+                <input type="radio" name="aggMode" value="subtotals" checked={db.aggMode === 'subtotals'} onChange={() => setAggMode('subtotals')} />
+                <span data-tip="Keeps all detail rows, grouped together. Adds a configurable subtotal row after each group, and optionally a grand total at the bottom.">Group rows + subtotals</span>
+              </label>
+            </div>
+            <span class="tip" data-tip="Choose how your data is grouped and summarized. Each mode preserves your column layout.">?</span>
+          </div>
           <ColChips />
+          <div class="btn-row" style="margin-top:8px" id="colBtnRow">
+            <button class="btn btn-ghost" onClick={selectAllCols}>All</button>
+            <button class="btn btn-ghost" onClick={selectNoneCols}>None</button>
+          </div>
           <div id="aggSection" />
           <div id="totalsSection" />
           <div id="subtotalsSection" />
+          <div id="aggHint" style="margin-top:8px;font-size:0.72rem;color:var(--muted);display:none" />
         </div>
       )}
 

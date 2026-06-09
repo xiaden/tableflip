@@ -180,7 +180,7 @@ export function renderDateBuilder(ctx: CalcBuilderCtx): string {
       </select>
     </div>
     <div class="pl-key-pair" style="margin-top:4px">
-      <span class="pl-key-pair-label">Input format</span>
+      <span class="pl-key-pair-label">Input format <span class="tip" data-tip="D = day (1-9)&#10;DD = day (01-09)&#10;M = month (1-9)&#10;MM = month (01-09)&#10;MMM = month name (Jan, Feb, ...)&#10;YY = 2-digit year (23)&#10;YYYY = 4-digit year (2023)&#10;&#10;Pick the order your dates use.&#10;Example: 12/25/2023 → MM/DD/YYYY&#10;Example: 25-Dec-2023 → DD/MMM/YYYY">?</span></span>
       <div style="display:flex;gap:2px;align-items:center">
         <select data-ci="${i}" data-cp="dateFmtFirst" style="width:65px">${fmtOpts(fmtFirst)}</select>
         <span style="color:var(--muted)">/</span>

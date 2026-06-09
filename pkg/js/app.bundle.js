@@ -3260,7 +3260,7 @@ ${fromPart}${joinPart}${wherePart}`);
       </select>
     </div>
     <div class="pl-key-pair" style="margin-top:4px">
-      <span class="pl-key-pair-label">Input format</span>
+      <span class="pl-key-pair-label">Input format <span class="tip" data-tip="D = day (1-9)&#10;DD = day (01-09)&#10;M = month (1-9)&#10;MM = month (01-09)&#10;MMM = month name (Jan, Feb, ...)&#10;YY = 2-digit year (23)&#10;YYYY = 4-digit year (2023)&#10;&#10;Pick the order your dates use.&#10;Example: 12/25/2023 \u2192 MM/DD/YYYY&#10;Example: 25-Dec-2023 \u2192 DD/MMM/YYYY">?</span></span>
       <div style="display:flex;gap:2px;align-items:center">
         <select data-ci="${i3}" data-cp="dateFmtFirst" style="width:65px">${fmtOpts(fmtFirst)}</select>
         <span style="color:var(--muted)">/</span>
@@ -4998,10 +4998,36 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
           "Report Layout",
           /* @__PURE__ */ u3("span", { class: "tip", id: "colCardTip", "data-tip": "Choose which columns appear in your report and how they are summarized. Drag chips to reorder columns. Double-click a chip to hide/show it.", children: "?" })
         ] }),
+        /* @__PURE__ */ u3("div", { style: "display:flex;align-items:center;gap:8px;margin-bottom:10px", children: [
+          /* @__PURE__ */ u3("div", { class: "tab-row", children: [
+            /* @__PURE__ */ u3("label", { class: "tab-opt", children: [
+              /* @__PURE__ */ u3("input", { type: "radio", name: "aggMode", value: "none", checked: db.aggMode === "none" || !db.aggMode, onChange: () => setAggMode("none") }),
+              /* @__PURE__ */ u3("span", { "data-tip": "Show every row as-is. Click chips to include/exclude columns.", children: "No summary" })
+            ] }),
+            /* @__PURE__ */ u3("label", { class: "tab-opt", children: [
+              /* @__PURE__ */ u3("input", { type: "radio", name: "aggMode", value: "group", checked: db.aggMode === "group", onChange: () => setAggMode("group") }),
+              /* @__PURE__ */ u3("span", { "data-tip": "Roll rows up into groups. Click a chip to make it a group key \u2014 remaining chips get auto calculations.", children: "Summarize" })
+            ] }),
+            /* @__PURE__ */ u3("label", { class: "tab-opt", children: [
+              /* @__PURE__ */ u3("input", { type: "radio", name: "aggMode", value: "totals", checked: db.aggMode === "totals", onChange: () => setAggMode("totals") }),
+              /* @__PURE__ */ u3("span", { "data-tip": "Keeps every row, then adds a grand totals row at the bottom.", children: "Keep all rows + totals" })
+            ] }),
+            /* @__PURE__ */ u3("label", { class: "tab-opt", children: [
+              /* @__PURE__ */ u3("input", { type: "radio", name: "aggMode", value: "subtotals", checked: db.aggMode === "subtotals", onChange: () => setAggMode("subtotals") }),
+              /* @__PURE__ */ u3("span", { "data-tip": "Keeps all detail rows, grouped together. Adds a configurable subtotal row after each group, and optionally a grand total at the bottom.", children: "Group rows + subtotals" })
+            ] })
+          ] }),
+          /* @__PURE__ */ u3("span", { class: "tip", "data-tip": "Choose how your data is grouped and summarized. Each mode preserves your column layout.", children: "?" })
+        ] }),
         /* @__PURE__ */ u3(ColChips, {}),
+        /* @__PURE__ */ u3("div", { class: "btn-row", style: "margin-top:8px", id: "colBtnRow", children: [
+          /* @__PURE__ */ u3("button", { class: "btn btn-ghost", onClick: selectAllCols, children: "All" }),
+          /* @__PURE__ */ u3("button", { class: "btn btn-ghost", onClick: selectNoneCols, children: "None" })
+        ] }),
         /* @__PURE__ */ u3("div", { id: "aggSection" }),
         /* @__PURE__ */ u3("div", { id: "totalsSection" }),
-        /* @__PURE__ */ u3("div", { id: "subtotalsSection" })
+        /* @__PURE__ */ u3("div", { id: "subtotalsSection" }),
+        /* @__PURE__ */ u3("div", { id: "aggHint", style: "margin-top:8px;font-size:0.72rem;color:var(--muted);display:none" })
       ] }),
       hasBase && /* @__PURE__ */ u3("div", { id: "filterSortCard", class: "qb-card", children: [
         /* @__PURE__ */ u3("div", { class: "qb-title", style: "margin-bottom:6px", children: "Sort & Filter" }),
