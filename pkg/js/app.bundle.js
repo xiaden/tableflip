@@ -725,98 +725,8 @@
     }
   }
 
-  // js/core/date-format.ts
-  var RE_MDY = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
-  var RE_DMMY = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/;
-  function _parseMDY(s3) {
-    const m3 = s3.match(RE_MDY);
-    if (!m3) return null;
-    return { m: +m3[1], d: +m3[2], y: +m3[3] };
-  }
-  function _parseDMY(s3) {
-    const m3 = s3.match(RE_MDY);
-    if (!m3) return null;
-    return { m: +m3[2], d: +m3[1], y: +m3[3] };
-  }
-  function _isValid(d3) {
-    return d3.m >= 1 && d3.m <= 12 && d3.d >= 1 && d3.d <= 31 && d3.y >= 1;
-  }
-  function detectDateFormat(values) {
-    const mdy = [];
-    const dmy = [];
-    const dmmy = [];
-    for (const v3 of values) {
-      const s3 = v3.trim();
-      if (!s3) continue;
-      if (RE_MDY.test(s3)) {
-        mdy.push(s3);
-        dmy.push(s3);
-      } else if (RE_DMMY.test(s3)) {
-        dmmy.push(s3);
-      }
-    }
-    if (dmmy.length > 0) return "dmmy";
-    if (mdy.length === 0) return null;
-    let mdyValid = 0, dmyValid = 0, ambiguous = 0;
-    for (const s3 of mdy) {
-      const a3 = _parseMDY(s3);
-      const b2 = _parseDMY(s3);
-      const aOk = _isValid(a3);
-      const bOk = _isValid(b2);
-      if (aOk && !bOk) mdyValid++;
-      else if (!aOk && bOk) dmyValid++;
-      else if (aOk && bOk) {
-        if (a3.m !== b2.d) mdyValid++;
-        else ambiguous++;
-      }
-    }
-    if (mdyValid > 0 && dmyValid === 0) return "mdy";
-    if (dmyValid > 0 && mdyValid === 0) return "dmy";
-    if (mdyValid > dmyValid) return "mdy";
-    if (dmyValid > mdyValid) return "dmy";
-    return "mdy";
-  }
-  function getColumnSamples(tid, col) {
-    const tbl = db.tables?.[tid];
-    const samples = tbl?.samples;
-    return samples?.[col] || [];
-  }
-  function normalizeDateExpr(colExpr, format) {
-    if (!format) return colExpr;
-    if (format === "mdy") {
-      return `CASE WHEN length(${colExpr}) = 10 AND substr(${colExpr},3,1) = '/' AND substr(${colExpr},6,1) = '/'
-      THEN substr(${colExpr},7,4) || '-' || substr(${colExpr},1,2) || '-' || substr(${colExpr},4,2)
-      ELSE ${colExpr} END`;
-    }
-    if (format === "dmy") {
-      return `CASE WHEN length(${colExpr}) = 10 AND substr(${colExpr},3,1) = '/' AND substr(${colExpr},6,1) = '/'
-      THEN substr(${colExpr},7,4) || '-' || substr(${colExpr},4,2) || '-' || substr(${colExpr},1,2)
-      ELSE ${colExpr} END`;
-    }
-    if (format === "dmmy") {
-      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      const whenParts = months.map((name, i3) => {
-        const mm = String(i3 + 1).padStart(2, "0");
-        return `WHEN '-${name}-' THEN '${mm}'`;
-      }).join(" ");
-      return `CASE WHEN ${colExpr} GLOB '[0-9]*-???-????'
-      THEN substr(${colExpr},8,4) || '-' ||
-           (CASE substr(${colExpr}, instr(${colExpr},'-')+1, 3) ${whenParts} END) || '-' ||
-           printf('%02d', CAST(substr(${colExpr}, 1, instr(${colExpr},'-')-1) AS INTEGER))
-      ELSE ${colExpr} END`;
-    }
-    return colExpr;
-  }
-
   // js/query/sql-aggregates.ts
-  function renderAggregateExpr(fn, colRef, tid, col) {
-    const dateFns = /* @__PURE__ */ new Set(["DATE RANGE", "DATE SPAN"]);
-    let ref = colRef;
-    if (dateFns.has(fn) && tid && col) {
-      const samples = getColumnSamples(tid, col);
-      const format = detectDateFormat(samples);
-      ref = normalizeDateExpr(colRef, format);
-    }
+  function renderAggregateExpr(fn, colRef) {
     switch (fn) {
       case "SUM":
         return `SUM(${colRef})`;
@@ -837,9 +747,9 @@
       case "LAST":
         return `MAX(${colRef})`;
       case "DATE RANGE":
-        return `MIN(${ref}) || ' \u2014 ' || MAX(${ref})`;
+        return `MIN(${colRef}) || ' \u2014 ' || MAX(${colRef})`;
       case "DATE SPAN":
-        return `CAST(julianday(MAX(${ref})) - julianday(MIN(${ref})) AS INTEGER)`;
+        return `CAST(julianday(MAX(${colRef})) - julianday(MIN(${colRef})) AS INTEGER)`;
       case "NUMERIC RANGE":
         return `MIN(${colRef}) || ' \u2013 ' || MAX(${colRef})`;
       case "NUMERIC SPAN":
@@ -849,6 +759,73 @@
       default:
         return `COUNT(${colRef})`;
     }
+  }
+
+  // js/core/date-format.ts
+  function componentWidth(c3) {
+    switch (c3) {
+      case "D":
+      case "M":
+        return 1;
+      case "DD":
+      case "MM":
+      case "YY":
+        return 2;
+      case "MMM":
+        return 3;
+      case "YYYY":
+        return 4;
+      default:
+        return 2;
+    }
+  }
+  function isMonth(c3) {
+    return c3.startsWith("M");
+  }
+  function isDay(c3) {
+    return c3.startsWith("D");
+  }
+  function isYear(c3) {
+    return c3.startsWith("Y");
+  }
+  function monthToNumExpr(expr) {
+    return `(CASE UPPER(${expr}) WHEN 'JAN' THEN '01' WHEN 'FEB' THEN '02' WHEN 'MAR' THEN '03' WHEN 'APR' THEN '04' WHEN 'MAY' THEN '05' WHEN 'JUN' THEN '06' WHEN 'JUL' THEN '07' WHEN 'AUG' THEN '08' WHEN 'SEP' THEN '09' WHEN 'OCT' THEN '10' WHEN 'NOV' THEN '11' WHEN 'DEC' THEN '12' ELSE '01' END)`;
+  }
+  function normalizeDateExpr(colExpr, format) {
+    if (!format) return colExpr;
+    const w1 = componentWidth(format.first);
+    const w22 = componentWidth(format.second);
+    const w3 = componentWidth(format.third);
+    const p1 = 1;
+    const p22 = p1 + w1 + 1;
+    const p3 = p22 + w22 + 1;
+    const extract = (pos, width) => `substr(${colExpr}, ${pos}, ${width})`;
+    const v1 = extract(p1, w1);
+    const v22 = extract(p22, w22);
+    const v3 = extract(p3, w3);
+    const parts = [
+      { comp: format.first, expr: v1 },
+      { comp: format.second, expr: v22 },
+      { comp: format.third, expr: v3 }
+    ];
+    const yearPart = parts.find((p4) => isYear(p4.comp));
+    const monthPart = parts.find((p4) => isMonth(p4.comp));
+    const dayPart = parts.find((p4) => isDay(p4.comp));
+    if (!yearPart || !monthPart || !dayPart) return colExpr;
+    let yearExpr = yearPart.expr;
+    if (yearPart.comp === "YY") yearExpr = `'20' || ${yearExpr}`;
+    let monthExpr = monthPart.expr;
+    if (monthPart.comp === "MMM") monthExpr = monthToNumExpr(monthExpr);
+    else if (monthPart.comp === "M") monthExpr = `printf('%02d', CAST(${monthExpr} AS INTEGER))`;
+    let dayExpr = dayPart.expr;
+    if (dayPart.comp === "D") dayExpr = `printf('%02d', CAST(${dayExpr} AS INTEGER))`;
+    return `${yearExpr} || '-' || ${monthExpr} || '-' || ${dayExpr}`;
+  }
+  function getDateInputFormat(date) {
+    if (!date?.inputFormat) return null;
+    const { first, second, third } = date.inputFormat;
+    if (!first || !second || !third) return null;
+    return { first, second, third };
   }
 
   // js/query/sql-calcs.ts
@@ -978,16 +955,8 @@
     const date = calc.date;
     const op = date.operation;
     if (op === "extract") {
-      let dateFormat = null;
-      const source = date.source;
-      if (source?.type === "column") {
-        const entry = colMap.get(source.value);
-        if (entry && entry.kind !== "calc") {
-          const samples = getColumnSamples(entry.tid, entry.col);
-          dateFormat = detectDateFormat(samples);
-        }
-      }
-      const src = _renderDateSource(date.source, colMap, plan, baseTid, trail, dateFormat);
+      const inputFormat = getDateInputFormat(date);
+      const src = _renderDateSource(date.source, colMap, plan, baseTid, trail, inputFormat);
       const part = date.part || "year";
       const output = date.output || "text";
       const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -1207,16 +1176,7 @@ FROM ${fromClause}`;
         const outName = (agg.alias || "").trim() || (typeof defaultAggAlias === "function" ? defaultAggAlias(agg.fn, agg.col && agg.col !== "*" ? agg.col : "all rows") : `${agg.fn}(${agg.col || "*"})`);
         if (selColSet && !selColSet.has(outName)) continue;
         const colRef = agg.col && agg.col !== "*" ? ref(agg.col) : null;
-        let tid;
-        let physCol;
-        if (agg.col && agg.col !== "*") {
-          const entry = plan.colMap?.get(agg.col);
-          if (entry && entry.kind !== "calc") {
-            tid = entry.tid;
-            physCol = entry.col;
-          }
-        }
-        const expr = renderAggregateExpr(agg.fn, colRef || "*", tid, physCol);
+        const expr = renderAggregateExpr(agg.fn, colRef || "*");
         selParts.push(`${expr} AS ${quoteId(outName)}`);
         colAliases.push(outName);
       }
@@ -1244,18 +1204,10 @@ FROM ${fromClause}`;
     const colTotals = plan.colTotals || {};
     const hasAny = detailCols.some((c3) => colTotals[c3] && colTotals[c3] !== "skip");
     if (!hasAny) return null;
-    const colMap = plan.colMap;
     const selParts = detailCols.map((col) => {
       const fn = colTotals[col];
       if (!fn || fn === "skip") return `NULL AS ${quoteId(col)}`;
-      let tid;
-      let physCol;
-      const entry = colMap?.get(col);
-      if (entry && entry.kind !== "calc") {
-        tid = entry.tid;
-        physCol = entry.col;
-      }
-      return `${renderAggregateExpr(fn, ref(col), tid, physCol)} AS ${quoteId(col)}`;
+      return `${renderAggregateExpr(fn, ref(col))} AS ${quoteId(col)}`;
     });
     let sql = `SELECT ${selParts.join(",\n       ")}
 FROM ${fromClause}`;
@@ -1286,14 +1238,7 @@ FROM ${fromClause}`;
     const subAggExpr = (a3) => {
       const fn = subtotalFns[a3];
       if (!fn || fn === "skip") return `NULL AS ${quoteId(a3)}`;
-      let tid;
-      let physCol;
-      const entry = colMap.get(a3);
-      if (entry && entry.kind !== "calc") {
-        tid = entry.tid;
-        physCol = entry.col;
-      }
-      return `${renderAggregateExpr(fn, ref(a3), tid, physCol)} AS ${quoteId(a3)}`;
+      return `${renderAggregateExpr(fn, ref(a3))} AS ${quoteId(a3)}`;
     };
     const subtotalBySet = new Set(subtotalBy);
     const fromPart = `FROM ${fromClause}`;
@@ -3296,15 +3241,33 @@ ${fromPart}${joinPart}${wherePart}`);
     const srcCol = src?.type === "column" ? src.value || "" : "";
     const part = date?.part || "year";
     const output = date?.output || "text";
+    const fmt = date?.inputFormat || {};
+    const fmtFirst = fmt.first || "MM";
+    const fmtSecond = fmt.second || "DD";
+    const fmtThird = fmt.third || "YYYY";
     const textOnly = part === "year" || part === "week";
     const shortDisabled = textOnly ? " disabled" : "";
     const fullDisabled = textOnly ? " disabled" : "";
+    const fmtOpts = (sel) => {
+      const opts = [["D", "D"], ["DD", "DD"], ["M", "M"], ["MM", "MM"], ["MMM", "MMM"], ["YY", "YY"], ["YYYY", "YYYY"]];
+      return opts.map(([val, label]) => `<option value="${val}" ${sel === val ? "selected" : ""}>${label}</option>`).join("");
+    };
     return `
     <div class="pl-key-pair" style="margin-top:8px">
       <span class="pl-key-pair-label">Source</span>
       <select data-ci="${i3}" data-cp="dateSource" style="min-width:190px">
         <option value="">\u2014 column \u2014</option>${colOptsFor(srcCol)}
       </select>
+    </div>
+    <div class="pl-key-pair" style="margin-top:4px">
+      <span class="pl-key-pair-label">Input format</span>
+      <div style="display:flex;gap:2px;align-items:center">
+        <select data-ci="${i3}" data-cp="dateFmtFirst" style="width:65px">${fmtOpts(fmtFirst)}</select>
+        <span style="color:var(--muted)">/</span>
+        <select data-ci="${i3}" data-cp="dateFmtSecond" style="width:65px">${fmtOpts(fmtSecond)}</select>
+        <span style="color:var(--muted)">/</span>
+        <select data-ci="${i3}" data-cp="dateFmtThird" style="width:65px">${fmtOpts(fmtThird)}</select>
+      </div>
     </div>
     <div class="pl-key-pair" style="margin-top:4px">
       <span class="pl-key-pair-label">Extract</span>
@@ -3528,6 +3491,24 @@ ${fromPart}${joinPart}${wherePart}`);
       if (date) {
         date.output = inp.value;
       }
+    },
+    dateFmtFirst: (c3, inp) => {
+      if (!c3.date) c3.date = {};
+      const date = c3.date;
+      if (!date.inputFormat) date.inputFormat = {};
+      date.inputFormat.first = inp.value;
+    },
+    dateFmtSecond: (c3, inp) => {
+      if (!c3.date) c3.date = {};
+      const date = c3.date;
+      if (!date.inputFormat) date.inputFormat = {};
+      date.inputFormat.second = inp.value;
+    },
+    dateFmtThird: (c3, inp) => {
+      if (!c3.date) c3.date = {};
+      const date = c3.date;
+      if (!date.inputFormat) date.inputFormat = {};
+      date.inputFormat.third = inp.value;
     }
   };
   var condPropHandlers = {

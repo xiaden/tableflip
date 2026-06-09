@@ -1,116 +1,89 @@
-import { db } from './state.js';
+import { quoteId } from './sqldb.js';
 
-export type DateFormat = 'mdy' | 'dmy' | 'dmmy';
+export type DateComponent = 'D' | 'DD' | 'M' | 'MM' | 'MMM' | 'YY' | 'YYYY';
 
-// ── Format detection ─────────────────────────────────────────────────────────
-
-const RE_MDY = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
-const RE_DMMY = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/;
-
-function _parseMDY(s: string): { m: number; d: number; y: number } | null {
-  const m = s.match(RE_MDY);
-  if (!m) return null;
-  return { m: +m[1], d: +m[2], y: +m[3] };
+export interface DateInputFormat {
+  first: DateComponent;
+  second: DateComponent;
+  third: DateComponent;
 }
 
-function _parseDMY(s: string): { m: number; d: number; y: number } | null {
-  const m = s.match(RE_MDY);
-  if (!m) return null;
-  return { m: +m[2], d: +m[1], y: +m[3] };
-}
-
-function _isValid(d: { m: number; d: number; y: number }): boolean {
-  return d.m >= 1 && d.m <= 12 && d.d >= 1 && d.d <= 31 && d.y >= 1;
-}
-
-export function detectDateFormat(values: string[]): DateFormat | null {
-  const mdy: string[] = [];
-  const dmy: string[] = [];
-  const dmmy: string[] = [];
-
-  for (const v of values) {
-    const s = v.trim();
-    if (!s) continue;
-    if (RE_MDY.test(s)) { mdy.push(s); dmy.push(s); }
-    else if (RE_DMMY.test(s)) { dmmy.push(s); }
+function componentWidth(c: string): number {
+  switch (c) {
+    case 'D': case 'M': return 1;
+    case 'DD': case 'MM': case 'YY': return 2;
+    case 'MMM': return 3;
+    case 'YYYY': return 4;
+    default: return 2;
   }
-
-  // DD MMM YYYY is unambiguous
-  if (dmmy.length > 0) return 'dmmy';
-
-  // MM/DD/YYYY vs DD/MM/YYYY
-  if (mdy.length === 0) return null;
-
-  let mdyValid = 0, dmyValid = 0, ambiguous = 0;
-  for (const s of mdy) {
-    const a = _parseMDY(s)!;
-    const b = _parseDMY(s)!;
-    const aOk = _isValid(a);
-    const bOk = _isValid(b);
-    if (aOk && !bOk) mdyValid++;
-    else if (!aOk && bOk) dmyValid++;
-    else if (aOk && bOk) {
-      if (a.m !== b.d) mdyValid++; // month ≠ day → unambiguous
-      else ambiguous++;
-    }
-  }
-
-  // If only one interpretation is valid, use that
-  if (mdyValid > 0 && dmyValid === 0) return 'mdy';
-  if (dmyValid > 0 && mdyValid === 0) return 'dmy';
-
-  // Mixed validity — use majority
-  if (mdyValid > dmyValid) return 'mdy';
-  if (dmyValid > mdyValid) return 'dmy';
-
-  // Fully ambiguous (e.g., 01/02/2023) — default to mdy
-  return 'mdy';
 }
 
-// ── Samples accessor ─────────────────────────────────────────────────────────
+function isMonth(c: string): boolean { return c.startsWith('M'); }
+function isDay(c: string): boolean { return c.startsWith('D'); }
+function isYear(c: string): boolean { return c.startsWith('Y'); }
 
-export function getColumnSamples(tid: string, col: string): string[] {
-  const tbl = db.tables?.[tid] as unknown as Record<string, unknown> | undefined;
-  const samples = tbl?.samples as Record<string, string[]> | undefined;
-  return samples?.[col] || [];
+function monthToNumExpr(expr: string): string {
+  return `(CASE UPPER(${expr}) WHEN 'JAN' THEN '01' WHEN 'FEB' THEN '02' WHEN 'MAR' THEN '03' WHEN 'APR' THEN '04' WHEN 'MAY' THEN '05' WHEN 'JUN' THEN '06' WHEN 'JUL' THEN '07' WHEN 'AUG' THEN '08' WHEN 'SEP' THEN '09' WHEN 'OCT' THEN '10' WHEN 'NOV' THEN '11' WHEN 'DEC' THEN '12' ELSE '01' END)`;
 }
-
-// ── SQL expression generation ────────────────────────────────────────────────
 
 /**
- * Wraps a SQL column expression in a date normalization expression.
- * Returns the original expression unchanged if no conversion is needed.
+ * Generate a SQL expression that converts a date string to ISO format (YYYY-MM-DD).
+ * The date string is expected to have three components separated by a single-character separator.
+ * The format specifies what each component represents.
  */
-export function normalizeDateExpr(colExpr: string, format: DateFormat | null): string {
+export function normalizeDateExpr(colExpr: string, format: DateInputFormat | null | undefined): string {
   if (!format) return colExpr;
 
-  // MM/DD/YYYY → YYYY-MM-DD
-  if (format === 'mdy') {
-    return `CASE WHEN length(${colExpr}) = 10 AND substr(${colExpr},3,1) = '/' AND substr(${colExpr},6,1) = '/'
-      THEN substr(${colExpr},7,4) || '-' || substr(${colExpr},1,2) || '-' || substr(${colExpr},4,2)
-      ELSE ${colExpr} END`;
-  }
+  const w1 = componentWidth(format.first);
+  const w2 = componentWidth(format.second);
+  const w3 = componentWidth(format.third);
 
-  // DD/MM/YYYY → YYYY-MM-DD
-  if (format === 'dmy') {
-    return `CASE WHEN length(${colExpr}) = 10 AND substr(${colExpr},3,1) = '/' AND substr(${colExpr},6,1) = '/'
-      THEN substr(${colExpr},7,4) || '-' || substr(${colExpr},4,2) || '-' || substr(${colExpr},1,2)
-      ELSE ${colExpr} END`;
-  }
+  // Fixed positions: component 1 starts at 1, component 2 after separator, component 3 after separator
+  const p1 = 1;
+  const p2 = p1 + w1 + 1; // +1 for separator
+  const p3 = p2 + w2 + 1;
 
-  // DD MMM YYYY → YYYY-MM-DD
-  if (format === 'dmmy') {
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const whenParts = months.map((name, i) => {
-      const mm = String(i + 1).padStart(2, '0');
-      return `WHEN '-${name}-' THEN '${mm}'`;
-    }).join(' ');
-    return `CASE WHEN ${colExpr} GLOB '[0-9]*-???-????'
-      THEN substr(${colExpr},8,4) || '-' ||
-           (CASE substr(${colExpr}, instr(${colExpr},'-')+1, 3) ${whenParts} END) || '-' ||
-           printf('%02d', CAST(substr(${colExpr}, 1, instr(${colExpr},'-')-1) AS INTEGER))
-      ELSE ${colExpr} END`;
-  }
+  const extract = (pos: number, width: number) => `substr(${colExpr}, ${pos}, ${width})`;
+  const v1 = extract(p1, w1);
+  const v2 = extract(p2, w2);
+  const v3 = extract(p3, w3);
 
-  return colExpr;
+  // Map each position to its role
+  const parts = [
+    { comp: format.first, expr: v1 },
+    { comp: format.second, expr: v2 },
+    { comp: format.third, expr: v3 },
+  ];
+
+  const yearPart = parts.find(p => isYear(p.comp));
+  const monthPart = parts.find(p => isMonth(p.comp));
+  const dayPart = parts.find(p => isDay(p.comp));
+
+  if (!yearPart || !monthPart || !dayPart) return colExpr;
+
+  // Year expression
+  let yearExpr = yearPart.expr;
+  if (yearPart.comp === 'YY') yearExpr = `'20' || ${yearExpr}`;
+
+  // Month expression
+  let monthExpr = monthPart.expr;
+  if (monthPart.comp === 'MMM') monthExpr = monthToNumExpr(monthExpr);
+  else if (monthPart.comp === 'M') monthExpr = `printf('%02d', CAST(${monthExpr} AS INTEGER))`;
+
+  // Day expression
+  let dayExpr = dayPart.expr;
+  if (dayPart.comp === 'D') dayExpr = `printf('%02d', CAST(${dayExpr} AS INTEGER))`;
+
+  return `${yearExpr} || '-' || ${monthExpr} || '-' || ${dayExpr}`;
+}
+
+/**
+ * Get the default input format for a date calc stage.
+ * Returns null if no format is configured.
+ */
+export function getDateInputFormat(date: { inputFormat?: DateInputFormat } | undefined): DateInputFormat | null {
+  if (!date?.inputFormat) return null;
+  const { first, second, third } = date.inputFormat;
+  if (!first || !second || !third) return null;
+  return { first, second, third };
 }

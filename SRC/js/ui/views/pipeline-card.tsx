@@ -19,7 +19,7 @@ import { getValidation } from '../../report/validation.js';
 import { type CalcBuilderCtx, calcModeRenderers } from '../components/calc-builder.js';
 
 type LookupProp = 'enabled' | 'rightId' | 'required' | 'dupMode' | 'kpLeft' | 'kpRight';
-type CalcProp = 'enabled' | 'alias' | 'mode' | 'mathOp' | 'mathOperator' | 'leftCol' | 'rightCol' | 'window' | 'textSource' | 'textCount' | 'textStart' | 'textLength' | 'compareMode' | 'dateSource' | 'datePart' | 'dateOutput';
+type CalcProp = 'enabled' | 'alias' | 'mode' | 'mathOp' | 'mathOperator' | 'leftCol' | 'rightCol' | 'window' | 'textSource' | 'textCount' | 'textStart' | 'textLength' | 'compareMode' | 'dateSource' | 'datePart' | 'dateOutput' | 'dateFmtFirst' | 'dateFmtSecond' | 'dateFmtThird';
 type CondProp = 'col' | 'op' | 'val';
 
 const lookupPropHandlers: Record<LookupProp, (lk: LookupSpec, inp: HTMLInputElement, i: number, el?: HTMLElement) => void> = {
@@ -219,6 +219,24 @@ const calcPropHandlers: Record<CalcProp, (c: CalcStage, inp: HTMLInputElement, i
     if (date) {
       date.output = inp.value;
     }
+  },
+  dateFmtFirst: (c, inp) => {
+    if (!c.date) c.date = {};
+    const date = c.date as Record<string, unknown>;
+    if (!date.inputFormat) date.inputFormat = {};
+    (date.inputFormat as Record<string, string>).first = inp.value;
+  },
+  dateFmtSecond: (c, inp) => {
+    if (!c.date) c.date = {};
+    const date = c.date as Record<string, unknown>;
+    if (!date.inputFormat) date.inputFormat = {};
+    (date.inputFormat as Record<string, string>).second = inp.value;
+  },
+  dateFmtThird: (c, inp) => {
+    if (!c.date) c.date = {};
+    const date = c.date as Record<string, unknown>;
+    if (!date.inputFormat) date.inputFormat = {};
+    (date.inputFormat as Record<string, string>).third = inp.value;
   },
 };
 

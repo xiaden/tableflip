@@ -153,15 +153,24 @@ export function renderCompareBuilder(ctx: CalcBuilderCtx): string {
 
 export function renderDateBuilder(ctx: CalcBuilderCtx): string {
   const { calc, i, colOptsFor } = ctx;
-  const date = calc.date as { operation?: string; source?: { type?: string; value?: string }; part?: string; output?: string } | undefined;
+  const date = calc.date as { operation?: string; source?: { type?: string; value?: string }; part?: string; output?: string; inputFormat?: { first?: string; second?: string; third?: string } } | undefined;
   const src = date?.source;
   const srcCol = src?.type === 'column' ? (src.value || '') : '';
   const part = date?.part || 'year';
   const output = date?.output || 'text';
+  const fmt = date?.inputFormat || {};
+  const fmtFirst = fmt.first || 'MM';
+  const fmtSecond = fmt.second || 'DD';
+  const fmtThird = fmt.third || 'YYYY';
 
   const textOnly = part === 'year' || part === 'week';
   const shortDisabled = textOnly ? ' disabled' : '';
   const fullDisabled = textOnly ? ' disabled' : '';
+
+  const fmtOpts = (sel: string) => {
+    const opts: Array<[string, string]> = [['D','D'],['DD','DD'],['M','M'],['MM','MM'],['MMM','MMM'],['YY','YY'],['YYYY','YYYY']];
+    return opts.map(([val, label]) => `<option value="${val}" ${sel === val ? 'selected' : ''}>${label}</option>`).join('');
+  };
 
   return `
     <div class="pl-key-pair" style="margin-top:8px">
@@ -169,6 +178,16 @@ export function renderDateBuilder(ctx: CalcBuilderCtx): string {
       <select data-ci="${i}" data-cp="dateSource" style="min-width:190px">
         <option value="">\u2014 column \u2014</option>${colOptsFor(srcCol)}
       </select>
+    </div>
+    <div class="pl-key-pair" style="margin-top:4px">
+      <span class="pl-key-pair-label">Input format</span>
+      <div style="display:flex;gap:2px;align-items:center">
+        <select data-ci="${i}" data-cp="dateFmtFirst" style="width:65px">${fmtOpts(fmtFirst)}</select>
+        <span style="color:var(--muted)">/</span>
+        <select data-ci="${i}" data-cp="dateFmtSecond" style="width:65px">${fmtOpts(fmtSecond)}</select>
+        <span style="color:var(--muted)">/</span>
+        <select data-ci="${i}" data-cp="dateFmtThird" style="width:65px">${fmtOpts(fmtThird)}</select>
+      </div>
     </div>
     <div class="pl-key-pair" style="margin-top:4px">
       <span class="pl-key-pair-label">Extract</span>

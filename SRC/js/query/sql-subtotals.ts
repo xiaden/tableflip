@@ -38,11 +38,7 @@ export function renderSubtotalsSql(plan: QueryPlan): SubtotalResult | null {
   const subAggExpr = (a: string) => {
     const fn  = subtotalFns[a];
     if (!fn || fn === 'skip') return `NULL AS ${quoteId(a)}`;
-    let tid: string | undefined;
-    let physCol: string | undefined;
-    const entry = colMap.get(a);
-    if (entry && entry.kind !== 'calc') { tid = entry.tid; physCol = entry.col; }
-    return `${renderAggregateExpr(fn, ref(a), tid, physCol)} AS ${quoteId(a)}`;
+    return `${renderAggregateExpr(fn, ref(a))} AS ${quoteId(a)}`;
   };
 
   const subtotalBySet = new Set(subtotalBy);
