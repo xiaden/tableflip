@@ -553,11 +553,28 @@
 
   // js/core/sqldb.ts
   var _SQLJS_VERSION = "1.12.0";
+  var _LOCAL_WASM_PATH = "/js/wasm/sql-wasm.wasm";
+  var _CDN_WASM_BASE = `https://cdn.jsdelivr.net/npm/sql.js@${_SQLJS_VERSION}/dist`;
   if (typeof window !== "undefined") window.sqlDb = null;
+  async function fetchWasmBinary(url) {
+    const res = await fetch(url, { credentials: "same-origin" });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return res.arrayBuffer();
+  }
   async function initDb() {
-    const SQL = await initSqlJs({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/sql.js@${_SQLJS_VERSION}/dist/${file}`
-    });
+    let wasmBinary;
+    try {
+      wasmBinary = await fetchWasmBinary(_LOCAL_WASM_PATH);
+    } catch (localErr) {
+      try {
+        wasmBinary = await fetchWasmBinary(`${_CDN_WASM_BASE}/sql-wasm.wasm`);
+      } catch (cdnErr) {
+        throw new Error(
+          `Failed to load SQLite WASM: local (${_LOCAL_WASM_PATH}) failed: ${localErr.message}; CDN (${_CDN_WASM_BASE}) failed: ${cdnErr.message}`
+        );
+      }
+    }
+    const SQL = await initSqlJs({ wasmBinary });
     window.sqlDb = new SQL.Database();
   }
   function _sqlDb() {
@@ -1236,7 +1253,6 @@ FROM ${fromClause}`;
   // js/query/sql-subtotals.ts
   function renderSubtotalsSql(plan) {
     if (!plan.source.base) throw new Error("No base table in plan");
-    const colMap = plan.colMap;
     const { fromClause, joinClauses, whereParts, params: filterParams, ref } = renderFromJoinWhere(plan);
     const toShow = plan.selectedColumns;
     if (!toShow.length) return null;
@@ -3020,7 +3036,7 @@ ${fromPart}${joinPart}${wherePart}`);
       ...extra
     ].join("\n");
   }
-  function _isSourceVisibleInLayout(tid, col, colMap, mode) {
+  function _isSourceVisibleInLayout(tid, col, colMap, _mode) {
     const selCols = db.selCols;
     if (!(selCols instanceof Set)) return true;
     let seen = false;
@@ -3075,7 +3091,7 @@ ${fromPart}${joinPart}${wherePart}`);
       _hideLayoutAliasesForSource(tid, c3);
     }
   }
-  function _isAliasVisibleInLayout(alias, mode) {
+  function _isAliasVisibleInLayout(alias, _mode) {
     if (!alias) return true;
     const selCols = db.selCols;
     if (!(selCols instanceof Set)) return true;
@@ -4355,7 +4371,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
   }
   if (typeof window !== "undefined") window.selectNoneCols = selectNoneCols;
   function MergeToggles() {
-    const cols = db.result?.cols || [];
+    const cols = db.result?.cols || projectedCols();
     if (!cols.length) return null;
     const baseDisplayCols = cols.filter((c3) => c3 !== "_rowno" && c3 !== "_row_type" && c3 !== "_isTotalsRow");
     const visibleDisplayCols = db.selCols?.has ? baseDisplayCols.filter((c3) => db.selCols.has(c3)) : baseDisplayCols;
@@ -4395,23 +4411,17 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     if (db.result) renderResults(db.result);
   }
   if (typeof window !== "undefined") window.setMergeGroupUnderline = setMergeGroupUnderline;
-  var _colChipsRoot = null;
-  var _mergeTogglesRoot = null;
   function renderColChips() {
-    const el = document.getElementById("colChips");
-    if (!el) return;
-    if (!_colChipsRoot) {
-      _colChipsRoot = el.parentElement;
+    const colChipsContainer = document.getElementById("colChips");
+    if (colChipsContainer) {
+      nn(/* @__PURE__ */ u3(ColChips, {}), colChipsContainer);
     }
-    nn(/* @__PURE__ */ u3(ColChips, {}), _colChipsRoot);
   }
-  function renderMergeToggles(cols) {
-    const el = document.getElementById("mergeToggles");
-    if (!el) return;
-    if (!_mergeTogglesRoot) {
-      _mergeTogglesRoot = el;
+  function renderMergeToggles(_cols) {
+    const mergeTogglesContainer = document.getElementById("mergeToggles");
+    if (mergeTogglesContainer) {
+      nn(/* @__PURE__ */ u3(MergeToggles, {}), mergeTogglesContainer);
     }
-    nn(/* @__PURE__ */ u3(MergeToggles, {}), _mergeTogglesRoot);
   }
 
   // js/ui/aggregation.ts
@@ -4534,7 +4544,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
         const aggAddRow = document.getElementById("aggAddRow");
         const hasGroups = db.groupBy.length > 0;
         if (aggAddRow) aggAddRow.style.display = hasGroups ? "" : "none";
-        renderAggregateItems2(cols);
+        renderAggregateItems(cols);
       },
       getHint: () => "\u24D8 Results show one row per unique group. Columns marked \u26A0 will be dropped \u2014 click \u26A0 to add a calculation for them."
     },
@@ -4704,7 +4714,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     db.subtotalStrategy = value === "nested" ? "nested" : "combined";
   }
   if (typeof window !== "undefined") window.setSubtotalStrategy = setSubtotalStrategy;
-  function renderAggregateItems2(cols) {
+  function renderAggregateItems(cols) {
     const wrap = document.getElementById("aggItems");
     const colMap = buildColSourceMap();
     const selSet4 = db.selCols;
@@ -4742,12 +4752,12 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     </div>`;
     }).join("");
   }
-  if (typeof window !== "undefined") window.renderAggregateItems = renderAggregateItems2;
+  if (typeof window !== "undefined") window.renderAggregateItems = renderAggregateItems;
   function addAggregate() {
     const cols = projectedCols();
     const col = cols.find((c3) => !db.groupBy.includes(c3)) || cols[0] || "";
     db.aggregates.push({ fn: "SUM", col, alias: "", auto: false });
-    renderAggregateItems2(cols);
+    renderAggregateItems(cols);
   }
   if (typeof window !== "undefined") window.addAggregate = addAggregate;
   function removeAggregate(i3) {
@@ -4764,7 +4774,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
       if (ai === void 0 || !ap) return;
       db.aggregates[+ai][ap] = target.value;
       touchAggregate(+ai);
-      if (ap === "fn") renderAggregateItems2(projectedCols());
+      if (ap === "fn") renderAggregateItems(projectedCols());
     });
     document.getElementById("aggItems").addEventListener("input", (e3) => {
       const target = e3.target;
@@ -4976,19 +4986,11 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     renderSorts();
   }
   if (typeof window !== "undefined") window.addSort = addSort;
-  var _filtersRoot = null;
-  var _sortsRoot = null;
   function renderFilters() {
-    const el = document.getElementById("filterItems");
-    if (!el) return;
-    if (!_filtersRoot) _filtersRoot = el;
-    nn(/* @__PURE__ */ u3(Filters, {}), _filtersRoot);
+    renderQueryBuilder();
   }
   function renderSorts() {
-    const el = document.getElementById("sortItems");
-    if (!el) return;
-    if (!_sortsRoot) _sortsRoot = el;
-    nn(/* @__PURE__ */ u3(Sorts, {}), _sortsRoot);
+    renderQueryBuilder();
   }
 
   // js/ui/views/query-builder.tsx
@@ -5064,12 +5066,12 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
         /* @__PURE__ */ u3("div", { style: "margin-bottom:8px", children: [
           /* @__PURE__ */ u3("div", { style: "font-size:0.76rem;margin-bottom:4px", children: "Sort By" }),
           /* @__PURE__ */ u3(Sorts, {}),
-          /* @__PURE__ */ u3("button", { class: "btn btn-ghost", style: "font-size:0.72rem;margin-top:4px", onClick: addSort2, children: "+ Add sort" })
+          /* @__PURE__ */ u3("button", { class: "btn btn-ghost", style: "font-size:0.72rem;margin-top:4px", onClick: addSort, children: "+ Add sort" })
         ] }),
         /* @__PURE__ */ u3("div", { style: "margin-bottom:8px", children: [
           /* @__PURE__ */ u3("div", { style: "font-size:0.76rem;margin-bottom:4px", children: "Filters" }),
           /* @__PURE__ */ u3(Filters, {}),
-          /* @__PURE__ */ u3("button", { class: "btn btn-ghost", style: "font-size:0.72rem;margin-top:4px", onClick: addFilter2, children: "+ Add filter" })
+          /* @__PURE__ */ u3("button", { class: "btn btn-ghost", style: "font-size:0.72rem;margin-top:4px", onClick: addFilter, children: "+ Add filter" })
         ] }),
         /* @__PURE__ */ u3("div", { children: [
           /* @__PURE__ */ u3("div", { style: "font-size:0.76rem;margin-bottom:4px", children: "Merge duplicate cells" }),
@@ -5090,14 +5092,6 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
         /* @__PURE__ */ u3("span", { id: "runStatus", style: "font-size:0.72rem;color:var(--muted)" })
       ] })
     ] });
-  }
-  function addSort2() {
-    db.sorts.push({ col: "", dir: "ASC", enabled: true });
-    renderQueryBuilder();
-  }
-  function addFilter2() {
-    db.filters.push({ col: "", op: "contains", val: "", vals: [""], enabled: true });
-    renderQueryBuilder();
   }
   function onBaseChange(val) {
     db.base = val;
@@ -5313,30 +5307,30 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     if (!gridResult) return;
     try {
       gridResult.resetRowHeights?.();
-    } catch (_3) {
+    } catch {
     }
     try {
       gridResult.refreshCells?.({ force: true });
-    } catch (_3) {
+    } catch {
     }
     try {
       gridResult.redrawRows?.();
-    } catch (_3) {
+    } catch {
     }
   }
   function refreshPreviewGridLayout() {
     if (!gridPreview) return;
     try {
       gridPreview.resetRowHeights?.();
-    } catch (_3) {
+    } catch {
     }
     try {
       gridPreview.refreshCells?.({ force: true });
-    } catch (_3) {
+    } catch {
     }
     try {
       gridPreview.redrawRows?.();
-    } catch (_3) {
+    } catch {
     }
   }
   function renderResults(result) {
@@ -6029,7 +6023,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
     if (db.base) {
       try {
         renderMergeToggles(projectedCols());
-      } catch (_3) {
+      } catch {
       }
     }
   }
@@ -6409,7 +6403,7 @@ Sample: ${vals.map((v3) => String(v3)).join(" \xB7 ")}` : `${from}
         const r3 = XLSX.utils.decode_range(ws["!ref"]);
         rows = (r3.e.r - r3.s.r).toLocaleString();
         cols = r3.e.c - r3.s.c + 1;
-      } catch (_3) {
+      } catch {
       }
       const id = "chk_" + Math.random().toString(36).slice(2);
       const row = document.createElement("div");

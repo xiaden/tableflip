@@ -1,4 +1,5 @@
 import { useRef, useCallback, useState } from 'preact/hooks';
+import { render } from 'preact/compat';
 import { db } from '../../core/state.js';
 import { projectedCols, buildColSourceMap, type ColMapEntry, type PhysicalColEntry } from '../../catalog/column-catalog.js';
 import { colDisplayLabel, getTableColorClass, smartDefaultFn } from '../../core/utils.js';
@@ -328,9 +329,15 @@ export function setMergeGroupUnderline(checked: boolean): void {
 if (typeof window !== 'undefined') window.setMergeGroupUnderline = setMergeGroupUnderline;
 
 export function renderColChips(): void {
-  renderQueryBuilder();
+  const colChipsContainer = document.getElementById('colChips');
+  if (colChipsContainer) {
+    render(<ColChips />, colChipsContainer);
+  }
 }
 
 export function renderMergeToggles(_cols: string[]): void {
-  renderQueryBuilder();
+  const mergeTogglesContainer = document.getElementById('mergeToggles');
+  if (mergeTogglesContainer) {
+    render(<MergeToggles />, mergeTogglesContainer);
+  }
 }

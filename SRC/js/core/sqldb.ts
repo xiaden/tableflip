@@ -3,15 +3,39 @@
 // After ingestion the raw JS arrays are released so the GC can reclaim them.
 
 const _SQLJS_VERSION = '1.12.0';
+const _LOCAL_WASM_PATH = '/js/wasm/sql-wasm.wasm';
+const _CDN_WASM_BASE = `https://cdn.jsdelivr.net/npm/sql.js@${_SQLJS_VERSION}/dist`;
 
 // Guard against non-browser environments (test env sets global.window later).
 if (typeof window !== 'undefined') window.sqlDb = null;
 
+async function fetchWasmBinary(url: string): Promise<ArrayBuffer> {
+  const res = await fetch(url, { credentials: 'same-origin' });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.arrayBuffer();
+}
+
 // Reference the global/window.sqlDb so both the app and test env see the same DB.
 export async function initDb(): Promise<void> {
-  const SQL = await initSqlJs({
-    locateFile: file => `https://cdn.jsdelivr.net/npm/sql.js@${_SQLJS_VERSION}/dist/${file}`,
-  });
+  let wasmBinary: ArrayBuffer | undefined;
+
+  // 1. Try loading local WASM first
+  try {
+    wasmBinary = await fetchWasmBinary(_LOCAL_WASM_PATH);
+  } catch (localErr) {
+    // 2. Fallback to CDN if local fails (CORS, 404, etc.)
+    try {
+      wasmBinary = await fetchWasmBinary(`${_CDN_WASM_BASE}/sql-wasm.wasm`);
+    } catch (cdnErr) {
+      // 3. Both failed - throw combined error
+      throw new Error(
+        `Failed to load SQLite WASM: local (${_LOCAL_WASM_PATH}) failed: ${(localErr as Error).message}; ` +
+        `CDN (${_CDN_WASM_BASE}) failed: ${(cdnErr as Error).message}`
+      );
+    }
+  }
+
+  const SQL = await initSqlJs({ wasmBinary });
   window.sqlDb = new SQL.Database();
 }
 
