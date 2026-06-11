@@ -11,7 +11,10 @@
     "lint": "eslint js/ tests/",
     "test": "vitest run",
     "test:watch": "vitest",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "build:preact": "node scripts/build-preact.mjs",
+    "typecheck:preact": "tsc --noEmit -p preact/tsconfig.json",
+    "dev:preact": "tsc --watch -p preact/tsconfig.json"
   },
   "devDependencies": {
     "@types/node": "^25.9.2",
