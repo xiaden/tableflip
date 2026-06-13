@@ -14,6 +14,8 @@
   --yellow:  #d29922;
 }
 
+#app { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   background: var(--bg);
@@ -45,7 +47,7 @@ body {
 }
 
 /* ── Layout ─────────────────────────────────────────────── */
-.layout { display: flex; flex: 1; overflow: hidden; }
+.layout { display: flex; flex: 1; overflow: hidden; position: relative; }
 
 /* ── Sidebar ─────────────────────────────────────────────── */
 .sidebar {
@@ -55,6 +57,7 @@ body {
   display: flex; flex-direction: column;
   overflow: hidden;
   transition: width 0.2s ease, min-width 0.2s ease;
+  flex: 1;
 }
 .sidebar.collapsed {
   width: 0; min-width: 0;
@@ -62,23 +65,24 @@ body {
   overflow: hidden;
 }
 .sidebar-toggle {
-  position: absolute; right: -18px; top: 50%; transform: translateY(-50%);
+  position: absolute; left: 270px; top: 50%; transform: translateY(-50%);
   width: 18px; height: 42px;
   background: var(--bg2); border: 1px solid var(--border);
   border-left: none; border-radius: 0 6px 6px 0;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; color: var(--muted); font-size: 0.7rem;
-  transition: color 0.15s, background 0.15s;
+  transition: left 0.2s ease, color 0.15s, background 0.15s;
   user-select: none; z-index: 20;
 }
 .sidebar-toggle:hover { color: var(--text); background: var(--bg3); }
+.sidebar-toggle.collapsed { left: 0; }
 .sidebar-inner {
   width: 270px; min-width: 270px;
   display: flex; flex-direction: column;
   flex: 1; overflow: hidden;
 }
 .sidebar-wrap {
-  position: relative; display: flex; flex-shrink: 0;
+  position: relative; display: flex; flex-shrink: 0; align-self: stretch;
 }
 .sb-sec { padding: 12px; border-bottom: 1px solid var(--border); }
 .sb-sec h3 {
@@ -116,6 +120,49 @@ body {
   border-radius: 4px; font-size: 0.8rem;
 }
 .tcard-rm:hover { color: var(--red); background: rgba(248,81,73,0.1); }
+
+/* Sidebar footer */
+.sidebar-footer {
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg3);
+  margin-top: auto;
+}
+.sidebar-save-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  transition: all 0.15s ease;
+}
+.sidebar-save-btn:hover {
+  background: var(--accent2);
+  border-color: var(--accent2);
+}
+.sidebar-save-btn:active {
+  transform: translateY(1px);
+  opacity: 0.9;
+}
+.sidebar-save-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.sidebar-save-btn:disabled {
+  background: var(--border);
+  border-color: var(--border);
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
 
 /* ── Main area ───────────────────────────────────────────── */
 .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
@@ -159,7 +206,7 @@ body {
 }
 
 /* ── Form controls ───────────────────────────────────────── */
-select, input[type="text"] {
+select, input[type="text"], input[type="number"] {
   background: var(--bg); border: 1px solid var(--border); color: var(--text);
   border-radius: 6px; padding: 5px 8px; font-size: 0.8rem; width: 100%;
   transition: border-color 0.15s;
@@ -192,6 +239,14 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
   border-radius: 8px; padding: 12px 14px; flex-shrink: 0;
 }
 .qb-title {
+  font-size: 0.68rem; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--muted); margin-bottom: 8px;
+}
+.card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 14px; flex-shrink: 0;
+}
+.card-header {
   font-size: 0.68rem; text-transform: uppercase;
   letter-spacing: 0.07em; color: var(--muted); margin-bottom: 8px;
 }
@@ -538,9 +593,9 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
 #pipeline { grid-column: 1 / -1; }
 #runRow   { grid-column: 1 / -1; }
 
-/* Top pair: Start From → Include Rows, side by side */
-.pl-top-pair { display: flex; align-items: stretch; gap: 0; }
-.pl-top-pair > .pl-stage { flex: 1; min-width: 0; }
+/* Top pair: Start From → Include Rows, side by side when wide, stacked when narrow */
+.pl-top-pair { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; container-type: inline-size; }
+.pl-top-pair > .pl-stage { flex: 1 1 280px; min-width: 0; }
 .pl-h-arrow { flex-shrink: 0; display: flex; align-items: center; padding: 0 10px; }
 .pl-h-line { width: 20px; height: 2px; background: var(--border); }
 .pl-h-head {
@@ -548,6 +603,14 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
   border-top: 5px solid transparent;
   border-bottom: 5px solid transparent;
   border-left: 7px solid var(--border);
+}
+.pl-v-arrow-stacked {
+  display: none; flex-basis: 100%; flex-direction: column; align-items: center;
+  padding: 2px 0; gap: 0;
+}
+@container (max-width: 620px) {
+  .pl-top-pair > .pl-h-arrow { display: none !important; }
+  .pl-top-pair > .pl-v-arrow-stacked { display: flex !important; }
 }
 
 /* ── Tab-style radio groups ────────────────────────── */

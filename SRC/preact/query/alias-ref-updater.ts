@@ -29,4 +29,22 @@ export function _renameProjectedAliasRefs(oldAlias: string, newAlias: string): v
       if (a.col === oldAlias) a.col = newAlias;
     }
   }
+
+  const detailBands = db.detailBands as Array<Record<string, unknown>> | undefined;
+  if (detailBands) {
+    for (const band of detailBands) {
+      const keyPairs = band.keyPairs as Array<Record<string, unknown>> | undefined;
+      if (keyPairs) {
+        for (const kp of keyPairs) {
+          if (kp.left === oldAlias) kp.left = newAlias;
+        }
+      }
+      const cols = band.cols as string[] | undefined;
+      if (cols) {
+        for (let i = 0; i < cols.length; i++) {
+          if (cols[i] === oldAlias) cols[i] = newAlias;
+        }
+      }
+    }
+  }
 }

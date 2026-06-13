@@ -1,0 +1,232 @@
+import { describe, it, expect } from 'vitest';
+import { buildQueryPlan } from '../../query/query-plan';
+import type { DbTable } from '../../types';
+import { makeReportSpec, standardTables, normalizeSql } from './helpers';
+
+describe('query-plan', () => {
+  const tables = standardTables();
+
+  describe('buildQueryPlan()', () => {
+    it('should build a detail mode plan (aggMode=none)', () => {
+      const spec = makeReportSpec();
+      const plan = buildQueryPlan(spec, tables);
+      expect(plan.sql).toBeTruthy();
+      expect(plan.aggMode).toBe('none');
+      expect(plan.source.base).toBe('Orders');
+      expect(plan.colMap).toBeInstanceOf(Map);
+      expect(plan.colMap.size).toBeGreaterThan(0);
+      expect(plan.cols.length).toBeGreaterThan(0);
+    });
+
+    it('should build a group mode plan', () => {
+      const spec = makeReportSpec({
+        aggregation: {
+          mode: 'group',
+          groupBy: ['Company'],
+          aggregates: [{ col: 'Amount', fn: 'SUM', alias: 'Total', enabled: true }],
+          colTotals: {},
+          subtotalBy: [],
+          subtotalFns: {},
+          subtotalGrandTotal: true,
+          subtotalSpacer: false,
+          subtotalOnTop: false,
+          subtotalStrategy: 'combined',
+        },
+      });
+      const plan = buildQueryPlan(spec, tables);
+      expect(plan.aggMode).toBe('group');
+      const norm = normalizeSql(plan.sql);
+      expect(norm).toContain('GROUP BY');
+      expect(norm).toContain('SUM');
+      expect(plan.cols).toContain('Company');
+      expect(plan.cols).toContain('Total');
+    });
+
+    it('should build a totals mode plan', () => {
+      const spec = makeReportSpec({
+        aggregation: {
+          mode: 'totals',
+          groupBy: [],
+          aggregates: [],
+          colTotals: { Amount: 'SUM' },
+          subtotalBy: [],
+          subtotalFns: {},
+          subtotalGrandTotal: true,
+          subtotalSpacer: false,
+          subtotalOnTop: false,
+          subtotalStrategy: 'combined',
+        },
+      });
+      const plan = buildQueryPlan(spec, tables);
+      expect(plan.aggMode).toBe('totals');
+      const norm = normalizeSql(plan.sql);
+      expect(norm).toContain('SUM');
+    });
+
+    it('should build a subtotals mode plan', () => {
+      const spec = makeReportSpec({
+        outputColumns: ['Company', 'Region', 'Amount'],
+        aggregation: {
+          mode: 'subtotals',
+          groupBy: [],
+          aggregates: [],
+          colTotals: {},
+          subtotalBy: ['Company'],
+          subtotalFns: { Amount: 'SUM' },
+          subtotalGrandTotal: true,
+          subtotalSpacer: false,
+          subtotalOnTop: false,
+          subtotalStrategy: 'combined',
+        },
+      });
+      const plan = buildQueryPlan(spec, tables);
+      expect(plan.aggMode).toBe('subtotals');
+      const norm = normalizeSql(plan.sql);
+      expect(norm).toContain('UNION ALL');
+    });
+
+    it('should include source plan with base and stacks', () => {
+      const spec = makeReportSpec();
+      const plan = buildQueryPlan(spec, tables);
+      expect(plan.source.base).toBe('Orders');
+      expect(plan.source.stacks).toEqual([]);
+      expect(plan.source.tablesById).toBeInstanceOf(Map);
+      expect(plan.source.tablesById.has('Orders')).toBe(true);
+    });
+
+    it('should include join plans when lookups are present', () => {
+      const spec = makeReportSpec({
+        pipeline: {
+          base: 'Orders',
+          baseCols: null,
+          stacks: [],
+          lookups: [{
+            rightId: 'Contacts',
+            keyPairs: [{ left: 'Contact', right: 'ContactId' }],
+            cols: ['Name'],
+            required: false,
+            enabled: true,
+            duplicatePolicy: { mode: 'block' },
+          }],
+          calculatedColumns: [],
+          detailBands: [],
+        },
+      });
+      const plan = buildQueryPlan(spec, tables);
+      expect(plan.joins.length).toBe(1);
+      expect(plan.joins[0].rightId).toBe('Contacts');
+      expect(plan.joins[0].required).toBe(false);
+    });
+
+    it('should include calculated columns', () => {
+      const spec = makeReportSpec({
+        pipeline: {
+          base: 'Orders',
+          baseCols: null,
+          stacks: [],
+          lookups: [],
+          calculatedColumns: [{
+            alias: 'DoubleAmount',
+            mode: 'math',
+            math: {
+              strategy: 'stepChain',
+              steps: [
+                { type: 'column', value: 'Amount' },
+                { type: 'number', value: '2', op: '*' },
+              ],
+            },
+            enabled: true,
+          }],
+          detailBands: [],
+        },
+      });
+      const plan = buildQueryPlan(spec, tables);
+      expect(plan.calculatedColumns.length).toBe(1);
+      expect(plan.calculatedColumns[0].alias).toBe('DoubleAmount');
+    });
+
+    it('should include enabled filters', () => {
+      const spec = makeReportSpec({
+        filters: [
+          { col: 'Status', op: '=', val: 'Open', vals: ['Open'] },
+          { col: 'Region', op: '=', val: 'North', vals: ['North'], enabled: false },
+        ],
+      });
+      const plan = buildQueryPlan(spec, tables);
+      expect(plan.filters.length).toBe(1);
+      expect(plan.filters[0].col).toBe('Status');
+    });
+
+    it('should include selectedColumns', () => {
+      const spec = makeReportSpec({
+        outputColumns: ['OrderId', 'Company', 'Amount'],
+      });
+      const plan = buildQueryPlan(spec, tables);
+      expect(plan.selectedColumns).toContain('OrderId');
+      expect(plan.selectedColumns).toContain('Company');
+      expect(plan.selectedColumns).toContain('Amount');
+    });
+
+    it('should include sorts', () => {
+      const spec = makeReportSpec({
+        sorts: [{ col: 'Amount', dir: 'DESC', enabled: true }],
+      });
+      const plan = buildQueryPlan(spec, tables);
+      expect(plan.sorts.length).toBe(1);
+      expect(plan.sorts[0].col).toBe('Amount');
+    });
+
+    it('should include colTotals, subtotalBy, subtotalFns', () => {
+      const spec = makeReportSpec({
+        aggregation: {
+          mode: 'totals',
+          groupBy: [],
+          aggregates: [],
+          colTotals: { Amount: 'SUM' },
+          subtotalBy: ['Company'],
+          subtotalFns: { Amount: 'SUM' },
+          subtotalGrandTotal: true,
+          subtotalSpacer: true,
+          subtotalOnTop: true,
+          subtotalStrategy: 'nested',
+        },
+      });
+      const plan = buildQueryPlan(spec, tables);
+      expect(plan.colTotals).toEqual({ Amount: 'SUM' });
+      expect(plan.subtotalBy).toEqual(['Company']);
+      expect(plan.subtotalFns).toEqual({ Amount: 'SUM' });
+      expect(plan.subtotalGrandTotal).toBe(true);
+      expect(plan.subtotalSpacer).toBe(true);
+      expect(plan.subtotalOnTop).toBe(true);
+      expect(plan.subtotalStrategy).toBe('nested');
+    });
+
+    it('should throw if no base table', () => {
+      const spec = makeReportSpec({
+        pipeline: { base: '', baseCols: null, stacks: [], lookups: [], calculatedColumns: [], detailBands: [] },
+      });
+      expect(() => buildQueryPlan(spec, tables)).toThrow();
+    });
+
+    it('should filter stacks to known tables', () => {
+      const spec = makeReportSpec({
+        pipeline: {
+          base: 'Orders',
+          baseCols: null,
+          stacks: ['NonExistent', 'Contacts'],
+          lookups: [],
+          calculatedColumns: [],
+          detailBands: [],
+        },
+      });
+      const plan = buildQueryPlan(spec, tables);
+      expect(plan.source.stacks).toEqual(['Contacts']);
+    });
+
+    it('should return empty params for detail query without filters', () => {
+      const spec = makeReportSpec();
+      const plan = buildQueryPlan(spec, tables);
+      expect(plan.params).toEqual([]);
+    });
+  });
+});
