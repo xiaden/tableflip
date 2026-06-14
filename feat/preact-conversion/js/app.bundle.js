@@ -155,17 +155,67 @@
   function buildColSourceMap() {
     const state = getStore().getState();
     const map = /* @__PURE__ */ new Map();
-    for (const tid of Object.keys(state.tables)) {
-      const cols = state.tables[tid]?.cols || [];
-      for (const col of cols) {
-        map.set(col, { tid, col });
-      }
+    const base = state.base;
+    if (!base || !state.tables[base]) return map;
+    const lookups = state.lookups || [];
+    const calcStages = state.calcStages || [];
+    state.tables[base].cols.forEach((c3) => map.set(c3, { tid: base, col: c3 }));
+    for (const lk of lookups) {
+      if (lk.enabled === false) continue;
+      if (!lk.rightId || !state.tables[lk.rightId]) continue;
+      const pairs = Array.isArray(lk.keyPairs) ? lk.keyPairs.filter((p3) => p3.left && p3.right) : [];
+      if (!pairs.length) continue;
+      const rt = state.tables[lk.rightId];
+      const prefix = tablePrefix(rt.name);
+      rt.cols.forEach((c3) => {
+        const alias = map.has(c3) ? prefix + c3 : c3;
+        if (!map.has(alias)) map.set(alias, { tid: lk.rightId, col: c3 });
+      });
     }
-    for (let i3 = 0; i3 < (state.calcStages || []).length; i3++) {
-      const calc = state.calcStages[i3];
-      if (calc?.alias) {
-        map.set(calc.alias, { kind: "calc", idx: i3, alias: calc.alias });
+    for (let i3 = 0; i3 < calcStages.length; i3++) {
+      const calc = calcStages[i3];
+      if (calc?.enabled === false) continue;
+      const alias = (calc?.alias || "").trim();
+      if (!alias) continue;
+      if (!calc.mode || !["math", "compare", "text", "date"].includes(calc.mode)) continue;
+      let valid = false;
+      if (calc.mode === "math") {
+        const m3 = calc.math;
+        const steps = m3 && Array.isArray(m3.steps) ? m3.steps : [];
+        const structValid = !!(m3 && m3.strategy === "stepChain" && steps.length > 0 && !steps[0].op && steps.every((s3) => s3 && ["column", "number", "text"].includes(s3.type)) && steps.slice(1).every((s3) => s3.op && ["+", "-", "*", "/", "%"].includes(s3.op)));
+        const colsExist = structValid && steps.filter((s3) => s3.type === "column" && s3.value).every((s3) => map.has(s3.value));
+        valid = structValid && colsExist;
+      } else if (calc.mode === "compare") {
+        const c3 = calc.compare;
+        const conds = Array.isArray(c3?.conditions) ? c3.conditions : [];
+        valid = !!(c3 && conds.length > 0 && c3.trueValue && c3.falseValue && conds.every((cond) => cond.col && ["=", "!=", ">", ">=", "<", "<="].includes(cond.op)) && conds.some((cond) => map.has(cond.col)) && ["column", "number", "text"].includes(c3.trueValue.type) && ["column", "number", "text"].includes(c3.falseValue.type));
+      } else if (calc.mode === "text") {
+        const t3 = calc.text;
+        if (t3 && ["combine", "left", "right", "substring"].includes(t3.operation)) {
+          if (t3.operation === "combine") {
+            const parts = Array.isArray(t3.parts) ? t3.parts : [];
+            const structValid = parts.length > 0 && parts.every((p3) => p3 && ["column", "number", "text"].includes(p3.type));
+            const colsExist = structValid && parts.filter((p3) => p3.type === "column" && p3.value).every((p3) => map.has(p3.value));
+            valid = structValid && colsExist;
+          } else {
+            const src = t3.source;
+            const structValid = !!(src && ["column", "text"].includes(src.type));
+            const colExists = structValid && src.type !== "column" ? true : map.has(src.value);
+            valid = structValid && colExists;
+          }
+        }
+      } else if (calc.mode === "date") {
+        const d3 = calc.date;
+        if (d3 && d3.operation === "extract") {
+          const src = d3.source;
+          const structValid = !!(src && src.type === "column");
+          const colExists = structValid && map.has(src.value);
+          valid = colExists && ["year", "month", "day", "dow", "week", "quarter", "julian"].includes(d3.part);
+        }
       }
+      if (!valid) continue;
+      if (map.has(alias)) continue;
+      map.set(alias, { kind: "calc", mode: calc.mode, idx: i3, calc });
     }
     return map;
   }
