@@ -1,417 +1,5 @@
 "use strict";
 (() => {
-  var __defProp = Object.defineProperty;
-  var __getOwnPropNames = Object.getOwnPropertyNames;
-  var __esm = (fn, res, err) => function __init() {
-    if (err) throw err[0];
-    try {
-      return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
-    } catch (e3) {
-      throw err = [e3], e3;
-    }
-  };
-  var __export = (target, all) => {
-    for (var name in all)
-      __defProp(target, name, { get: all[name], enumerable: true });
-  };
-
-  // preact/core/state.ts
-  function createAppState(overrides) {
-    return Object.assign({
-      tables: {},
-      excludedRows: {},
-      tableColors: {},
-      columnLabels: {},
-      base: "",
-      baseCols: null,
-      stacks: [],
-      lookups: [],
-      calcStages: [],
-      selCols: null,
-      colOrder: null,
-      filters: [],
-      groupBy: [],
-      aggregates: [],
-      aggMode: "none",
-      aggModeState: null,
-      colTotals: {},
-      subtotalBy: [],
-      subtotalFns: {},
-      subtotalGrandTotal: true,
-      subtotalSpacer: false,
-      subtotalOnTop: false,
-      subtotalStrategy: "combined",
-      mergedCols: [],
-      mergeGroupUnderline: false,
-      colState: null,
-      sorts: [],
-      result: null,
-      activeTab: "query",
-      previewTableId: null,
-      detailBands: [],
-      detailBandMode: "separate"
-    }, overrides || {});
-  }
-  function createDetailBandSpec(overrides) {
-    return Object.assign({
-      id: `band_${Date.now()}`,
-      rightId: "",
-      keyPairs: [{ left: "", right: "" }],
-      cols: [],
-      enabled: true,
-      sorts: [],
-      label: ""
-    }, overrides || {});
-  }
-  function buildReportSpecFromState(state) {
-    return {
-      base: state.base,
-      baseCols: state.baseCols,
-      stacks: state.stacks,
-      lookups: state.lookups,
-      calcStages: state.calcStages,
-      detailBands: state.detailBands || []
-    };
-  }
-  var init_state = __esm({
-    "preact/core/state.ts"() {
-      "use strict";
-    }
-  });
-
-  // preact/core/store.ts
-  function deepClone(obj) {
-    if (obj instanceof Set) return new Set(obj);
-    if (Array.isArray(obj)) return obj.map(deepClone);
-    if (obj && typeof obj === "object") {
-      const out = {};
-      for (const [k3, v3] of Object.entries(obj)) out[k3] = deepClone(v3);
-      return out;
-    }
-    return obj;
-  }
-  function createStore(initial) {
-    let state = createAppState(initial);
-    const listeners = /* @__PURE__ */ new Set();
-    return {
-      getState() {
-        return state;
-      },
-      subscribe(listener) {
-        listeners.add(listener);
-        return () => {
-          listeners.delete(listener);
-        };
-      },
-      update(updater) {
-        const prev = state;
-        const draft = deepClone(state);
-        updater(draft);
-        state = draft;
-        for (const fn of listeners) {
-          fn(state, prev);
-        }
-      },
-      set(key, value) {
-        const prev = state;
-        state = { ...state, [key]: value };
-        for (const fn of listeners) {
-          fn(state, prev);
-        }
-      }
-    };
-  }
-  function initStore(initial) {
-    _store = createStore(initial);
-    return _store;
-  }
-  function getStore() {
-    if (!_store) {
-      _store = createStore();
-    }
-    return _store;
-  }
-  var _store;
-  var init_store = __esm({
-    "preact/core/store.ts"() {
-      "use strict";
-      init_state();
-      _store = null;
-    }
-  });
-
-  // preact/catalog/column-catalog.ts
-  var column_catalog_exports = {};
-  __export(column_catalog_exports, {
-    buildColSourceMap: () => buildColSourceMap,
-    buildColumnCatalog: () => buildColumnCatalog,
-    projectedCols: () => projectedCols,
-    projectedColsUpToLookup: () => projectedColsUpToLookup,
-    tablePrefix: () => tablePrefix
-  });
-  function tablePrefix(name) {
-    return name.split("—").pop().trim().replace(/[^A-Za-z0-9_]/g, "_") + "__";
-  }
-  function buildColSourceMap() {
-    const state = getStore().getState();
-    const map = /* @__PURE__ */ new Map();
-    const base = state.base;
-    if (!base || !state.tables[base]) return map;
-    const lookups = state.lookups || [];
-    const calcStages = state.calcStages || [];
-    state.tables[base].cols.forEach((c3) => map.set(c3, { tid: base, col: c3 }));
-    for (const lk of lookups) {
-      if (lk.enabled === false) continue;
-      if (!lk.rightId || !state.tables[lk.rightId]) continue;
-      const pairs = Array.isArray(lk.keyPairs) ? lk.keyPairs.filter((p3) => p3.left && p3.right) : [];
-      if (!pairs.length) continue;
-      const rt = state.tables[lk.rightId];
-      const prefix = tablePrefix(rt.name);
-      rt.cols.forEach((c3) => {
-        const alias = map.has(c3) ? prefix + c3 : c3;
-        if (!map.has(alias)) map.set(alias, { tid: lk.rightId, col: c3 });
-      });
-    }
-    for (let i3 = 0; i3 < calcStages.length; i3++) {
-      const calc = calcStages[i3];
-      if (calc?.enabled === false) continue;
-      const alias = (calc?.alias || "").trim();
-      if (!alias) continue;
-      if (!calc.mode || !["math", "compare", "text", "date"].includes(calc.mode)) continue;
-      let valid = false;
-      if (calc.mode === "math") {
-        const m3 = calc.math;
-        const steps = m3 && Array.isArray(m3.steps) ? m3.steps : [];
-        const structValid = !!(m3 && m3.strategy === "stepChain" && steps.length > 0 && !steps[0].op && steps.every((s3) => s3 && ["column", "number", "text"].includes(s3.type)) && steps.slice(1).every((s3) => s3.op && ["+", "-", "*", "/", "%"].includes(s3.op)));
-        const colsExist = structValid && steps.filter((s3) => s3.type === "column" && s3.value).every((s3) => map.has(s3.value));
-        valid = structValid && colsExist;
-      } else if (calc.mode === "compare") {
-        const c3 = calc.compare;
-        const conds = Array.isArray(c3?.conditions) ? c3.conditions : [];
-        valid = !!(c3 && conds.length > 0 && c3.trueValue && c3.falseValue && conds.every((cond) => cond.col && ["=", "!=", ">", ">=", "<", "<="].includes(cond.op)) && conds.some((cond) => map.has(cond.col)) && ["column", "number", "text"].includes(c3.trueValue.type) && ["column", "number", "text"].includes(c3.falseValue.type));
-      } else if (calc.mode === "text") {
-        const t3 = calc.text;
-        if (t3 && ["combine", "left", "right", "substring"].includes(t3.operation)) {
-          if (t3.operation === "combine") {
-            const parts = Array.isArray(t3.parts) ? t3.parts : [];
-            const structValid = parts.length > 0 && parts.every((p3) => p3 && ["column", "number", "text"].includes(p3.type));
-            const colsExist = structValid && parts.filter((p3) => p3.type === "column" && p3.value).every((p3) => map.has(p3.value));
-            valid = structValid && colsExist;
-          } else {
-            const src = t3.source;
-            const structValid = !!(src && ["column", "text"].includes(src.type));
-            const colExists = structValid && src.type !== "column" ? true : map.has(src.value);
-            valid = structValid && colExists;
-          }
-        }
-      } else if (calc.mode === "date") {
-        const d3 = calc.date;
-        if (d3 && d3.operation === "extract") {
-          const src = d3.source;
-          const structValid = !!(src && src.type === "column");
-          const colExists = structValid && map.has(src.value);
-          valid = colExists && ["year", "month", "day", "dow", "week", "quarter", "julian"].includes(d3.part);
-        }
-      }
-      if (!valid) continue;
-      if (map.has(alias)) continue;
-      map.set(alias, { kind: "calc", mode: calc.mode, idx: i3, calc });
-    }
-    return map;
-  }
-  function buildColumnCatalog(reportSpec, sourceCatalog) {
-    if (!(sourceCatalog instanceof Map)) {
-      throw new Error("buildColumnCatalog: sourceCatalog (Map) is required");
-    }
-    const base = reportSpec.base;
-    const lookups = reportSpec.lookups || [];
-    const calcStages = reportSpec.calcStages || [];
-    function tableColumns(tid) {
-      const entry = sourceCatalog.get(tid);
-      return entry ? entry.cols ?? null : null;
-    }
-    function tableName(tid) {
-      const entry = sourceCatalog.get(tid);
-      return entry ? entry.name ?? tid : tid;
-    }
-    const colMap = /* @__PURE__ */ new Map();
-    const baseCols = base ? tableColumns(base) : null;
-    if (baseCols) {
-      baseCols.forEach((c3) => colMap.set(c3, { tid: base, col: c3 }));
-    }
-    const lookupBoundaries = [new Map(colMap)];
-    for (const lk of lookups) {
-      if (lk.enabled === false || !lk.rightId) {
-        lookupBoundaries.push(new Map(colMap));
-        continue;
-      }
-      const rtCols = tableColumns(lk.rightId);
-      if (!rtCols) {
-        lookupBoundaries.push(new Map(colMap));
-        continue;
-      }
-      const pairs = Array.isArray(lk.keyPairs) ? lk.keyPairs.filter((p3) => p3.left && p3.right) : [];
-      if (!pairs.length) {
-        lookupBoundaries.push(new Map(colMap));
-        continue;
-      }
-      const rName = tableName(lk.rightId);
-      const prefix = tablePrefix(rName);
-      rtCols.forEach((c3) => {
-        const alias = colMap.has(c3) ? prefix + c3 : c3;
-        if (!colMap.has(alias)) colMap.set(alias, { tid: lk.rightId, col: c3 });
-      });
-      lookupBoundaries.push(new Map(colMap));
-    }
-    const detailBands = reportSpec.detailBands || [];
-    for (const band of detailBands) {
-      if (band.enabled === false || !band.rightId) continue;
-      const rtCols = tableColumns(band.rightId);
-      if (!rtCols) continue;
-      const prefix = `_${band.id}_`;
-      const bandCols = band.cols && band.cols.length > 0 ? band.cols : rtCols;
-      for (const c3 of bandCols) {
-        const alias = prefix + c3;
-        if (!colMap.has(alias)) {
-          colMap.set(alias, { kind: "band", tid: band.rightId, col: c3 });
-        }
-      }
-    }
-    for (const [i3, calc] of calcStages.entries()) {
-      if (calc?.enabled === false) continue;
-      const alias = (calc?.alias || "").trim();
-      if (!alias) continue;
-      if (!calc.mode || !["math", "compare", "text", "date"].includes(calc.mode)) continue;
-      let valid = false;
-      if (calc.mode === "math") {
-        const m3 = calc.math;
-        const steps = m3 && Array.isArray(m3.steps) ? m3.steps : [];
-        const structValid = !!(m3 && m3.strategy === "stepChain" && steps.length > 0 && !steps[0].op && steps.every((s3) => s3 && ["column", "number", "text"].includes(s3.type)) && steps.slice(1).every((s3) => s3.op && ["+", "-", "*", "/", "%"].includes(s3.op)));
-        const colsExist = structValid && steps.filter((s3) => s3.type === "column" && s3.value).every((s3) => colMap.has(s3.value));
-        valid = structValid && colsExist;
-      } else if (calc.mode === "compare") {
-        const c3 = calc.compare;
-        const conds = Array.isArray(c3?.conditions) ? c3.conditions : [];
-        valid = !!(c3 && conds.length > 0 && c3.trueValue && c3.falseValue && conds.every((cond) => cond.col && ["=", "!=", ">", ">=", "<", "<="].includes(cond.op)) && conds.some((cond) => colMap.has(cond.col)) && ["column", "number", "text"].includes(c3.trueValue.type) && ["column", "number", "text"].includes(c3.falseValue.type));
-      } else if (calc.mode === "text") {
-        const t3 = calc.text;
-        if (t3 && ["combine", "left", "right", "substring"].includes(t3.operation)) {
-          if (t3.operation === "combine") {
-            const parts = Array.isArray(t3.parts) ? t3.parts : [];
-            const structValid = parts.length > 0 && parts.every((p3) => p3 && ["column", "number", "text"].includes(p3.type));
-            const colsExist = structValid && parts.filter((p3) => p3.type === "column" && p3.value).every((p3) => colMap.has(p3.value));
-            valid = structValid && colsExist;
-          } else {
-            const src = t3.source;
-            const structValid = !!(src && ["column", "text"].includes(src.type));
-            const colExists = structValid && src.type !== "column" ? true : colMap.has(src.value);
-            valid = structValid && colExists;
-          }
-        }
-      } else if (calc.mode === "date") {
-        const d3 = calc.date;
-        if (d3 && d3.operation === "extract") {
-          const src = d3.source;
-          const structValid = !!(src && src.type === "column");
-          const colExists = structValid && colMap.has(src.value);
-          valid = structValid && colExists && ["year", "month", "day", "dow", "week", "quarter", "julian"].includes(d3.part);
-        }
-      }
-      if (!valid) continue;
-      if (colMap.has(alias)) continue;
-      colMap.set(alias, { kind: "calc", mode: calc.mode, idx: i3, calc });
-    }
-    return { colMap, lookupBoundaries, reportSpec };
-  }
-  function projectedCols(reportSpec, sourceCatalog) {
-    return [...buildColumnCatalog(reportSpec, sourceCatalog).colMap.keys()];
-  }
-  function projectedColsUpToLookup(upTo, reportSpec, sourceCatalog) {
-    if (!(sourceCatalog instanceof Map)) {
-      throw new Error("projectedColsUpToLookup: sourceCatalog (Map) is required");
-    }
-    const base = reportSpec.base;
-    const lookups = reportSpec.lookups || [];
-    if (!base) return [];
-    const baseEntry = sourceCatalog.get(base);
-    if (!baseEntry) return [];
-    const cols = [...baseEntry.cols];
-    const colSet = new Set(cols);
-    for (let i3 = 0; i3 < upTo; i3++) {
-      const lk = (lookups || [])[i3];
-      if (!lk || lk.enabled === false || !lk.rightId) continue;
-      const rtEntry = sourceCatalog.get(lk.rightId);
-      if (!rtEntry) continue;
-      const prefix = tablePrefix(rtEntry.name);
-      rtEntry.cols.forEach((c3) => {
-        const alias = colSet.has(c3) ? prefix + c3 : c3;
-        if (!colSet.has(alias)) {
-          cols.push(alias);
-          colSet.add(alias);
-        }
-      });
-    }
-    return cols;
-  }
-  var init_column_catalog = __esm({
-    "preact/catalog/column-catalog.ts"() {
-      "use strict";
-      init_store();
-    }
-  });
-
-  // preact/query/alias-ref-updater.ts
-  function _renameProjectedAliasRefs(oldAlias, newAlias) {
-    const db = typeof window !== "undefined" ? window.__db : null;
-    if (!db) return;
-    const filters = db.filters;
-    if (filters) {
-      for (const f4 of filters) {
-        if (f4.col === oldAlias) f4.col = newAlias;
-      }
-    }
-    const sorts = db.sorts;
-    if (sorts) {
-      for (const s3 of sorts) {
-        if (s3.col === oldAlias) s3.col = newAlias;
-      }
-    }
-    const groupBy = db.groupBy;
-    if (groupBy) {
-      for (let i3 = 0; i3 < groupBy.length; i3++) {
-        if (groupBy[i3] === oldAlias) groupBy[i3] = newAlias;
-      }
-    }
-    const aggregates = db.aggregates;
-    if (aggregates) {
-      for (const a3 of aggregates) {
-        if (a3.col === oldAlias) a3.col = newAlias;
-      }
-    }
-    const detailBands = db.detailBands;
-    if (detailBands) {
-      for (const band of detailBands) {
-        const keyPairs = band.keyPairs;
-        if (keyPairs) {
-          for (const kp of keyPairs) {
-            if (kp.left === oldAlias) kp.left = newAlias;
-          }
-        }
-        const cols = band.cols;
-        if (cols) {
-          for (let i3 = 0; i3 < cols.length; i3++) {
-            if (cols[i3] === oldAlias) cols[i3] = newAlias;
-          }
-        }
-      }
-    }
-  }
-  var init_alias_ref_updater = __esm({
-    "preact/query/alias-ref-updater.ts"() {
-      "use strict";
-    }
-  });
-
   // node_modules/preact/dist/preact.module.js
   var n;
   var l;
@@ -691,11 +279,9 @@
   function coerceForSQL(v3) {
     if (v3 == null) return null;
     if (v3 instanceof Date) return v3.toISOString().slice(0, 19);
-    if (typeof v3 === "boolean") return v3 ? 1 : 0;
-    if (typeof v3 === "number") return v3;
+    if (typeof v3 === "boolean") return v3 ? "1" : "0";
+    if (typeof v3 === "number") return String(v3);
     const s3 = String(v3).trim();
-    const n2 = Number(s3);
-    if (s3 !== "" && !isNaN(n2)) return n2;
     return s3 || null;
   }
   function createTable(sqlName, cols) {
@@ -749,8 +335,119 @@
     }
   }
 
-  // preact/app.ts
-  init_store();
+  // preact/core/state.ts
+  function createAppState(overrides) {
+    return Object.assign({
+      tables: {},
+      excludedRows: {},
+      tableColors: {},
+      columnLabels: {},
+      base: "",
+      baseCols: [],
+      stacks: [],
+      lookups: [],
+      calcStages: [],
+      selCols: /* @__PURE__ */ new Set(),
+      colOrder: [],
+      filters: [],
+      groupBy: [],
+      aggregates: [],
+      aggMode: "none",
+      aggModeState: null,
+      colTotals: {},
+      subtotalBy: [],
+      subtotalFns: {},
+      subtotalGrandTotal: true,
+      subtotalSpacer: false,
+      subtotalOnTop: false,
+      subtotalStrategy: "combined",
+      mergedCols: [],
+      mergeGroupUnderline: false,
+      colState: null,
+      sorts: [],
+      result: null,
+      activeTab: "query",
+      previewTableId: null,
+      detailBands: [],
+      detailBandMode: "separate",
+      columnTypeOverrides: {}
+    }, overrides || {});
+  }
+  function createDetailBandSpec(overrides) {
+    return Object.assign({
+      id: `band_${Date.now()}`,
+      rightId: "",
+      keyPairs: [{ left: "", right: "" }],
+      cols: [],
+      enabled: true,
+      sorts: [],
+      label: ""
+    }, overrides || {});
+  }
+  function buildReportSpecFromState(state) {
+    return {
+      base: state.base,
+      baseCols: state.baseCols,
+      stacks: state.stacks,
+      lookups: state.lookups,
+      calcStages: state.calcStages,
+      detailBands: state.detailBands || []
+    };
+  }
+
+  // preact/core/store.ts
+  function deepClone(obj) {
+    if (obj instanceof Set) return new Set(obj);
+    if (Array.isArray(obj)) return obj.map(deepClone);
+    if (obj && typeof obj === "object") {
+      const out = {};
+      for (const [k3, v3] of Object.entries(obj)) out[k3] = deepClone(v3);
+      return out;
+    }
+    return obj;
+  }
+  function createStore(initial) {
+    let state = createAppState(initial);
+    const listeners = /* @__PURE__ */ new Set();
+    return {
+      getState() {
+        return state;
+      },
+      subscribe(listener) {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+      update(updater) {
+        const prev = state;
+        const draft = deepClone(state);
+        updater(draft);
+        state = draft;
+        for (const fn of listeners) {
+          fn(state, prev);
+        }
+      },
+      set(key, value) {
+        const prev = state;
+        state = { ...state, [key]: value };
+        for (const fn of listeners) {
+          fn(state, prev);
+        }
+      }
+    };
+  }
+  var _store = null;
+  function initStore(initial) {
+    _store = createStore(initial);
+    return _store;
+  }
+  function getStore() {
+    if (!_store) {
+      _store = createStore();
+    }
+    return _store;
+  }
 
   // node_modules/preact/hooks/dist/hooks.module.js
   var t2;
@@ -899,240 +596,216 @@
     return "function" == typeof t3 ? t3(n2) : t3;
   }
 
-  // preact/ui/app.tsx
-  init_store();
-
-  // preact/core/utils.ts
-  init_store();
-  async function loadColSourceMap() {
-    const mod = await Promise.resolve().then(() => (init_column_catalog(), column_catalog_exports));
-    return mod.buildColSourceMap;
+  // preact/catalog/column-catalog.ts
+  function tablePrefix(name) {
+    return name.split("—").pop().trim().replace(/[^A-Za-z0-9_]/g, "_") + "__";
   }
-  function h3(s3) {
-    return String(s3 ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  }
-  function stripExt(fn) {
-    return fn.replace(/\.[^.]+$/, "");
-  }
-  function dl(blob, name) {
-    const url = URL.createObjectURL(blob);
-    const a3 = Object.assign(document.createElement("a"), { href: url, download: name });
-    a3.click();
-    URL.revokeObjectURL(url);
-  }
-  function getToastContainer() {
-    let c3 = document.getElementById("toast-container");
-    if (!c3) {
-      c3 = document.createElement("div");
-      c3.id = "toast-container";
-      document.body.appendChild(c3);
-    }
-    return c3;
-  }
-  function toast(msg, type) {
-    const el = document.createElement("div");
-    el.className = "toast " + (type || "");
-    el.textContent = msg;
-    getToastContainer().appendChild(el);
-    setTimeout(() => el.remove(), 3200);
-  }
-  function stickyToast(msg, type, onAccept, acceptLabel) {
-    const el = document.createElement("div");
-    el.className = "toast toast-sticky " + (type || "warn");
-    const txt = document.createElement("span");
-    txt.textContent = msg;
-    el.appendChild(txt);
-    if (onAccept) {
-      const accept = document.createElement("button");
-      accept.textContent = acceptLabel || "Exclude them";
-      accept.className = "toast-close";
-      accept.style.cssText = "color:var(--accent);margin-right:4px";
-      accept.onclick = () => {
-        el.remove();
-        onAccept();
-      };
-      el.appendChild(accept);
-    }
-    const btn = document.createElement("button");
-    btn.textContent = "✕";
-    btn.className = "toast-close";
-    btn.onclick = () => el.remove();
-    el.appendChild(btn);
-    getToastContainer().appendChild(el);
-  }
-  function toggleSidebar() {
-    const sb = document.getElementById("sidebar");
-    const btn = document.getElementById("sidebarToggle");
-    if (!sb || !btn) return;
-    const collapsed = sb.classList.toggle("collapsed");
-    btn.classList.toggle("collapsed", collapsed);
-    btn.textContent = collapsed ? "❯" : "❮";
-  }
-  var TABLE_PALETTE = [
-    "#4477AA",
-    "#EE6677",
-    "#228833",
-    "#CCBB44",
-    "#66CCEE",
-    "#AA3377",
-    "#EE7733",
-    "#0077BB",
-    "#33BBEE",
-    "#EE3377",
-    "#CC3311",
-    "#009988",
-    "#882255",
-    "#117733",
-    "#999933",
-    "#44AA99"
-  ];
-  function getTableColor(tid) {
+  function buildColSourceMap() {
     const state = getStore().getState();
-    if (state.tableColors[tid]) return state.tableColors[tid];
-    const used = new Set(Object.values(state.tableColors));
-    const idx = TABLE_PALETTE.findIndex((c3) => !used.has(c3));
-    const col = idx >= 0 ? TABLE_PALETTE[idx] : TABLE_PALETTE[Object.keys(state.tableColors).length % TABLE_PALETTE.length];
-    getStore().update((draft) => {
-      draft.tableColors[tid] = col;
-    });
-    return col;
-  }
-  function getTableColorClass(tid) {
-    const state = getStore().getState();
-    const color = state.tableColors[tid] || getTableColor(tid);
-    const idx = TABLE_PALETTE.indexOf(color);
-    return `chip-c${idx >= 0 ? idx : 0}`;
-  }
-  function chipFgColor(bg) {
-    if (!bg || typeof bg !== "string") return "#111";
-    const m3 = bg.trim().match(/^#([0-9a-f]{6})$/i);
-    if (!m3) return "#111";
-    const hex = m3[1];
-    const r3 = parseInt(hex.slice(0, 2), 16);
-    const g4 = parseInt(hex.slice(2, 4), 16);
-    const b2 = parseInt(hex.slice(4, 6), 16);
-    const luminance = (0.299 * r3 + 0.587 * g4 + 0.114 * b2) / 255;
-    return luminance > 0.6 ? "#111" : "#fff";
-  }
-  function tableShortName(tid) {
-    const state = getStore().getState();
-    const name = state.tables[tid]?.name || tid;
-    return name.length > 14 ? name.slice(0, 12) + "…" : name;
-  }
-  function colUserLabel(tid, physCol) {
-    const state = getStore().getState();
-    return state.columnLabels?.[tid]?.[physCol] ?? physCol;
-  }
-  function setColLabel(tid, physCol, label) {
-    const state = getStore().getState();
-    const columnLabels = { ...state.columnLabels };
-    if (!columnLabels[tid]) columnLabels[tid] = {};
-    if (!label || label === physCol) {
-      delete columnLabels[tid][physCol];
-      if (!Object.keys(columnLabels[tid]).length) delete columnLabels[tid];
-    } else {
-      columnLabels[tid][physCol] = label;
+    const map = /* @__PURE__ */ new Map();
+    const base = state.base;
+    if (!base || !state.tables[base]) return map;
+    const lookups = state.lookups || [];
+    const calcStages = state.calcStages || [];
+    function resolveColType(tid, col) {
+      return state.columnTypeOverrides?.[tid]?.[col] ?? state.tables[tid]?.colTypes?.[col];
     }
-    getStore().update((draft) => {
-      draft.columnLabels = columnLabels;
-    });
-  }
-  async function colExportLabel(alias, map) {
-    const src = (map || (await loadColSourceMap())()).get(alias);
-    if (!src) return alias;
-    if (src.kind === "calc") {
-      const calc = getStore().getState().calcStages?.[src.idx];
-      return (calc?.alias || "").trim() || alias;
+    state.tables[base].cols.forEach((c3) => map.set(c3, { tid: base, col: c3, ...resolveColType(base, c3) ? { colType: resolveColType(base, c3) } : {} }));
+    for (const lk of lookups) {
+      if (lk.enabled === false) continue;
+      if (!lk.rightId || !state.tables[lk.rightId]) continue;
+      const pairs = Array.isArray(lk.keyPairs) ? lk.keyPairs.filter((p3) => p3.left && p3.right) : [];
+      if (!pairs.length) continue;
+      const rt = state.tables[lk.rightId];
+      const prefix = tablePrefix(rt.name);
+      rt.cols.forEach((c3) => {
+        const alias = map.has(c3) ? prefix + c3 : c3;
+        if (!map.has(alias)) map.set(alias, { tid: lk.rightId, col: c3, ...resolveColType(lk.rightId, c3) ? { colType: resolveColType(lk.rightId, c3) } : {} });
+      });
     }
-    return colUserLabel(src.tid, src.col);
-  }
-  async function buildExportHeaderMap(cols, map) {
-    map = map || (await loadColSourceMap())();
-    const seen = /* @__PURE__ */ new Map();
-    const result = {};
-    for (const alias of cols) {
-      const base = await colExportLabel(alias, map);
-      const n2 = seen.get(base) || 0;
-      seen.set(base, n2 + 1);
-      result[alias] = n2 === 0 ? base : base + " " + (n2 + 1);
+    for (let i3 = 0; i3 < calcStages.length; i3++) {
+      const calc = calcStages[i3];
+      if (calc?.enabled === false) continue;
+      const alias = (calc?.alias || "").trim();
+      if (!alias) continue;
+      if (!calc.mode || !["math", "compare", "text", "date"].includes(calc.mode)) continue;
+      let valid = false;
+      if (calc.mode === "math") {
+        const m3 = calc.math;
+        const steps = m3 && Array.isArray(m3.steps) ? m3.steps : [];
+        const structValid = !!(m3 && m3.strategy === "stepChain" && steps.length > 0 && !steps[0].op && steps.every((s3) => s3 && ["column", "number", "text"].includes(s3.type)) && steps.slice(1).every((s3) => s3.op && ["+", "-", "*", "/", "%"].includes(s3.op)));
+        const colsExist = structValid && steps.filter((s3) => s3.type === "column" && s3.value).every((s3) => map.has(s3.value));
+        valid = structValid && colsExist;
+      } else if (calc.mode === "compare") {
+        const c3 = calc.compare;
+        const conds = Array.isArray(c3?.conditions) ? c3.conditions : [];
+        valid = !!(c3 && conds.length > 0 && c3.trueValue && c3.falseValue && conds.every((cond) => cond.col && ["=", "!=", ">", ">=", "<", "<="].includes(cond.op)) && conds.some((cond) => map.has(cond.col)) && ["column", "number", "text"].includes(c3.trueValue.type) && ["column", "number", "text"].includes(c3.falseValue.type));
+      } else if (calc.mode === "text") {
+        const t3 = calc.text;
+        if (t3 && ["combine", "left", "right", "substring"].includes(t3.operation)) {
+          if (t3.operation === "combine") {
+            const parts = Array.isArray(t3.parts) ? t3.parts : [];
+            const structValid = parts.length > 0 && parts.every((p3) => p3 && ["column", "number", "text"].includes(p3.type));
+            const colsExist = structValid && parts.filter((p3) => p3.type === "column" && p3.value).every((p3) => map.has(p3.value));
+            valid = structValid && colsExist;
+          } else {
+            const src = t3.source;
+            const structValid = !!(src && ["column", "text"].includes(src.type));
+            const colExists = structValid && src.type !== "column" ? true : map.has(src.value);
+            valid = structValid && colExists;
+          }
+        }
+      } else if (calc.mode === "date") {
+        const d3 = calc.date;
+        if (d3 && d3.operation === "extract") {
+          const src = d3.source;
+          const structValid = !!(src && src.type === "column");
+          const colExists = structValid && map.has(src.value);
+          valid = colExists && ["year", "month", "day", "dow", "week", "quarter", "julian"].includes(d3.part);
+        }
+      }
+      if (!valid) continue;
+      if (map.has(alias)) continue;
+      map.set(alias, { kind: "calc", mode: calc.mode, idx: i3, calc });
     }
-    return result;
+    return map;
   }
-  function smartDefaultFn(colName) {
-    const n2 = String(colName).toLowerCase();
-    if (/\bdate\b|time\b|\bdt\b|shipped|arrival|delivery|due\b|created/.test(n2)) return "DATE RANGE";
-    if (/amount|total|value|price|cost|\bqty\b|quantity|\bnum\b|number|units|sales|revenue|weight|volume/.test(n2)) return "SUM";
-    return "FIRST";
-  }
-  function defaultAggAlias(fn, colLabel) {
-    switch (fn) {
-      case "SUM":
-        return `Total ${colLabel}`;
-      case "AVG":
-        return `Avg ${colLabel}`;
-      case "COUNT ROWS":
-        return "Row Count";
-      case "COUNT NON-EMPTY":
-        return `# ${colLabel}`;
-      case "COUNT DISTINCT":
-        return `Unique ${colLabel}`;
-      case "MIN":
-        return `Min ${colLabel}`;
-      case "MAX":
-        return `Max ${colLabel}`;
-      case "FIRST":
-        return `${colLabel} (first)`;
-      case "LAST":
-        return `${colLabel} (last)`;
-      case "DATE RANGE":
-        return `${colLabel} Range`;
-      case "DATE SPAN":
-        return `${colLabel} Span (days)`;
-      case "NUMERIC RANGE":
-        return `${colLabel} Range`;
-      case "NUMERIC SPAN":
-        return `${colLabel} Span`;
-      case "LIST":
-        return `${colLabel} (list)`;
-      default:
-        return `${fn}(${colLabel})`;
+  function buildColumnCatalog(reportSpec, sourceCatalog, options) {
+    if (!(sourceCatalog instanceof Map)) {
+      throw new Error("buildColumnCatalog: sourceCatalog (Map) is required");
     }
-  }
-
-  // preact/ui/sidebar.tsx
-  init_store();
-
-  // preact/ui/file-loader.tsx
-  init_store();
-
-  // preact/core/state-schema.ts
-  var STATE_VERSION = 2;
-  var RECOGNIZABLE_KEYS = [
-    "base",
-    "baseCols",
-    "stacks",
-    "lookups",
-    "calcStages",
-    "filters",
-    "sorts",
-    "colOrder",
-    "selCols",
-    "aggMode",
-    "aggregates",
-    "colTotals",
-    "subtotalBy",
-    "subtotalFns",
-    "subtotalStrategy",
-    "detailBands",
-    "detailBandMode"
-  ];
-  function isRecognizableConfig(payload) {
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return false;
-    let matches = 0;
-    for (const key of RECOGNIZABLE_KEYS) {
-      if (key in payload) matches++;
+    const base = reportSpec.base;
+    const lookups = reportSpec.lookups || [];
+    const calcStages = reportSpec.calcStages || [];
+    function tableColumns(tid) {
+      const entry = sourceCatalog.get(tid);
+      return entry ? entry.cols ?? null : null;
     }
-    return matches >= 2;
+    function tableName(tid) {
+      const entry = sourceCatalog.get(tid);
+      return entry ? entry.name ?? tid : tid;
+    }
+    function resolveCatalogColType(tid, col) {
+      return options?.columnTypeOverrides?.[tid]?.[col] ?? sourceCatalog.get(tid)?.source?.colTypes?.[col];
+    }
+    const colMap = /* @__PURE__ */ new Map();
+    const baseCols = base ? tableColumns(base) : null;
+    if (baseCols) {
+      baseCols.forEach((c3) => colMap.set(c3, { tid: base, col: c3, ...resolveCatalogColType(base, c3) ? { colType: resolveCatalogColType(base, c3) } : {} }));
+    }
+    const lookupBoundaries = [new Map(colMap)];
+    for (const lk of lookups) {
+      if (lk.enabled === false || !lk.rightId) {
+        lookupBoundaries.push(new Map(colMap));
+        continue;
+      }
+      const rtCols = tableColumns(lk.rightId);
+      if (!rtCols) {
+        lookupBoundaries.push(new Map(colMap));
+        continue;
+      }
+      const pairs = Array.isArray(lk.keyPairs) ? lk.keyPairs.filter((p3) => p3.left && p3.right) : [];
+      if (!pairs.length) {
+        lookupBoundaries.push(new Map(colMap));
+        continue;
+      }
+      const rName = tableName(lk.rightId);
+      const prefix = tablePrefix(rName);
+      rtCols.forEach((c3) => {
+        const alias = colMap.has(c3) ? prefix + c3 : c3;
+        if (!colMap.has(alias)) colMap.set(alias, { tid: lk.rightId, col: c3, ...resolveCatalogColType(lk.rightId, c3) ? { colType: resolveCatalogColType(lk.rightId, c3) } : {} });
+      });
+      lookupBoundaries.push(new Map(colMap));
+    }
+    const detailBands = reportSpec.detailBands || [];
+    for (const band of detailBands) {
+      if (band.enabled === false || !band.rightId) continue;
+      const rtCols = tableColumns(band.rightId);
+      if (!rtCols) continue;
+      const prefix = `_${band.id}_`;
+      const bandCols = band.cols.length > 0 ? band.cols : rtCols;
+      for (const c3 of bandCols) {
+        const alias = prefix + c3;
+        if (!colMap.has(alias)) {
+          colMap.set(alias, { kind: "band", tid: band.rightId, col: c3, ...resolveCatalogColType(band.rightId, c3) ? { colType: resolveCatalogColType(band.rightId, c3) } : {} });
+        }
+      }
+    }
+    for (const [i3, calc] of calcStages.entries()) {
+      if (calc?.enabled === false) continue;
+      const alias = (calc?.alias || "").trim();
+      if (!alias) continue;
+      if (!calc.mode || !["math", "compare", "text", "date"].includes(calc.mode)) continue;
+      let valid = false;
+      if (calc.mode === "math") {
+        const m3 = calc.math;
+        const steps = m3 && Array.isArray(m3.steps) ? m3.steps : [];
+        const structValid = !!(m3 && m3.strategy === "stepChain" && steps.length > 0 && !steps[0].op && steps.every((s3) => s3 && ["column", "number", "text"].includes(s3.type)) && steps.slice(1).every((s3) => s3.op && ["+", "-", "*", "/", "%"].includes(s3.op)));
+        const colsExist = structValid && steps.filter((s3) => s3.type === "column" && s3.value).every((s3) => colMap.has(s3.value));
+        valid = structValid && colsExist;
+      } else if (calc.mode === "compare") {
+        const c3 = calc.compare;
+        const conds = Array.isArray(c3?.conditions) ? c3.conditions : [];
+        valid = !!(c3 && conds.length > 0 && c3.trueValue && c3.falseValue && conds.every((cond) => cond.col && ["=", "!=", ">", ">=", "<", "<="].includes(cond.op)) && conds.some((cond) => colMap.has(cond.col)) && ["column", "number", "text"].includes(c3.trueValue.type) && ["column", "number", "text"].includes(c3.falseValue.type));
+      } else if (calc.mode === "text") {
+        const t3 = calc.text;
+        if (t3 && ["combine", "left", "right", "substring"].includes(t3.operation)) {
+          if (t3.operation === "combine") {
+            const parts = Array.isArray(t3.parts) ? t3.parts : [];
+            const structValid = parts.length > 0 && parts.every((p3) => p3 && ["column", "number", "text"].includes(p3.type));
+            const colsExist = structValid && parts.filter((p3) => p3.type === "column" && p3.value).every((p3) => colMap.has(p3.value));
+            valid = structValid && colsExist;
+          } else {
+            const src = t3.source;
+            const structValid = !!(src && ["column", "text"].includes(src.type));
+            const colExists = structValid && src.type !== "column" ? true : colMap.has(src.value);
+            valid = structValid && colExists;
+          }
+        }
+      } else if (calc.mode === "date") {
+        const d3 = calc.date;
+        if (d3 && d3.operation === "extract") {
+          const src = d3.source;
+          const structValid = !!(src && src.type === "column");
+          const colExists = structValid && colMap.has(src.value);
+          valid = structValid && colExists && ["year", "month", "day", "dow", "week", "quarter", "julian"].includes(d3.part);
+        }
+      }
+      if (!valid) continue;
+      if (colMap.has(alias)) continue;
+      colMap.set(alias, { kind: "calc", mode: calc.mode, idx: i3, calc });
+    }
+    return { colMap, lookupBoundaries, reportSpec };
+  }
+  function projectedCols(reportSpec, sourceCatalog) {
+    return [...buildColumnCatalog(reportSpec, sourceCatalog).colMap.keys()];
+  }
+  function projectedColsUpToLookup(upTo, reportSpec, sourceCatalog) {
+    if (!(sourceCatalog instanceof Map)) {
+      throw new Error("projectedColsUpToLookup: sourceCatalog (Map) is required");
+    }
+    const base = reportSpec.base;
+    const lookups = reportSpec.lookups || [];
+    if (!base) return [];
+    const baseEntry = sourceCatalog.get(base);
+    if (!baseEntry) return [];
+    const cols = [...baseEntry.cols];
+    const colSet = new Set(cols);
+    for (let i3 = 0; i3 < upTo; i3++) {
+      const lk = (lookups || [])[i3];
+      if (!lk || lk.enabled === false || !lk.rightId) continue;
+      const rtEntry = sourceCatalog.get(lk.rightId);
+      if (!rtEntry) continue;
+      const prefix = tablePrefix(rtEntry.name);
+      rtEntry.cols.forEach((c3) => {
+        const alias = colSet.has(c3) ? prefix + c3 : c3;
+        if (!colSet.has(alias)) {
+          cols.push(alias);
+          colSet.add(alias);
+        }
+      });
+    }
+    return cols;
   }
 
   // preact/catalog/source-catalog.ts
@@ -1149,297 +822,6 @@
     }
     return catalog;
   }
-
-  // preact/core/state-hydrator.ts
-  init_column_catalog();
-  function hydrateState(payload, loadedTables) {
-    const next = {};
-    const brokenRefs = [];
-    const sourceCatalog = buildSourceCatalog(loadedTables);
-    const nextAvailableCols = () => {
-      const cols = projectedColsUpToLookup((next.lookups || []).length, next, sourceCatalog);
-      const colSet = new Set(cols);
-      for (const c3 of next.calcStages || []) {
-        if (c3.alias) colSet.add(c3.alias);
-      }
-      return colSet;
-    };
-    const savedBase = payload.base || "";
-    next.base = savedBase;
-    const baseLoaded = !!(savedBase && loadedTables[savedBase]);
-    if (!baseLoaded) {
-      brokenRefs.push(`Primary sheet "${savedBase || "(none)"}" is not loaded`);
-    }
-    if (Array.isArray(payload.baseCols)) {
-      const dropped = baseLoaded ? payload.baseCols.filter((c3) => !loadedTables[savedBase].cols.includes(c3)) : [];
-      if (dropped.length) brokenRefs.push(`Base columns not available: ${dropped.join(", ")}`);
-      next.baseCols = [...payload.baseCols];
-    } else {
-      next.baseCols = null;
-    }
-    next.stacks = [];
-    for (const id of payload.stacks || []) {
-      if (!loadedTables[id]) {
-        brokenRefs.push(`Stacked sheet "${id}" is not loaded`);
-        next.stacks.push(id);
-        continue;
-      }
-      if (!next.stacks.includes(id)) next.stacks.push(id);
-    }
-    next.lookups = [];
-    for (const lk of payload.lookups || []) {
-      const rt = lk.rightId && loadedTables[lk.rightId];
-      if (!lk.rightId || !rt) {
-        brokenRefs.push(`Lookup sheet "${lk.rightId || "(none)"}" is not loaded`);
-        next.lookups.push({
-          rightId: lk.rightId || "",
-          keyPairs: Array.isArray(lk.keyPairs) ? lk.keyPairs.map((p3) => ({ left: p3.left || "", right: p3.right || "" })) : [{ left: "", right: "" }],
-          cols: Array.isArray(lk.cols) ? [...lk.cols] : [],
-          required: !!lk.required,
-          enabled: lk.enabled !== false,
-          duplicatePolicy: lk.duplicatePolicy && lk.duplicatePolicy.mode ? { ...lk.duplicatePolicy } : { mode: "block" }
-        });
-        continue;
-      }
-      const leftAvail = baseLoaded ? projectedColsUpToLookup(next.lookups.length, next, sourceCatalog) : [];
-      const keyPairs = (Array.isArray(lk.keyPairs) ? lk.keyPairs : []).map((p3) => {
-        const leftOk = !baseLoaded || leftAvail.includes(p3.left);
-        const rightOk = rt.cols.includes(p3.right);
-        if (!leftOk && p3.left) brokenRefs.push(`Match column "${p3.left}" not found (left side of lookup from "${rt.name}")`);
-        if (!rightOk && p3.right) brokenRefs.push(`Match column "${p3.right}" not found in "${rt.name}"`);
-        return { left: p3.left || "", right: p3.right || "" };
-      });
-      const cols = Array.isArray(lk.cols) ? lk.cols : [...rt.cols];
-      next.lookups.push({ rightId: lk.rightId, keyPairs, cols, required: !!lk.required, enabled: lk.enabled !== false, duplicatePolicy: lk.duplicatePolicy && lk.duplicatePolicy.mode ? { ...lk.duplicatePolicy } : { mode: "block" } });
-    }
-    const VALID_CALC_MODES = /* @__PURE__ */ new Set(["math", "compare", "text", "date"]);
-    function _checkColRef(colName, baseLoaded2, availNow, alias, brokenRefs2) {
-      if (colName && baseLoaded2 && availNow.size && !availNow.has(colName)) {
-        brokenRefs2.push(`Calculated column "${alias}" references unavailable column "${colName}"`);
-      }
-    }
-    next.calcStages = [];
-    for (const c3 of payload.calcStages || []) {
-      const alias = (c3.alias || "").trim();
-      const enabled = c3.enabled !== false;
-      if (!c3.mode || !VALID_CALC_MODES.has(c3.mode)) {
-        brokenRefs.push(`Calculated column "${alias}" has an unsupported or missing mode`);
-        next.calcStages.push({ ...c3, alias, enabled });
-        continue;
-      }
-      if (!alias) {
-        brokenRefs.push("Calculated stage has no alias");
-        next.calcStages.push({ ...c3, alias, enabled });
-        continue;
-      }
-      const availNow = nextAvailableCols();
-      if (c3.mode === "math") {
-        const math = c3.math;
-        if (math && Array.isArray(math.steps)) {
-          for (const step of math.steps) {
-            _checkColRef(step.type === "column" ? step.value : null, baseLoaded, availNow, alias, brokenRefs);
-          }
-        }
-      }
-      if (c3.mode === "compare") {
-        const compare = c3.compare;
-        if (compare && Array.isArray(compare.conditions)) {
-          for (const cond of compare.conditions) {
-            _checkColRef(cond.col, baseLoaded, availNow, alias, brokenRefs);
-          }
-        }
-        if (compare && compare.trueValue) {
-          _checkColRef(compare.trueValue.type === "column" ? compare.trueValue.value : null, baseLoaded, availNow, alias, brokenRefs);
-        }
-        if (compare && compare.falseValue) {
-          _checkColRef(compare.falseValue.type === "column" ? compare.falseValue.value : null, baseLoaded, availNow, alias, brokenRefs);
-        }
-      }
-      if (c3.mode === "text") {
-        const text = c3.text;
-        if (text) {
-          if (text.operation === "combine" && Array.isArray(text.parts)) {
-            for (const part of text.parts) {
-              _checkColRef(part.type === "column" ? part.value : null, baseLoaded, availNow, alias, brokenRefs);
-            }
-          }
-          if (text.source) {
-            _checkColRef(text.source.type === "column" ? text.source.value : null, baseLoaded, availNow, alias, brokenRefs);
-          }
-        }
-      }
-      if (c3.mode === "date") {
-        const date = c3.date;
-        if (date && date.operation === "extract" && date.source) {
-          _checkColRef(date.source.type === "column" ? date.source.value : null, baseLoaded, availNow, alias, brokenRefs);
-        }
-      }
-      next.calcStages.push({ ...c3, alias, enabled });
-    }
-    const available = nextAvailableCols();
-    if (payload.selCols === null) {
-      next.selCols = null;
-    } else if (Array.isArray(payload.selCols)) {
-      const dropped = baseLoaded ? payload.selCols.filter((c3) => !available.has(c3)) : [];
-      if (dropped.length) brokenRefs.push(`Selected columns not available: ${dropped.join(", ")}`);
-      next.selCols = new Set(payload.selCols);
-    } else {
-      next.selCols = null;
-    }
-    next.colOrder = Array.isArray(payload.colOrder) ? [...payload.colOrder] : null;
-    next.filters = [];
-    for (const f4 of payload.filters || []) {
-      if (f4.col && baseLoaded && !available.has(f4.col)) {
-        brokenRefs.push(`Filter on column "${f4.col}" is not available`);
-      }
-      const vals = Array.isArray(f4.vals) ? [...f4.vals] : f4.vals;
-      next.filters.push({ col: f4.col || "", op: f4.op || "contains", vals, enabled: f4.enabled !== false });
-    }
-    const gbDropped = baseLoaded ? (payload.groupBy || []).filter((c3) => !available.has(c3)) : [];
-    if (gbDropped.length) brokenRefs.push(`Group By columns not available: ${gbDropped.join(", ")}`);
-    next.groupBy = [...payload.groupBy || []];
-    next.aggregates = [];
-    for (const a3 of payload.aggregates || []) {
-      if (a3.col && a3.col !== "*" && baseLoaded && !available.has(a3.col)) {
-        brokenRefs.push(`Aggregate "${a3.alias || a3.fn}" on column "${a3.col}" is not available`);
-      }
-      next.aggregates.push({ fn: a3.fn || "SUM", col: a3.col || "*", alias: a3.alias || "" });
-    }
-    next.sorts = [];
-    for (const s3 of payload.sorts || []) {
-      if (s3.col && baseLoaded && !available.has(s3.col)) {
-        brokenRefs.push(`Sort on column "${s3.col}" is not available`);
-      }
-      next.sorts.push({ col: s3.col || "", dir: s3.dir === "DESC" ? "DESC" : "ASC", enabled: s3.enabled !== false });
-    }
-    next.aggMode = typeof payload.aggMode === "string" ? payload.aggMode : "none";
-    next.colTotals = {};
-    for (const [col, fn] of Object.entries(payload.colTotals || {})) {
-      if (baseLoaded && !available.has(col)) brokenRefs.push(`Totals column "${col}" not available`);
-      next.colTotals[col] = fn;
-    }
-    const sbDropped = baseLoaded ? (payload.subtotalBy || []).filter((c3) => !available.has(c3)) : [];
-    if (sbDropped.length) brokenRefs.push(`Subtotal By columns not available: ${sbDropped.join(", ")}`);
-    next.subtotalBy = [...payload.subtotalBy || []];
-    next.subtotalFns = {};
-    for (const [col, fn] of Object.entries(payload.subtotalFns || {})) {
-      if (baseLoaded && !available.has(col)) brokenRefs.push(`Subtotal function column "${col}" not available`);
-      next.subtotalFns[col] = fn;
-    }
-    next.subtotalGrandTotal = payload.subtotalGrandTotal !== false;
-    next.subtotalSpacer = !!payload.subtotalSpacer;
-    next.subtotalOnTop = !!payload.subtotalOnTop;
-    next.subtotalStrategy = payload.subtotalStrategy === "nested" ? "nested" : "combined";
-    if (!payload.aggModeState || typeof payload.aggModeState !== "object") {
-      next.aggModeState = null;
-    } else {
-      const raw = payload.aggModeState;
-      const rawNone = raw.none && typeof raw.none === "object" ? raw.none : null;
-      const rawGroup = raw.group && typeof raw.group === "object" ? raw.group : null;
-      const rawTotals = raw.totals && typeof raw.totals === "object" ? raw.totals : null;
-      const rawSubtotals = raw.subtotals && typeof raw.subtotals === "object" ? raw.subtotals : null;
-      next.aggModeState = {
-        none: rawNone ? {
-          selCols: Array.isArray(rawNone.selCols) ? [...rawNone.selCols] : null
-        } : null,
-        group: rawGroup ? {
-          groupBy: Array.isArray(rawGroup.groupBy) ? [...rawGroup.groupBy] : [],
-          aggregates: Array.isArray(rawGroup.aggregates) ? rawGroup.aggregates.map((a3) => ({ fn: a3.fn || "SUM", col: a3.col || "*", alias: a3.alias || "", auto: !!a3.auto })) : []
-        } : null,
-        totals: rawTotals ? {
-          selCols: Array.isArray(rawTotals.selCols) ? [...rawTotals.selCols] : null,
-          colTotals: rawTotals.colTotals && typeof rawTotals.colTotals === "object" ? { ...rawTotals.colTotals } : {}
-        } : null,
-        subtotals: rawSubtotals ? {
-          selCols: Array.isArray(rawSubtotals.selCols) ? [...rawSubtotals.selCols] : null,
-          subtotalBy: Array.isArray(rawSubtotals.subtotalBy) ? [...rawSubtotals.subtotalBy] : [],
-          subtotalFns: rawSubtotals.subtotalFns && typeof rawSubtotals.subtotalFns === "object" ? { ...rawSubtotals.subtotalFns } : {},
-          subtotalGrandTotal: rawSubtotals.subtotalGrandTotal !== false,
-          subtotalSpacer: !!rawSubtotals.subtotalSpacer,
-          subtotalOnTop: !!rawSubtotals.subtotalOnTop,
-          subtotalStrategy: rawSubtotals.subtotalStrategy === "nested" ? "nested" : "combined"
-        } : null
-      };
-    }
-    next.mergedCols = (payload.mergedCols || []).filter((c3) => typeof c3 === "string");
-    next.mergeGroupUnderline = !!payload.mergeGroupUnderline;
-    next.colState = Array.isArray(payload.colState) ? payload.colState : null;
-    const nextExcludedRows = {};
-    if (payload.excludedRows && typeof payload.excludedRows === "object") {
-      for (const [tid, arr] of Object.entries(payload.excludedRows)) {
-        if (Array.isArray(arr) && arr.length) {
-          nextExcludedRows[tid] = new Set(arr);
-        }
-      }
-    }
-    next.tableColors = {};
-    for (const [tid, color] of Object.entries(payload.tableColors || {})) {
-      if (typeof color === "string" && color.startsWith("#")) {
-        next.tableColors[tid] = color;
-      }
-    }
-    next.columnLabels = {};
-    for (const [tid, labels] of Object.entries(payload.columnLabels || {})) {
-      if (!labels || typeof labels !== "object") continue;
-      const kept = {};
-      for (const [col, label] of Object.entries(labels)) {
-        if (label && label !== col) kept[col] = label;
-      }
-      if (Object.keys(kept).length) next.columnLabels[tid] = kept;
-    }
-    next.detailBands = [];
-    if (Array.isArray(payload.detailBands)) {
-      for (const band of payload.detailBands) {
-        const rt = band.rightId && loadedTables[band.rightId];
-        if (!rt) {
-          brokenRefs.push(`Related details sheet "${band.rightId || "(none)"}" is not loaded`);
-          next.detailBands.push({
-            id: band.id || `band_${next.detailBands.length}`,
-            rightId: band.rightId || "",
-            keyPairs: Array.isArray(band.keyPairs) ? band.keyPairs.map((p3) => ({ left: p3.left || "", right: p3.right || "" })) : [{ left: "", right: "" }],
-            cols: Array.isArray(band.cols) ? [...band.cols] : [],
-            enabled: band.enabled !== false,
-            sorts: Array.isArray(band.sorts) ? band.sorts.map((s3) => ({ col: s3.col || "", dir: s3.dir === "DESC" ? "DESC" : "ASC", enabled: s3.enabled !== false })) : [],
-            label: typeof band.label === "string" ? band.label : ""
-          });
-          continue;
-        }
-        const keyPairs = (Array.isArray(band.keyPairs) ? band.keyPairs : []).map((p3) => {
-          const leftOk = !baseLoaded || projectedColsUpToLookup((next.lookups || []).length, next, sourceCatalog).includes(p3.left);
-          const rightOk = rt.cols.includes(p3.right);
-          if (!leftOk && p3.left) brokenRefs.push(`Match column "${p3.left}" not found (left side of detail band from "${rt.name}")`);
-          if (!rightOk && p3.right) brokenRefs.push(`Match column "${p3.right}" not found in "${rt.name}"`);
-          return { left: p3.left || "", right: p3.right || "" };
-        });
-        const cols = Array.isArray(band.cols) ? band.cols.filter((c3) => rt.cols.includes(c3)) : [...rt.cols];
-        const droppedCols = Array.isArray(band.cols) ? band.cols.filter((c3) => !rt.cols.includes(c3)) : [];
-        if (droppedCols.length) brokenRefs.push(`Detail band "${band.label || band.id}" columns not available: ${droppedCols.join(", ")}`);
-        const sorts = Array.isArray(band.sorts) ? band.sorts.map((s3) => {
-          const sortColOk = rt.cols.includes(s3.col);
-          if (!sortColOk && s3.col) brokenRefs.push(`Sort column "${s3.col}" not found in "${rt.name}"`);
-          return { col: s3.col || "", dir: s3.dir === "DESC" ? "DESC" : "ASC", enabled: s3.enabled !== false };
-        }) : [];
-        next.detailBands.push({
-          id: band.id || `band_${next.detailBands.length}`,
-          rightId: band.rightId,
-          keyPairs,
-          cols,
-          enabled: band.enabled !== false,
-          sorts,
-          label: typeof band.label === "string" ? band.label : ""
-        });
-      }
-    }
-    next.detailBandMode = payload.detailBandMode === "stack" ? "stack" : "separate";
-    return { next, brokenRefs, nextExcludedRows };
-  }
-
-  // preact/core/state-applier.ts
-  init_store();
-
-  // preact/report/validation.ts
-  init_store();
-  init_column_catalog();
 
   // preact/query/lookup-resolver.ts
   function validateLookupSpec(lookupSpec, lookupIndex, sourceCatalog) {
@@ -2189,7 +1571,7 @@
         `Output column "${col}" is no longer available`,
         { missingColumn: col }
       )];
-      const inSelCols = state.selCols instanceof Set ? state.selCols.has(col) : true;
+      const inSelCols = state.selCols.size > 0 ? state.selCols.has(col) : true;
       mkItem(`colorder_${col}`, inSelCols, false, issues);
     }
     for (const col of state.mergedCols || []) {
@@ -2228,8 +1610,6 @@
   }
 
   // preact/query/layout-selection.ts
-  init_store();
-  init_column_catalog();
   var _seenCols = /* @__PURE__ */ new Set();
   var _previewOpen = /* @__PURE__ */ new Set();
   var _disabledCardCols = /* @__PURE__ */ new Set();
@@ -2360,6 +1740,640 @@
     _syncSubtotalByToLayout();
   }
 
+  // preact/core/alias-rename.ts
+  function renameCalcAlias(idx, newAlias) {
+    const trimmed = newAlias.trim();
+    if (!trimmed) return;
+    getStore().update((draft) => {
+      const calc = draft.calcStages[idx];
+      if (!calc) return;
+      const oldAlias = (calc.alias || "").trim();
+      if (!oldAlias || oldAlias === trimmed) return;
+      calc.alias = trimmed;
+      renameAliasRefsInternal(draft, oldAlias, trimmed);
+    });
+    _afterCombineChange();
+  }
+  function renameAliasRefsInternal(draft, oldAlias, newAlias) {
+    for (const f4 of draft.filters ?? []) {
+      if (f4.col === oldAlias) f4.col = newAlias;
+    }
+    for (const s3 of draft.sorts ?? []) {
+      if (s3.col === oldAlias) s3.col = newAlias;
+    }
+    for (const a3 of draft.aggregates ?? []) {
+      if (a3.col === oldAlias) a3.col = newAlias;
+    }
+    replaceInArray(draft.groupBy, oldAlias, newAlias);
+    replaceInArray(draft.subtotalBy, oldAlias, newAlias);
+    replaceInArray(draft.mergedCols, oldAlias, newAlias);
+    for (const band of draft.detailBands ?? []) {
+      for (const kp of band.keyPairs ?? []) {
+        if (kp.left === oldAlias) kp.left = newAlias;
+      }
+      for (const s3 of band.sorts ?? []) {
+        if (s3.col === oldAlias) s3.col = newAlias;
+      }
+    }
+    for (const lu of draft.lookups ?? []) {
+      for (const kp of lu.keyPairs ?? []) {
+        if (kp.left === oldAlias) kp.left = newAlias;
+      }
+    }
+    for (const calc of draft.calcStages ?? []) {
+      const compare = calc.compare;
+      if (compare?.conditions) {
+        for (const cond of compare.conditions) {
+          if (cond.col === oldAlias) cond.col = newAlias;
+        }
+      }
+      renameMathTypedRefs(calc.math, oldAlias, newAlias);
+      renameCompareTypedValues(calc.compare, oldAlias, newAlias);
+      renameTextTypedRefs(calc.text, oldAlias, newAlias);
+      renameDateTypedRefs(calc.date, oldAlias, newAlias);
+    }
+    migrateRecordKey(draft.colTotals, oldAlias, newAlias);
+    migrateRecordKey(draft.subtotalFns, oldAlias, newAlias);
+    if (draft.aggModeState && typeof draft.aggModeState === "object") {
+      const noneMode = draft.aggModeState.none;
+      if (noneMode?.selCols) replaceInArray(noneMode.selCols, oldAlias, newAlias);
+      const groupMode = draft.aggModeState.group;
+      if (groupMode) {
+        if (groupMode.selCols) replaceInArray(groupMode.selCols, oldAlias, newAlias);
+        replaceInArray(groupMode.groupBy, oldAlias, newAlias);
+        if (groupMode.aggregates) {
+          for (const ag of groupMode.aggregates) {
+            if (ag.col === oldAlias) ag.col = newAlias;
+          }
+        }
+      }
+      const totalsMode = draft.aggModeState.totals;
+      if (totalsMode) {
+        if (totalsMode.selCols) replaceInArray(totalsMode.selCols, oldAlias, newAlias);
+        migrateRecordKey(totalsMode.colTotals, oldAlias, newAlias);
+      }
+      const subtotalsMode = draft.aggModeState.subtotals;
+      if (subtotalsMode) {
+        if (subtotalsMode.selCols) replaceInArray(subtotalsMode.selCols, oldAlias, newAlias);
+        replaceInArray(subtotalsMode.subtotalBy, oldAlias, newAlias);
+        migrateRecordKey(subtotalsMode.subtotalFns, oldAlias, newAlias);
+      }
+    }
+  }
+  function replaceInArray(arr, oldAlias, newAlias) {
+    if (!arr) return;
+    for (let i3 = 0; i3 < arr.length; i3++) {
+      if (arr[i3] === oldAlias) arr[i3] = newAlias;
+    }
+  }
+  function migrateRecordKey(rec, oldAlias, newAlias) {
+    if (!rec || !(oldAlias in rec)) return;
+    rec[newAlias] = rec[oldAlias];
+    delete rec[oldAlias];
+  }
+  function renameMathTypedRefs(math, oldAlias, newAlias) {
+    const m3 = math;
+    if (!m3?.steps) return;
+    for (const step of m3.steps) {
+      if (step.type === "column" && step.value === oldAlias) step.value = newAlias;
+    }
+  }
+  function renameCompareTypedValues(compare, oldAlias, newAlias) {
+    const c3 = compare;
+    if (!c3) return;
+    if (c3.trueValue?.type === "column" && c3.trueValue.value === oldAlias) c3.trueValue.value = newAlias;
+    if (c3.falseValue?.type === "column" && c3.falseValue.value === oldAlias) c3.falseValue.value = newAlias;
+  }
+  function renameTextTypedRefs(text, oldAlias, newAlias) {
+    const t3 = text;
+    if (!t3) return;
+    if (t3.parts) {
+      for (const p3 of t3.parts) {
+        if (p3.type === "column" && p3.value === oldAlias) p3.value = newAlias;
+      }
+    }
+    if (t3.source?.type === "column" && t3.source.value === oldAlias) t3.source.value = newAlias;
+  }
+  function renameDateTypedRefs(date, oldAlias, newAlias) {
+    const d3 = date;
+    if (!d3?.source) return;
+    if (d3.source.type === "column" && d3.source.value === oldAlias) d3.source.value = newAlias;
+  }
+
+  // preact/core/utils.ts
+  function h3(s3) {
+    return String(s3 ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function stripExt(fn) {
+    return fn.replace(/\.[^.]+$/, "");
+  }
+  function dl(blob, name) {
+    const url = URL.createObjectURL(blob);
+    const a3 = Object.assign(document.createElement("a"), { href: url, download: name });
+    a3.click();
+    URL.revokeObjectURL(url);
+  }
+  function getToastContainer() {
+    let c3 = document.getElementById("toast-container");
+    if (!c3) {
+      c3 = document.createElement("div");
+      c3.id = "toast-container";
+      document.body.appendChild(c3);
+    }
+    return c3;
+  }
+  function toast(msg, type) {
+    const el = document.createElement("div");
+    el.className = "toast " + (type || "");
+    el.textContent = msg;
+    getToastContainer().appendChild(el);
+    setTimeout(() => el.remove(), 3200);
+  }
+  function stickyToast(msg, type, onAccept, acceptLabel) {
+    const el = document.createElement("div");
+    el.className = "toast toast-sticky " + (type || "warn");
+    const txt = document.createElement("span");
+    txt.textContent = msg;
+    el.appendChild(txt);
+    if (onAccept) {
+      const accept = document.createElement("button");
+      accept.textContent = acceptLabel || "Exclude them";
+      accept.className = "toast-close";
+      accept.style.cssText = "color:var(--accent);margin-right:4px";
+      accept.onclick = () => {
+        el.remove();
+        onAccept();
+      };
+      el.appendChild(accept);
+    }
+    const btn = document.createElement("button");
+    btn.textContent = "✕";
+    btn.className = "toast-close";
+    btn.onclick = () => el.remove();
+    el.appendChild(btn);
+    getToastContainer().appendChild(el);
+  }
+  function toggleSidebar() {
+    const sb = document.getElementById("sidebar");
+    const btn = document.getElementById("sidebarToggle");
+    if (!sb || !btn) return;
+    const collapsed = sb.classList.toggle("collapsed");
+    btn.classList.toggle("collapsed", collapsed);
+    btn.textContent = collapsed ? "❯" : "❮";
+  }
+  var TABLE_PALETTE = [
+    "#4477AA",
+    "#EE6677",
+    "#228833",
+    "#CCBB44",
+    "#66CCEE",
+    "#AA3377",
+    "#EE7733",
+    "#0077BB",
+    "#33BBEE",
+    "#EE3377",
+    "#CC3311",
+    "#009988",
+    "#882255",
+    "#117733",
+    "#999933",
+    "#44AA99"
+  ];
+  function getTableColor(tid) {
+    const state = getStore().getState();
+    if (state.tableColors[tid]) return state.tableColors[tid];
+    const used = new Set(Object.values(state.tableColors));
+    const idx = TABLE_PALETTE.findIndex((c3) => !used.has(c3));
+    const col = idx >= 0 ? TABLE_PALETTE[idx] : TABLE_PALETTE[Object.keys(state.tableColors).length % TABLE_PALETTE.length];
+    getStore().update((draft) => {
+      draft.tableColors[tid] = col;
+    });
+    return col;
+  }
+  function getTableColorClass(tid) {
+    const state = getStore().getState();
+    const color = state.tableColors[tid] || getTableColor(tid);
+    const idx = TABLE_PALETTE.indexOf(color);
+    return `chip-c${idx >= 0 ? idx : 0}`;
+  }
+  function chipFgColor(bg) {
+    if (!bg || typeof bg !== "string") return "#111";
+    const m3 = bg.trim().match(/^#([0-9a-f]{6})$/i);
+    if (!m3) return "#111";
+    const hex = m3[1];
+    const r3 = parseInt(hex.slice(0, 2), 16);
+    const g4 = parseInt(hex.slice(2, 4), 16);
+    const b2 = parseInt(hex.slice(4, 6), 16);
+    const luminance = (0.299 * r3 + 0.587 * g4 + 0.114 * b2) / 255;
+    return luminance > 0.6 ? "#111" : "#fff";
+  }
+  function tableShortName(tid) {
+    const state = getStore().getState();
+    const name = state.tables[tid]?.name || tid;
+    return name.length > 14 ? name.slice(0, 12) + "…" : name;
+  }
+  function colUserLabel(tid, physCol) {
+    const state = getStore().getState();
+    return state.columnLabels?.[tid]?.[physCol] ?? physCol;
+  }
+  function setColLabel(tid, physCol, label) {
+    const state = getStore().getState();
+    const columnLabels = { ...state.columnLabels };
+    if (!columnLabels[tid]) columnLabels[tid] = {};
+    if (!label || label === physCol) {
+      delete columnLabels[tid][physCol];
+      if (!Object.keys(columnLabels[tid]).length) delete columnLabels[tid];
+    } else {
+      columnLabels[tid][physCol] = label;
+    }
+    getStore().update((draft) => {
+      draft.columnLabels = columnLabels;
+    });
+  }
+  async function colExportLabel(alias, map) {
+    const src = (map || buildColSourceMap()).get(alias);
+    if (!src) return alias;
+    if (src.kind === "calc") {
+      const calc = getStore().getState().calcStages?.[src.idx];
+      return (calc?.alias || "").trim() || alias;
+    }
+    return colUserLabel(src.tid, src.col);
+  }
+  async function buildExportHeaderMap(cols, map) {
+    map = map || buildColSourceMap();
+    const seen = /* @__PURE__ */ new Map();
+    const result = {};
+    for (const alias of cols) {
+      const base = await colExportLabel(alias, map);
+      const n2 = seen.get(base) || 0;
+      seen.set(base, n2 + 1);
+      result[alias] = n2 === 0 ? base : base + " " + (n2 + 1);
+    }
+    return result;
+  }
+  function smartDefaultFn(colName) {
+    const n2 = String(colName).toLowerCase();
+    if (/\bdate\b|time\b|\bdt\b|shipped|arrival|delivery|due\b|created/.test(n2)) return "DATE RANGE";
+    if (/amount|total|value|price|cost|\bqty\b|quantity|\bnum\b|number|units|sales|revenue|weight|volume/.test(n2)) return "SUM";
+    return "FIRST";
+  }
+  function defaultAggAlias(fn, colLabel) {
+    switch (fn) {
+      case "SUM":
+        return `Total ${colLabel}`;
+      case "AVG":
+        return `Avg ${colLabel}`;
+      case "COUNT ROWS":
+        return "Row Count";
+      case "COUNT NON-EMPTY":
+        return `# ${colLabel}`;
+      case "COUNT DISTINCT":
+        return `Unique ${colLabel}`;
+      case "MIN":
+        return `Min ${colLabel}`;
+      case "MAX":
+        return `Max ${colLabel}`;
+      case "FIRST":
+        return `${colLabel} (first)`;
+      case "LAST":
+        return `${colLabel} (last)`;
+      case "DATE RANGE":
+        return `${colLabel} Range`;
+      case "DATE SPAN":
+        return `${colLabel} Span (days)`;
+      case "NUMERIC RANGE":
+        return `${colLabel} Range`;
+      case "NUMERIC SPAN":
+        return `${colLabel} Span`;
+      case "LIST":
+        return `${colLabel} (list)`;
+      default:
+        return `${fn}(${colLabel})`;
+    }
+  }
+
+  // preact/core/state-schema.ts
+  var STATE_VERSION = 2;
+  var RECOGNIZABLE_KEYS = [
+    "base",
+    "baseCols",
+    "stacks",
+    "lookups",
+    "calcStages",
+    "filters",
+    "sorts",
+    "colOrder",
+    "selCols",
+    "aggMode",
+    "aggregates",
+    "colTotals",
+    "subtotalBy",
+    "subtotalFns",
+    "subtotalStrategy",
+    "detailBands",
+    "detailBandMode"
+  ];
+  function isRecognizableConfig(payload) {
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return false;
+    let matches = 0;
+    for (const key of RECOGNIZABLE_KEYS) {
+      if (key in payload) matches++;
+    }
+    return matches >= 2;
+  }
+
+  // preact/core/state-hydrator.ts
+  function hydrateState(payload, loadedTables) {
+    const next = {};
+    const brokenRefs = [];
+    const sourceCatalog = buildSourceCatalog(loadedTables);
+    const nextAvailableCols = () => {
+      const cols = projectedColsUpToLookup((next.lookups || []).length, next, sourceCatalog);
+      const colSet = new Set(cols);
+      for (const c3 of next.calcStages || []) {
+        if (c3.alias) colSet.add(c3.alias);
+      }
+      return colSet;
+    };
+    const savedBase = payload.base || "";
+    next.base = savedBase;
+    const baseLoaded = !!(savedBase && loadedTables[savedBase]);
+    if (!baseLoaded) {
+      brokenRefs.push(`Primary sheet "${savedBase || "(none)"}" is not loaded`);
+    }
+    if (baseLoaded) {
+      next.baseCols = [...loadedTables[savedBase].cols];
+    }
+    if (Array.isArray(payload.baseCols)) {
+      const dropped = baseLoaded ? payload.baseCols.filter((c3) => !loadedTables[savedBase].cols.includes(c3)) : [];
+      if (dropped.length) brokenRefs.push(`Base columns not available: ${dropped.join(", ")}`);
+      next.baseCols = [...payload.baseCols];
+    }
+    next.stacks = [];
+    for (const id of payload.stacks || []) {
+      if (!loadedTables[id]) {
+        brokenRefs.push(`Stacked sheet "${id}" is not loaded`);
+        next.stacks.push(id);
+        continue;
+      }
+      if (!next.stacks.includes(id)) next.stacks.push(id);
+    }
+    next.lookups = [];
+    for (const lk of payload.lookups || []) {
+      const rt = lk.rightId && loadedTables[lk.rightId];
+      if (!lk.rightId || !rt) {
+        brokenRefs.push(`Lookup sheet "${lk.rightId || "(none)"}" is not loaded`);
+        next.lookups.push({
+          rightId: lk.rightId || "",
+          keyPairs: Array.isArray(lk.keyPairs) ? lk.keyPairs.map((p3) => ({ left: p3.left || "", right: p3.right || "" })) : [{ left: "", right: "" }],
+          cols: Array.isArray(lk.cols) ? [...lk.cols] : [],
+          required: !!lk.required,
+          enabled: lk.enabled !== false,
+          duplicatePolicy: lk.duplicatePolicy && lk.duplicatePolicy.mode ? { ...lk.duplicatePolicy } : { mode: "block" }
+        });
+        continue;
+      }
+      const leftAvail = baseLoaded ? projectedColsUpToLookup(next.lookups.length, next, sourceCatalog) : [];
+      const keyPairs = (Array.isArray(lk.keyPairs) ? lk.keyPairs : []).map((p3) => {
+        const leftOk = !baseLoaded || leftAvail.includes(p3.left);
+        const rightOk = rt.cols.includes(p3.right);
+        if (!leftOk && p3.left) brokenRefs.push(`Match column "${p3.left}" not found (left side of lookup from "${rt.name}")`);
+        if (!rightOk && p3.right) brokenRefs.push(`Match column "${p3.right}" not found in "${rt.name}"`);
+        return { left: p3.left || "", right: p3.right || "" };
+      });
+      const cols = Array.isArray(lk.cols) ? lk.cols : [...rt.cols];
+      next.lookups.push({ rightId: lk.rightId, keyPairs, cols, required: !!lk.required, enabled: lk.enabled !== false, duplicatePolicy: lk.duplicatePolicy && lk.duplicatePolicy.mode ? { ...lk.duplicatePolicy } : { mode: "block" } });
+    }
+    const VALID_CALC_MODES = /* @__PURE__ */ new Set(["math", "compare", "text", "date"]);
+    function _checkColRef(colName, baseLoaded2, availNow, alias, brokenRefs2) {
+      if (colName && baseLoaded2 && availNow.size && !availNow.has(colName)) {
+        brokenRefs2.push(`Calculated column "${alias}" references unavailable column "${colName}"`);
+      }
+    }
+    next.calcStages = [];
+    for (const c3 of payload.calcStages || []) {
+      const alias = (c3.alias || "").trim();
+      const enabled = c3.enabled !== false;
+      if (!c3.mode || !VALID_CALC_MODES.has(c3.mode)) {
+        brokenRefs.push(`Calculated column "${alias}" has an unsupported or missing mode`);
+        next.calcStages.push({ ...c3, alias, enabled });
+        continue;
+      }
+      if (!alias) {
+        brokenRefs.push("Calculated stage has no alias");
+        next.calcStages.push({ ...c3, alias, enabled });
+        continue;
+      }
+      const availNow = nextAvailableCols();
+      if (c3.mode === "math") {
+        const math = c3.math;
+        if (math && Array.isArray(math.steps)) {
+          for (const step of math.steps) {
+            _checkColRef(step.type === "column" ? step.value : null, baseLoaded, availNow, alias, brokenRefs);
+          }
+        }
+      }
+      if (c3.mode === "compare") {
+        const compare = c3.compare;
+        if (compare && Array.isArray(compare.conditions)) {
+          for (const cond of compare.conditions) {
+            _checkColRef(cond.col, baseLoaded, availNow, alias, brokenRefs);
+          }
+        }
+        if (compare && compare.trueValue) {
+          _checkColRef(compare.trueValue.type === "column" ? compare.trueValue.value : null, baseLoaded, availNow, alias, brokenRefs);
+        }
+        if (compare && compare.falseValue) {
+          _checkColRef(compare.falseValue.type === "column" ? compare.falseValue.value : null, baseLoaded, availNow, alias, brokenRefs);
+        }
+      }
+      if (c3.mode === "text") {
+        const text = c3.text;
+        if (text) {
+          if (text.operation === "combine" && Array.isArray(text.parts)) {
+            for (const part of text.parts) {
+              _checkColRef(part.type === "column" ? part.value : null, baseLoaded, availNow, alias, brokenRefs);
+            }
+          }
+          if (text.source) {
+            _checkColRef(text.source.type === "column" ? text.source.value : null, baseLoaded, availNow, alias, brokenRefs);
+          }
+        }
+      }
+      if (c3.mode === "date") {
+        const date = c3.date;
+        if (date && date.operation === "extract" && date.source) {
+          _checkColRef(date.source.type === "column" ? date.source.value : null, baseLoaded, availNow, alias, brokenRefs);
+        }
+      }
+      next.calcStages.push({ ...c3, alias, enabled });
+    }
+    const available = nextAvailableCols();
+    next.selCols = new Set(available);
+    if (Array.isArray(payload.selCols)) {
+      const dropped = baseLoaded ? payload.selCols.filter((c3) => !available.has(c3)) : [];
+      if (dropped.length) brokenRefs.push(`Selected columns not available: ${dropped.join(", ")}`);
+      next.selCols = new Set(payload.selCols);
+    }
+    next.colOrder = [...available];
+    if (Array.isArray(payload.colOrder)) {
+      next.colOrder = [...payload.colOrder];
+    }
+    next.filters = [];
+    for (const f4 of payload.filters || []) {
+      if (f4.col && baseLoaded && !available.has(f4.col)) {
+        brokenRefs.push(`Filter on column "${f4.col}" is not available`);
+      }
+      const vals = Array.isArray(f4.vals) ? [...f4.vals] : f4.vals;
+      next.filters.push({ col: f4.col || "", op: f4.op || "contains", vals, enabled: f4.enabled !== false });
+    }
+    const gbDropped = baseLoaded ? (payload.groupBy || []).filter((c3) => !available.has(c3)) : [];
+    if (gbDropped.length) brokenRefs.push(`Group By columns not available: ${gbDropped.join(", ")}`);
+    next.groupBy = [...payload.groupBy || []];
+    next.aggregates = [];
+    for (const a3 of payload.aggregates || []) {
+      if (a3.col && a3.col !== "*" && baseLoaded && !available.has(a3.col)) {
+        brokenRefs.push(`Aggregate "${a3.alias || a3.fn}" on column "${a3.col}" is not available`);
+      }
+      next.aggregates.push({ fn: a3.fn || "SUM", col: a3.col || "*", alias: a3.alias || "" });
+    }
+    next.sorts = [];
+    for (const s3 of payload.sorts || []) {
+      if (s3.col && baseLoaded && !available.has(s3.col)) {
+        brokenRefs.push(`Sort on column "${s3.col}" is not available`);
+      }
+      next.sorts.push({ col: s3.col || "", dir: s3.dir === "DESC" ? "DESC" : "ASC", enabled: s3.enabled !== false });
+    }
+    next.aggMode = typeof payload.aggMode === "string" ? payload.aggMode : "none";
+    next.colTotals = {};
+    for (const [col, fn] of Object.entries(payload.colTotals || {})) {
+      if (baseLoaded && !available.has(col)) brokenRefs.push(`Totals column "${col}" not available`);
+      next.colTotals[col] = fn;
+    }
+    const sbDropped = baseLoaded ? (payload.subtotalBy || []).filter((c3) => !available.has(c3)) : [];
+    if (sbDropped.length) brokenRefs.push(`Subtotal By columns not available: ${sbDropped.join(", ")}`);
+    next.subtotalBy = [...payload.subtotalBy || []];
+    next.subtotalFns = {};
+    for (const [col, fn] of Object.entries(payload.subtotalFns || {})) {
+      if (baseLoaded && !available.has(col)) brokenRefs.push(`Subtotal function column "${col}" not available`);
+      next.subtotalFns[col] = fn;
+    }
+    next.subtotalGrandTotal = payload.subtotalGrandTotal !== false;
+    next.subtotalSpacer = !!payload.subtotalSpacer;
+    next.subtotalOnTop = !!payload.subtotalOnTop;
+    next.subtotalStrategy = payload.subtotalStrategy === "nested" ? "nested" : "combined";
+    if (!payload.aggModeState || typeof payload.aggModeState !== "object") {
+      next.aggModeState = null;
+    } else {
+      const raw = payload.aggModeState;
+      const rawNone = raw.none && typeof raw.none === "object" ? raw.none : null;
+      const rawGroup = raw.group && typeof raw.group === "object" ? raw.group : null;
+      const rawTotals = raw.totals && typeof raw.totals === "object" ? raw.totals : null;
+      const rawSubtotals = raw.subtotals && typeof raw.subtotals === "object" ? raw.subtotals : null;
+      next.aggModeState = {
+        none: rawNone ? {
+          selCols: Array.isArray(rawNone.selCols) ? [...rawNone.selCols] : []
+        } : null,
+        group: rawGroup ? {
+          groupBy: Array.isArray(rawGroup.groupBy) ? [...rawGroup.groupBy] : [],
+          aggregates: Array.isArray(rawGroup.aggregates) ? rawGroup.aggregates.map((a3) => ({ fn: a3.fn || "SUM", col: a3.col || "*", alias: a3.alias || "", auto: !!a3.auto })) : []
+        } : null,
+        totals: rawTotals ? {
+          selCols: Array.isArray(rawTotals.selCols) ? [...rawTotals.selCols] : [],
+          colTotals: rawTotals.colTotals && typeof rawTotals.colTotals === "object" ? { ...rawTotals.colTotals } : {}
+        } : null,
+        subtotals: rawSubtotals ? {
+          selCols: Array.isArray(rawSubtotals.selCols) ? [...rawSubtotals.selCols] : [],
+          subtotalBy: Array.isArray(rawSubtotals.subtotalBy) ? [...rawSubtotals.subtotalBy] : [],
+          subtotalFns: rawSubtotals.subtotalFns && typeof rawSubtotals.subtotalFns === "object" ? { ...rawSubtotals.subtotalFns } : {},
+          subtotalGrandTotal: rawSubtotals.subtotalGrandTotal !== false,
+          subtotalSpacer: !!rawSubtotals.subtotalSpacer,
+          subtotalOnTop: !!rawSubtotals.subtotalOnTop,
+          subtotalStrategy: rawSubtotals.subtotalStrategy === "nested" ? "nested" : "combined"
+        } : null
+      };
+    }
+    next.mergedCols = (payload.mergedCols || []).filter((c3) => typeof c3 === "string");
+    next.mergeGroupUnderline = !!payload.mergeGroupUnderline;
+    next.colState = Array.isArray(payload.colState) ? payload.colState : null;
+    const nextExcludedRows = {};
+    if (payload.excludedRows && typeof payload.excludedRows === "object") {
+      for (const [tid, arr] of Object.entries(payload.excludedRows)) {
+        if (Array.isArray(arr) && arr.length) {
+          nextExcludedRows[tid] = new Set(arr);
+        }
+      }
+    }
+    next.tableColors = {};
+    for (const [tid, color] of Object.entries(payload.tableColors || {})) {
+      if (typeof color === "string" && color.startsWith("#")) {
+        next.tableColors[tid] = color;
+      }
+    }
+    next.columnLabels = {};
+    for (const [tid, labels] of Object.entries(payload.columnLabels || {})) {
+      if (!labels || typeof labels !== "object") continue;
+      const kept = {};
+      for (const [col, label] of Object.entries(labels)) {
+        if (label && label !== col) kept[col] = label;
+      }
+      if (Object.keys(kept).length) next.columnLabels[tid] = kept;
+    }
+    next.detailBands = [];
+    if (Array.isArray(payload.detailBands)) {
+      for (const band of payload.detailBands) {
+        const rt = band.rightId && loadedTables[band.rightId];
+        if (!rt) {
+          brokenRefs.push(`Related details sheet "${band.rightId || "(none)"}" is not loaded`);
+          next.detailBands.push({
+            id: band.id || `band_${next.detailBands.length}`,
+            rightId: band.rightId || "",
+            keyPairs: Array.isArray(band.keyPairs) ? band.keyPairs.map((p3) => ({ left: p3.left || "", right: p3.right || "" })) : [{ left: "", right: "" }],
+            cols: Array.isArray(band.cols) ? [...band.cols] : [],
+            enabled: band.enabled !== false,
+            sorts: Array.isArray(band.sorts) ? band.sorts.map((s3) => ({ col: s3.col || "", dir: s3.dir === "DESC" ? "DESC" : "ASC", enabled: s3.enabled !== false })) : [],
+            label: typeof band.label === "string" ? band.label : ""
+          });
+          continue;
+        }
+        const keyPairs = (Array.isArray(band.keyPairs) ? band.keyPairs : []).map((p3) => {
+          const leftOk = !baseLoaded || projectedColsUpToLookup((next.lookups || []).length, next, sourceCatalog).includes(p3.left);
+          const rightOk = rt.cols.includes(p3.right);
+          if (!leftOk && p3.left) brokenRefs.push(`Match column "${p3.left}" not found (left side of detail band from "${rt.name}")`);
+          if (!rightOk && p3.right) brokenRefs.push(`Match column "${p3.right}" not found in "${rt.name}"`);
+          return { left: p3.left || "", right: p3.right || "" };
+        });
+        const cols = Array.isArray(band.cols) ? band.cols.filter((c3) => rt.cols.includes(c3)) : [];
+        const droppedCols = Array.isArray(band.cols) ? band.cols.filter((c3) => !rt.cols.includes(c3)) : [];
+        if (droppedCols.length) brokenRefs.push(`Detail band "${band.label || band.id}" columns not available: ${droppedCols.join(", ")}`);
+        const sorts = Array.isArray(band.sorts) ? band.sorts.map((s3) => {
+          const sortColOk = rt.cols.includes(s3.col);
+          if (!sortColOk && s3.col) brokenRefs.push(`Sort column "${s3.col}" not found in "${rt.name}"`);
+          return { col: s3.col || "", dir: s3.dir === "DESC" ? "DESC" : "ASC", enabled: s3.enabled !== false };
+        }) : [];
+        next.detailBands.push({
+          id: band.id || `band_${next.detailBands.length}`,
+          rightId: band.rightId,
+          keyPairs,
+          cols,
+          enabled: band.enabled !== false,
+          sorts,
+          label: typeof band.label === "string" ? band.label : ""
+        });
+      }
+    }
+    next.detailBandMode = payload.detailBandMode === "stack" ? "stack" : "separate";
+    next.columnTypeOverrides = {};
+    if (payload.columnTypeOverrides && typeof payload.columnTypeOverrides === "object") {
+      for (const [tid, cols] of Object.entries(payload.columnTypeOverrides)) {
+        if (cols && typeof cols === "object") {
+          next.columnTypeOverrides[tid] = { ...cols };
+        }
+      }
+    }
+    return { next, brokenRefs, nextExcludedRows };
+  }
+
   // preact/core/state-applier.ts
   function applyState(next, nextExcludedRows) {
     getStore().update((draft) => {
@@ -2396,7 +2410,9 @@
           return;
         }
         if (payload.v !== STATE_VERSION) {
-          toast(`Version mismatch (saved: ${JSON.stringify(payload.v)}, app: ${STATE_VERSION}). Loaded with best-effort — check items for issues.`, "warn");
+          toast(`Version mismatch (saved: ${JSON.stringify(payload.v)}, app: ${STATE_VERSION}). Please re-save with the current version.`, "err");
+          resolve({ ok: false, brokenRefs: [] });
+          return;
         }
         const loadedTables = store.getState().tables;
         const { next, brokenRefs, nextExcludedRows } = hydrateState(payload, loadedTables);
@@ -2455,6 +2471,98 @@
       }
     });
   }
+  function isDateFormat(z3) {
+    return /yyyy|yy|mm|dd|hh|ss/i.test(z3);
+  }
+  function sheetTypeToColumnType(t3) {
+    switch (t3) {
+      case "n":
+        return "number";
+      case "s":
+        return "string";
+      case "d":
+        return "date";
+      case "b":
+        return "boolean";
+      default:
+        return "string";
+    }
+  }
+  function scanCellTypes(ws) {
+    const dense = Array.isArray(ws["!data"]) ? ws["!data"] : Array.isArray(ws) ? ws : null;
+    if (!dense) return {};
+    const headerRow = dense[0];
+    if (!headerRow || !headerRow.length) return {};
+    const colNames = [];
+    for (let c3 = 0; c3 < headerRow.length; c3++) {
+      const cell = headerRow[c3];
+      if (cell && cell.v != null) {
+        colNames[c3] = String(cell.v);
+      }
+    }
+    const typeCounts = /* @__PURE__ */ new Map();
+    const fmtCounts = /* @__PURE__ */ new Map();
+    const numTotals = /* @__PURE__ */ new Map();
+    const VALID_TYPES = /* @__PURE__ */ new Set(["n", "s", "d", "b"]);
+    for (let r3 = 1; r3 < dense.length; r3++) {
+      const row = dense[r3];
+      if (!row) continue;
+      for (let c3 = 0; c3 < row.length; c3++) {
+        const cell = row[c3];
+        if (!cell) continue;
+        if (cell.v == null) continue;
+        const t3 = cell.t;
+        if (!t3 || t3 === "z" || t3 === "e") continue;
+        if (!VALID_TYPES.has(t3)) continue;
+        const colName = colNames[c3];
+        if (!colName || colName === "_rowno") continue;
+        if (!typeCounts.has(c3)) typeCounts.set(c3, /* @__PURE__ */ new Map());
+        const tc = typeCounts.get(c3);
+        tc.set(t3, (tc.get(t3) ?? 0) + 1);
+        if (t3 === "n") {
+          numTotals.set(c3, (numTotals.get(c3) ?? 0) + 1);
+          const z3 = cell.z;
+          if (z3) {
+            if (!fmtCounts.has(c3)) fmtCounts.set(c3, /* @__PURE__ */ new Map());
+            const fc = fmtCounts.get(c3);
+            fc.set(z3, (fc.get(z3) ?? 0) + 1);
+          }
+        }
+      }
+    }
+    const result = {};
+    for (const [c3, tc] of typeCounts) {
+      const colName = colNames[c3];
+      if (!colName || colName === "_rowno") continue;
+      let majorityType = "";
+      let majorityCount = 0;
+      for (const [t3, count] of tc) {
+        if (count > majorityCount) {
+          majorityType = t3;
+          majorityCount = count;
+        }
+      }
+      if (majorityType === "n") {
+        const totalNum = numTotals.get(c3) ?? 0;
+        if (totalNum > 0) {
+          let dateFmtCount = 0;
+          const fc = fmtCounts.get(c3);
+          if (fc) {
+            for (const [fmt, count] of fc) {
+              if (isDateFormat(fmt)) {
+                dateFmtCount += count;
+              }
+            }
+          }
+          if (dateFmtCount > totalNum / 2) {
+            majorityType = "d";
+          }
+        }
+      }
+      result[colName] = sheetTypeToColumnType(majorityType);
+    }
+    return result;
+  }
   function ingestSheet(wb, sheetName, label, store) {
     const ws = wb.Sheets[sheetName];
     if (!ws || !ws["!ref"]) {
@@ -2462,6 +2570,7 @@
       return;
     }
     expandMerges(ws);
+    const colTypes = scanCellTypes(ws);
     let rawData;
     try {
       rawData = XLSX.utils.sheet_to_json(ws, { defval: null, raw: true, blankrows: false });
@@ -2530,7 +2639,7 @@
     const color = getTableColor(id);
     store.update((draft) => {
       draft.excludedRows[id] = /* @__PURE__ */ new Set();
-      draft.tables[id] = { id, name: label, cols, rowCount, samples };
+      draft.tables[id] = { id, name: label, cols, rowCount, samples, ...Object.keys(colTypes).length ? { colTypes } : {} };
       draft.tableColors[id] = color;
       if (!draft.base) draft.base = id;
     });
@@ -3093,15 +3202,11 @@ Row contents → ${previewStr}`,
     ] });
   }
 
-  // preact/core/state-serializer.ts
-  init_store();
-
   // preact/ui/aggregation.ts
-  init_store();
   function _selColsToArray(selCols) {
     if (selCols instanceof Set) return [...selCols];
     if (Array.isArray(selCols)) return [...selCols];
-    return null;
+    return [];
   }
   function _readAggModeState(mode) {
     const state = getStore().getState();
@@ -3184,7 +3289,7 @@ Row contents → ${previewStr}`,
       draft.subtotalFns = {};
       if (mode === "group") {
         if ("selCols" in savedState) {
-          draft.selCols = Array.isArray(savedState.selCols) ? new Set(savedState.selCols) : null;
+          draft.selCols = Array.isArray(savedState.selCols) ? new Set(savedState.selCols) : /* @__PURE__ */ new Set();
         }
         draft.groupBy = Array.isArray(savedState.groupBy) ? [...savedState.groupBy] : [];
         draft.aggregates = Array.isArray(savedState.aggregates) ? savedState.aggregates.map((a3) => ({ ...a3 })) : [];
@@ -3192,14 +3297,14 @@ Row contents → ${previewStr}`,
       }
       if (mode === "totals") {
         if ("selCols" in savedState) {
-          draft.selCols = Array.isArray(savedState.selCols) ? new Set(savedState.selCols) : null;
+          draft.selCols = Array.isArray(savedState.selCols) ? new Set(savedState.selCols) : /* @__PURE__ */ new Set();
         }
         draft.colTotals = savedState.colTotals && typeof savedState.colTotals === "object" ? { ...savedState.colTotals } : {};
         return;
       }
       if (mode === "subtotals") {
         if ("selCols" in savedState) {
-          draft.selCols = Array.isArray(savedState.selCols) ? new Set(savedState.selCols) : null;
+          draft.selCols = Array.isArray(savedState.selCols) ? new Set(savedState.selCols) : /* @__PURE__ */ new Set();
         }
         draft.subtotalBy = Array.isArray(savedState.subtotalBy) ? [...savedState.subtotalBy] : [];
         draft.subtotalFns = savedState.subtotalFns && typeof savedState.subtotalFns === "object" ? { ...savedState.subtotalFns } : {};
@@ -3210,7 +3315,7 @@ Row contents → ${previewStr}`,
         return;
       }
       if ("selCols" in savedState) {
-        draft.selCols = Array.isArray(savedState.selCols) ? new Set(savedState.selCols) : null;
+        draft.selCols = Array.isArray(savedState.selCols) ? new Set(savedState.selCols) : /* @__PURE__ */ new Set();
       }
     });
   }
@@ -3280,7 +3385,7 @@ Row contents → ${previewStr}`,
     return {
       v: STATE_VERSION,
       base: state.base,
-      baseCols: state.baseCols ? [...state.baseCols] : null,
+      baseCols: [...state.baseCols],
       stacks: [...state.stacks || []],
       lookups: (state.lookups || []).map((l3) => ({
         rightId: l3.rightId,
@@ -3299,8 +3404,8 @@ Row contents → ${previewStr}`,
         ...c3.text ? { text: JSON.parse(JSON.stringify(c3.text)) } : {},
         ...c3.date ? { date: JSON.parse(JSON.stringify(c3.date)) } : {}
       })),
-      selCols: state.selCols ? [...state.selCols] : null,
-      colOrder: state.colOrder ? [...state.colOrder] : null,
+      selCols: [...state.selCols],
+      colOrder: [...state.colOrder],
       filters: state.filters.map((f4) => ({
         col: f4.col || "",
         op: f4.op || "contains",
@@ -3329,12 +3434,13 @@ Row contents → ${previewStr}`,
         id: b2.id || "",
         rightId: b2.rightId || "",
         keyPairs: (b2.keyPairs || []).map((p3) => ({ left: p3.left || "", right: p3.right || "" })),
-        cols: [...b2.cols || []],
+        cols: [...b2.cols],
         enabled: b2.enabled !== false,
         sorts: (b2.sorts || []).map((s3) => ({ col: s3.col || "", dir: s3.dir === "DESC" ? "DESC" : "ASC", enabled: s3.enabled !== false })),
         label: typeof b2.label === "string" ? b2.label : ""
       })),
-      detailBandMode: state.detailBandMode || "separate"
+      detailBandMode: state.detailBandMode || "separate",
+      columnTypeOverrides: JSON.parse(JSON.stringify(state.columnTypeOverrides || {}))
     };
   }
   function saveState() {
@@ -3373,7 +3479,7 @@ Row contents → ${previewStr}`,
         delete draft.tableColors[id];
         if (draft.base === id) {
           draft.base = "";
-          draft.selCols = null;
+          draft.selCols = /* @__PURE__ */ new Set();
           draft.groupBy = [];
           draft.aggregates = [];
           draft.filters = [];
@@ -3448,13 +3554,6 @@ Row contents → ${previewStr}`,
       /* @__PURE__ */ u3("div", { id: "sidebarToggle", class: "sidebar-toggle", onClick: toggleSidebar, children: "❮" })
     ] });
   }
-
-  // preact/ui/cards/pipeline-card.tsx
-  init_store();
-
-  // preact/ui/sections/base-stage.tsx
-  init_store();
-  init_column_catalog();
 
   // preact/ui/components/chip.tsx
   function Chip({
@@ -3552,7 +3651,7 @@ Row contents → ${previewStr}`,
             onClose();
             item.action();
           },
-          children: item.label
+          children: item.checked ? "✓ " + item.label : item.label
         },
         i3
       )) }),
@@ -3561,9 +3660,6 @@ Row contents → ${previewStr}`,
   }
 
   // preact/ui/components/rename-modal.tsx
-  init_store();
-  init_column_catalog();
-  init_alias_ref_updater();
   function resolveRenameTarget(alias) {
     const colMap = buildColSourceMap();
     const src = colMap.get(alias);
@@ -3588,16 +3684,7 @@ Row contents → ${previewStr}`,
       const newName = value.trim();
       if (isCalc) {
         if (newName && newName !== current) {
-          const calcStages = getStore().getState().calcStages;
-          const calc = Array.isArray(calcStages) ? calcStages[target.calcIdx] : null;
-          if (calc) {
-            getStore().update((draft) => {
-              if (draft.calcStages[target.calcIdx]) {
-                draft.calcStages[target.calcIdx].alias = newName;
-              }
-            });
-            _renameProjectedAliasRefs(current, newName);
-          }
+          renameCalcAlias(target.calcIdx, newName);
         }
       } else {
         setColLabel(target.tid, target.col, newName);
@@ -3654,10 +3741,10 @@ Row contents → ${previewStr}`,
     const handleBaseChange = q2((val) => {
       getStore().update((draft) => {
         draft.base = val;
-        draft.baseCols = null;
+        draft.baseCols = [];
         draft.stacks = [];
-        draft.selCols = null;
-        draft.colOrder = null;
+        draft.selCols = /* @__PURE__ */ new Set();
+        draft.colOrder = [];
       });
       _previewOpen.clear();
       _disabledCardCols.clear();
@@ -3758,7 +3845,6 @@ Row contents → ${previewStr}`,
   }
 
   // preact/ui/sections/stack-sheets.tsx
-  init_store();
   function StackSheets({ sortedIds, usedAsLookup, usedAsStack }) {
     const [state, setState] = d2(getStore().getState());
     const selRef = A2(null);
@@ -3832,27 +3918,43 @@ Row contents → ${previewStr}`,
   }
 
   // preact/ui/sections/pipeline-arrow.tsx
-  function PipelineArrow({ id }) {
+  function PipelineArrow({ id, result, onOpen }) {
     const [open, setOpen] = d2(_previewOpen.has(id));
     const toggle = () => {
       const next = !open;
       setOpen(next);
-      if (next) _previewOpen.add(id);
-      else _previewOpen.delete(id);
+      if (next) {
+        _previewOpen.add(id);
+        onOpen?.(id);
+      } else {
+        _previewOpen.delete(id);
+      }
+    };
+    const renderContent = () => {
+      if (!result) {
+        return /* @__PURE__ */ u3("em", { style: { fontSize: "0.72rem", color: "var(--muted)" }, children: "Preview not available yet" });
+      }
+      if (result.error) {
+        return /* @__PURE__ */ u3("div", { style: { fontSize: "0.72rem", color: "var(--danger, #d32f2f)" }, children: result.error });
+      }
+      if (result.rows.length === 0) {
+        return /* @__PURE__ */ u3("em", { style: { fontSize: "0.72rem", color: "var(--muted)" }, children: "No rows" });
+      }
+      return /* @__PURE__ */ u3("table", { class: "pl-preview-table", style: "font-size:0.7rem;border-collapse:collapse;width:100%", children: [
+        /* @__PURE__ */ u3("thead", { children: /* @__PURE__ */ u3("tr", { children: result.headers.map((h4) => /* @__PURE__ */ u3("th", { style: "padding:1px 4px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap", children: String(h4 ?? "") })) }) }),
+        /* @__PURE__ */ u3("tbody", { children: result.rows.map((row, ri) => /* @__PURE__ */ u3("tr", { children: result.headers.map((h4) => /* @__PURE__ */ u3("td", { style: "padding:1px 4px;white-space:nowrap", children: row[h4] != null ? String(row[h4]) : "" })) }, ri)) })
+      ] });
     };
     return /* @__PURE__ */ u3("div", { class: "pl-arrow", children: [
       /* @__PURE__ */ u3("div", { class: "pl-arrow-line" }),
       /* @__PURE__ */ u3("div", { class: "pl-arrow-meta", children: /* @__PURE__ */ u3("button", { class: "pl-preview-btn", onClick: toggle, children: open ? "▲ Hide preview" : "▼ Preview" }) }),
       /* @__PURE__ */ u3("div", { class: "pl-arrow-line" }),
       /* @__PURE__ */ u3("div", { class: "pl-arrow-head" }),
-      open && /* @__PURE__ */ u3("div", { class: "pl-mini-preview", children: /* @__PURE__ */ u3("em", { style: { fontSize: "0.72rem", color: "var(--muted)" }, children: "Preview not available yet" }) })
+      open && /* @__PURE__ */ u3("div", { class: "pl-mini-preview", children: renderContent() })
     ] });
   }
 
   // preact/ui/sections/lookup-stage.tsx
-  init_store();
-  init_state();
-  init_column_catalog();
   function LookupStage({ i: i3, sortedIds, usedAsLookup, usedAsStack }) {
     const [state, setState] = d2(getStore().getState());
     const [ctxMenu, setCtxMenu] = d2(null);
@@ -4130,14 +4232,7 @@ Row contents → ${previewStr}`,
     ] });
   }
 
-  // preact/ui/sections/calc-stage.tsx
-  init_store();
-  init_state();
-  init_column_catalog();
-  init_alias_ref_updater();
-
   // preact/core/date-format.ts
-  init_store();
   function componentWidth(c3) {
     switch (c3) {
       case "D":
@@ -4222,7 +4317,6 @@ Row contents → ${previewStr}`,
   }
 
   // preact/ui/components/calc-builder.tsx
-  init_column_catalog();
   function ColSelect({ value, style, onChange, colOpts }) {
     return /* @__PURE__ */ u3("select", { style, value, onChange: (e3) => onChange(e3.target.value), children: [
       /* @__PURE__ */ u3("option", { value: "", children: [
@@ -4591,13 +4685,8 @@ Row contents → ${previewStr}`,
       });
     }, [i3, calc.enabled, updateCalc]);
     const handleAliasChange = q2((val) => {
-      const oldAlias = (calc.alias || "").trim();
-      updateCalc((calcDraft) => {
-        calcDraft.alias = val;
-      });
-      const newAlias = val.trim();
-      if (oldAlias && newAlias && oldAlias !== newAlias) _renameProjectedAliasRefs(oldAlias, newAlias);
-    }, [i3, calc.alias, updateCalc]);
+      renameCalcAlias(i3, val);
+    }, [i3]);
     const handleModeChange = q2((newMode) => {
       updateCalc((calcDraft) => {
         calcDraft.mode = newMode;
@@ -4822,11 +4911,10 @@ Row contents → ${previewStr}`,
   }
 
   // preact/ui/sections/detail-band-stage.tsx
-  init_store();
-  init_state();
-  init_column_catalog();
   function DetailBandStage({ i: i3, sortedIds, usedAsLookup, usedAsStack, usedAsBase }) {
     const [state, setState] = d2(getStore().getState());
+    const [ctxMenu, setCtxMenu] = d2(null);
+    const [renameTarget, setRenameTarget] = d2(null);
     y2(() => getStore().subscribe((s3) => setState(s3)), []);
     y2(() => {
       const band2 = getStore().getState().detailBands[i3];
@@ -4860,9 +4948,9 @@ Row contents → ${previewStr}`,
       (state.detailBands || []).map((b2, idx) => idx !== i3 ? b2.rightId : "").filter(Boolean)
     );
     const stageClasses = [
-      "pl-band-stage",
-      bandVBlocked ? "pl-band-stage--invalid" : "",
-      bandVUnresolved && !bandEnabled ? "pl-band-stage--disabled-issue" : "",
+      "pl-lookup-stage",
+      bandVBlocked ? "pl-lookup-stage--invalid" : "",
+      bandVUnresolved && !bandEnabled ? "pl-lookup-stage--disabled-issue" : "",
       !bandEnabled ? "pl-stage-disabled" : ""
     ].filter(Boolean).join(" ");
     const updateBand = q2((updater) => {
@@ -4876,7 +4964,8 @@ Row contents → ${previewStr}`,
       updateBand((_draft, bandDraft) => {
         bandDraft.rightId = val;
         bandDraft.keyPairs = [{ left: "", right: "" }];
-        bandDraft.cols = [];
+        const rt2 = val && _draft.tables[val] ? _draft.tables[val] : null;
+        bandDraft.cols = rt2 ? [...rt2.cols] : [];
       });
     }, [updateBand]);
     const handleEnabledChange = q2((checked) => {
@@ -4917,22 +5006,23 @@ Row contents → ${previewStr}`,
     }, [i3]);
     const toggleCol = q2((col) => {
       updateBand((_draft, bandDraft) => {
-        const rtCols = bandDraft.rightId && _draft.tables[bandDraft.rightId] ? _draft.tables[bandDraft.rightId].cols : [];
-        let cols = bandDraft.cols;
-        if (!cols || cols.length === 0) {
-          cols = rtCols.filter((c3) => c3 !== col);
+        let cols = [...bandDraft.cols];
+        const idx = cols.indexOf(col);
+        if (idx >= 0) {
+          cols = cols.filter((c3) => c3 !== col);
         } else {
-          const idx = cols.indexOf(col);
-          if (idx >= 0) {
-            cols = cols.filter((c3) => c3 !== col);
-          } else {
-            cols = [...cols, col];
-          }
+          cols.push(col);
         }
         bandDraft.cols = cols;
       });
     }, [updateBand]);
     const selectAllCols = q2(() => {
+      updateBand((_draft, bandDraft) => {
+        const rtCols = bandDraft.rightId && _draft.tables[bandDraft.rightId] ? _draft.tables[bandDraft.rightId].cols : [];
+        bandDraft.cols = [...rtCols];
+      });
+    }, [updateBand]);
+    const selectNoneCols = q2(() => {
       updateBand((_draft, bandDraft) => {
         bandDraft.cols = [];
       });
@@ -4972,171 +5062,1610 @@ Row contents → ${previewStr}`,
         bandDraft.sorts[si].enabled = checked;
       });
     }, [updateBand]);
-    return /* @__PURE__ */ u3("div", { class: stageClasses, children: [
-      /* @__PURE__ */ u3("div", { class: "pl-stage-label", children: [
-        "Related Details from ",
-        /* @__PURE__ */ u3(Tip, { text: "Add related rows from another sheet beneath each parent row — like sub-report details.\n\nFor example: show each Order followed by its Line Items. Use '+ AND' to match on multiple columns at once." }),
-        /* @__PURE__ */ u3("label", { class: "pl-enable-toggle", title: bandEnabled ? "Disable this detail band (won't block report)" : "Enable this detail band", children: [
-          /* @__PURE__ */ u3("input", { type: "checkbox", checked: bandEnabled, onChange: (e3) => handleEnabledChange(e3.target.checked) }),
-          /* @__PURE__ */ u3("span", { class: "pl-enable-label", children: bandEnabled ? "Enabled" : "Disabled" })
-        ] })
-      ] }),
-      bandVMsg && /* @__PURE__ */ u3("div", { class: "pl-band-error", children: [
-        bandVBlocked ? "⛔" : "⚠",
-        " ",
-        bandVMsg
-      ] }),
-      /* @__PURE__ */ u3("div", { class: "pl-band-header", children: [
-        /* @__PURE__ */ u3("select", { value: band.rightId || "", onChange: (e3) => handleRightIdChange(e3.target.value), children: [
-          /* @__PURE__ */ u3("option", { value: "", children: [
-            "—",
-            " pick a sheet ",
-            "—"
-          ] }),
-          sortedIds.filter(
-            (id) => id !== usedAsBase && !usedAsStack.has(id) && (!usedAsLookup.has(id) || id === band.rightId) && (!usedAsBand.has(id) || id === band.rightId)
-          ).map((id) => /* @__PURE__ */ u3("option", { value: id, children: tables[id].name }, id))
+    return /* @__PURE__ */ u3(S, { children: [
+      /* @__PURE__ */ u3("div", { class: stageClasses, children: [
+        /* @__PURE__ */ u3("div", { class: "pl-stage-label", children: [
+          "Related Details from ",
+          /* @__PURE__ */ u3(Tip, { text: "Add related rows from another sheet beneath each parent row — like sub-report details.\n\nFor example: show each Order followed by its Line Items. Use '+ AND' to match on multiple columns at once." }),
+          /* @__PURE__ */ u3("label", { class: "pl-enable-toggle", title: bandEnabled ? "Disable this detail band (won't block report)" : "Enable this detail band", children: [
+            /* @__PURE__ */ u3("input", { type: "checkbox", checked: bandEnabled, onChange: (e3) => handleEnabledChange(e3.target.checked) }),
+            /* @__PURE__ */ u3("span", { class: "pl-enable-label", children: bandEnabled ? "Enabled" : "Disabled" })
+          ] })
         ] }),
-        /* @__PURE__ */ u3("button", { class: "btn btn-danger", style: "flex-shrink:0", onClick: removeBand, children: "✕" })
-      ] }),
-      rt && /* @__PURE__ */ u3("div", { class: "pl-band-keys", children: [
-        pairs.map((pair, pi) => /* @__PURE__ */ u3("div", { class: "pl-key-pair", children: [
-          /* @__PURE__ */ u3("span", { class: "pl-key-pair-label", children: pi === 0 ? "Where" : "AND" }),
-          /* @__PURE__ */ u3("select", { value: pair.left || "", onChange: (e3) => handleKpLeftChange(pi, e3.target.value), children: [
+        bandVMsg && /* @__PURE__ */ u3("div", { class: "pl-lookup-error", children: [
+          bandVBlocked ? "⛔" : "⚠",
+          " ",
+          bandVMsg
+        ] }),
+        /* @__PURE__ */ u3("div", { class: "pl-lookup-header", children: [
+          /* @__PURE__ */ u3("select", { value: band.rightId || "", onChange: (e3) => handleRightIdChange(e3.target.value), children: [
             /* @__PURE__ */ u3("option", { value: "", children: [
               "—",
-              " column ",
+              " pick a sheet ",
               "—"
             ] }),
-            leftCols.map((c3) => {
-              const src = lkColMap.get(c3);
-              const label = src && src.kind !== "calc" ? colUserLabel(src.tid, src.col) : c3;
-              return /* @__PURE__ */ u3("option", { value: c3, children: label }, c3);
-            })
+            sortedIds.filter(
+              (id) => id !== usedAsBase && !usedAsStack.has(id) && (!usedAsLookup.has(id) || id === band.rightId) && (!usedAsBand.has(id) || id === band.rightId)
+            ).map((id) => /* @__PURE__ */ u3("option", { value: id, children: tables[id].name }, id))
           ] }),
-          /* @__PURE__ */ u3("span", { class: "pl-band-eq", children: "=" }),
-          /* @__PURE__ */ u3("select", { value: pair.right || "", onChange: (e3) => handleKpRightChange(pi, e3.target.value), children: [
-            /* @__PURE__ */ u3("option", { value: "", children: [
-              "—",
-              " column ",
-              "—"
+          /* @__PURE__ */ u3("button", { class: "btn btn-danger", style: "flex-shrink:0", onClick: removeBand, children: "✕" })
+        ] }),
+        rt && /* @__PURE__ */ u3("div", { class: "pl-lookup-keys", children: [
+          pairs.map((pair, pi) => /* @__PURE__ */ u3("div", { class: "pl-key-pair", children: [
+            /* @__PURE__ */ u3("span", { class: "pl-key-pair-label", children: pi === 0 ? "Where" : "AND" }),
+            /* @__PURE__ */ u3("select", { value: pair.left || "", onChange: (e3) => handleKpLeftChange(pi, e3.target.value), children: [
+              /* @__PURE__ */ u3("option", { value: "", children: [
+                "—",
+                " column ",
+                "—"
+              ] }),
+              leftCols.map((c3) => {
+                const src = lkColMap.get(c3);
+                const label = src && src.kind !== "calc" ? colUserLabel(src.tid, src.col) : c3;
+                return /* @__PURE__ */ u3("option", { value: c3, children: label }, c3);
+              })
             ] }),
-            rightCols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: `${tables[band.rightId]?.name || band.rightId} → ${colUserLabel(band.rightId, c3)}` }, c3))
-          ] }),
-          pairs.length > 1 && /* @__PURE__ */ u3("button", { class: "pl-rm-kp", title: "Remove this condition", onClick: () => removeKeyPair(pi), children: "✕" })
-        ] }, pi)),
-        /* @__PURE__ */ u3("button", { class: "btn btn-ghost pl-add-kp", onClick: addKeyPair, children: [
-          "＋",
-          " AND ",
-          "…"
-        ] })
-      ] }),
-      rt && /* @__PURE__ */ u3("div", { class: "pl-band-cols", children: [
-        /* @__PURE__ */ u3("span", { style: "font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center", children: "Include:" }),
-        /* @__PURE__ */ u3(Tip, { text: "These are the columns from the child sheet. Click a chip to include or exclude it from the detail band." }),
-        rt.cols.map((c3) => {
-          const isSelected = band.cols.length === 0 || band.cols.includes(c3);
-          return /* @__PURE__ */ u3(
-            Chip,
+            /* @__PURE__ */ u3("span", { class: "pl-lookup-eq", children: "=" }),
+            /* @__PURE__ */ u3("select", { value: pair.right || "", onChange: (e3) => handleKpRightChange(pi, e3.target.value), children: [
+              /* @__PURE__ */ u3("option", { value: "", children: [
+                "—",
+                " column ",
+                "—"
+              ] }),
+              rightCols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: `${tables[band.rightId]?.name || band.rightId} → ${colUserLabel(band.rightId, c3)}` }, c3))
+            ] }),
+            pairs.length > 1 && /* @__PURE__ */ u3("button", { class: "pl-rm-kp", title: "Remove this condition", onClick: () => removeKeyPair(pi), children: "✕" })
+          ] }, pi)),
+          /* @__PURE__ */ u3("button", { class: "btn btn-ghost pl-add-kp", onClick: addKeyPair, children: [
+            "＋",
+            " AND ",
+            "…"
+          ] })
+        ] }),
+        rt && /* @__PURE__ */ u3("div", { class: "pl-band-cols", children: [
+          /* @__PURE__ */ u3("span", { style: "font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center", children: "Include:" }),
+          /* @__PURE__ */ u3(Tip, { text: "These are the columns from the child sheet. Click a chip to include or exclude it from the detail band. Right-click any chip to rename it." }),
+          rt.cols.map((c3) => {
+            const isSelected = band.cols.includes(c3);
+            return /* @__PURE__ */ u3(
+              Chip,
+              {
+                col: c3,
+                label: colUserLabel(band.rightId, c3),
+                selected: isSelected,
+                draggable: false,
+                chipClass: "pl-col-chip",
+                colorClass: bandColorCls,
+                tooltip: `Click to ${isSelected ? "exclude" : "include"} this column from the detail band.`,
+                dataAttrs: { "data-bi": String(i3), "data-bcc": c3 },
+                onClick: () => toggleCol(c3),
+                onContextMenu: (e3) => {
+                  e3.preventDefault();
+                  if (!band.rightId) return;
+                  const colMap2 = buildColSourceMap();
+                  const bandPrefix = `_${band.id}_`;
+                  const alias = bandPrefix + c3;
+                  if (!colMap2.has(alias)) return;
+                  setCtxMenu({
+                    x: e3.clientX,
+                    y: e3.clientY,
+                    items: [{ label: "Rename", action: () => setRenameTarget(resolveRenameTarget(alias)) }]
+                  });
+                }
+              },
+              c3
+            );
+          }),
+          /* @__PURE__ */ u3("button", { class: "btn btn-ghost", style: "font-size:0.68rem;padding:2px 6px;flex-shrink:0", onClick: selectAllCols, children: "All" }),
+          /* @__PURE__ */ u3("button", { class: "btn btn-ghost", style: "font-size:0.68rem;padding:2px 6px;flex-shrink:0", onClick: selectNoneCols, children: "None" })
+        ] }),
+        rt && /* @__PURE__ */ u3("div", { class: "pl-band-label-row", children: [
+          /* @__PURE__ */ u3("span", { style: "font-size:0.7rem;color:var(--muted);flex-shrink:0", children: "Label:" }),
+          /* @__PURE__ */ u3(
+            "input",
             {
-              col: c3,
-              label: colUserLabel(band.rightId, c3),
-              selected: isSelected,
-              draggable: false,
-              chipClass: "pl-col-chip",
-              colorClass: bandColorCls,
-              tooltip: `Click to ${isSelected ? "exclude" : "include"} this column from the detail band.`,
-              dataAttrs: { "data-bi": String(i3), "data-bcc": c3 },
-              onClick: () => toggleCol(c3)
-            },
-            c3
-          );
-        }),
-        /* @__PURE__ */ u3("button", { class: "btn btn-ghost", style: "font-size:0.68rem;padding:2px 6px;flex-shrink:0", onClick: selectAllCols, children: "All" })
-      ] }),
-      rt && /* @__PURE__ */ u3("div", { class: "pl-band-label-row", children: [
-        /* @__PURE__ */ u3("span", { style: "font-size:0.7rem;color:var(--muted);flex-shrink:0", children: "Label:" }),
-        /* @__PURE__ */ u3(
-          "input",
-          {
-            type: "text",
-            class: "pl-band-label-input",
-            placeholder: tables[band.rightId]?.name || "Section label",
-            value: band.label || "",
-            onChange: (e3) => handleLabelChange(e3.target.value),
-            style: "font-size:0.72rem;padding:2px 6px;max-width:180px"
-          }
-        ),
-        /* @__PURE__ */ u3(Tip, { text: "Optional label for this detail section. Defaults to the sheet name if left blank." })
-      ] }),
-      rt && /* @__PURE__ */ u3("div", { class: "pl-band-sorts", children: [
-        /* @__PURE__ */ u3("span", { style: "font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center", children: "Sort by:" }),
-        /* @__PURE__ */ u3(Tip, { text: "Sort the child rows within each band. Add multiple sort levels for tie-breaking." }),
-        (band.sorts || []).map((s3, si) => {
-          const sEnabled = s3.enabled !== false;
-          return /* @__PURE__ */ u3("div", { class: `sort-row${sEnabled ? "" : " pl-stage-disabled"}`, children: [
-            /* @__PURE__ */ u3("span", { class: "sort-level", children: [
-              si + 1,
-              "."
-            ] }),
-            /* @__PURE__ */ u3(
-              "select",
-              {
-                value: s3.col,
-                style: "flex:1;min-width:0",
-                onChange: (e3) => handleSortColChange(si, e3.target.value),
-                children: [
-                  /* @__PURE__ */ u3("option", { value: "", children: [
-                    "—",
-                    " column ",
-                    "—"
-                  ] }),
-                  rightCols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: colUserLabel(band.rightId, c3) }, c3))
-                ]
-              }
-            ),
-            /* @__PURE__ */ u3(
-              "select",
-              {
-                value: s3.dir,
-                style: "width:95px;flex-shrink:0",
-                onChange: (e3) => handleSortDirChange(si, e3.target.value),
-                children: [
-                  /* @__PURE__ */ u3("option", { value: "ASC", children: [
-                    "↑",
-                    " A ",
-                    "→",
-                    " Z"
-                  ] }),
-                  /* @__PURE__ */ u3("option", { value: "DESC", children: [
-                    "↓",
-                    " Z ",
-                    "→",
-                    " A"
-                  ] })
-                ]
-              }
-            ),
-            /* @__PURE__ */ u3("label", { class: "pl-enable-toggle", title: sEnabled ? "Disable sort" : "Enable sort", children: [
-              /* @__PURE__ */ u3("input", { type: "checkbox", checked: sEnabled, onChange: (e3) => handleSortEnabledChange(si, e3.target.checked) }),
-              /* @__PURE__ */ u3("span", { class: "pl-enable-label", children: sEnabled ? "" : "Off" })
-            ] }),
-            /* @__PURE__ */ u3("button", { class: "btn btn-danger", onClick: () => removeSort(si), children: "✕" })
-          ] }, si);
-        }),
-        /* @__PURE__ */ u3("button", { class: "btn btn-ghost", style: "font-size:0.68rem;padding:2px 6px;flex-shrink:0", onClick: addSort2, children: [
-          "＋",
-          " sort"
+              type: "text",
+              class: "pl-band-label-input",
+              placeholder: tables[band.rightId]?.name || "Section label",
+              value: band.label || "",
+              onChange: (e3) => handleLabelChange(e3.target.value),
+              style: "font-size:0.72rem;padding:2px 6px;max-width:180px"
+            }
+          ),
+          /* @__PURE__ */ u3(Tip, { text: "Optional label for this detail section. Defaults to the sheet name if left blank." })
+        ] }),
+        rt && /* @__PURE__ */ u3("div", { class: "pl-band-sorts", children: [
+          /* @__PURE__ */ u3("span", { style: "font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center", children: "Sort by:" }),
+          /* @__PURE__ */ u3(Tip, { text: "Sort the child rows within each band. Add multiple sort levels for tie-breaking." }),
+          (band.sorts || []).map((s3, si) => {
+            const sEnabled = s3.enabled !== false;
+            return /* @__PURE__ */ u3("div", { class: `sort-row${sEnabled ? "" : " pl-stage-disabled"}`, children: [
+              /* @__PURE__ */ u3("span", { class: "sort-level", children: [
+                si + 1,
+                "."
+              ] }),
+              /* @__PURE__ */ u3(
+                "select",
+                {
+                  value: s3.col,
+                  style: "flex:1;min-width:0",
+                  onChange: (e3) => handleSortColChange(si, e3.target.value),
+                  children: [
+                    /* @__PURE__ */ u3("option", { value: "", children: [
+                      "—",
+                      " column ",
+                      "—"
+                    ] }),
+                    rightCols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: colUserLabel(band.rightId, c3) }, c3))
+                  ]
+                }
+              ),
+              /* @__PURE__ */ u3(
+                "select",
+                {
+                  value: s3.dir,
+                  style: "width:95px;flex-shrink:0",
+                  onChange: (e3) => handleSortDirChange(si, e3.target.value),
+                  children: [
+                    /* @__PURE__ */ u3("option", { value: "ASC", children: [
+                      "↑",
+                      " A ",
+                      "→",
+                      " Z"
+                    ] }),
+                    /* @__PURE__ */ u3("option", { value: "DESC", children: [
+                      "↓",
+                      " Z ",
+                      "→",
+                      " A"
+                    ] })
+                  ]
+                }
+              ),
+              /* @__PURE__ */ u3("label", { class: "pl-enable-toggle", title: sEnabled ? "Disable sort" : "Enable sort", children: [
+                /* @__PURE__ */ u3("input", { type: "checkbox", checked: sEnabled, onChange: (e3) => handleSortEnabledChange(si, e3.target.checked) }),
+                /* @__PURE__ */ u3("span", { class: "pl-enable-label", children: sEnabled ? "" : "Off" })
+              ] }),
+              /* @__PURE__ */ u3("button", { class: "btn btn-danger", onClick: () => removeSort(si), children: "✕" })
+            ] }, si);
+          }),
+          /* @__PURE__ */ u3("button", { class: "btn btn-ghost", style: "font-size:0.68rem;padding:2px 6px;flex-shrink:0", onClick: addSort2, children: [
+            "＋",
+            " sort"
+          ] })
         ] })
-      ] })
+      ] }),
+      ctxMenu && /* @__PURE__ */ u3(ContextMenu, { x: ctxMenu.x, y: ctxMenu.y, items: ctxMenu.items, onClose: () => setCtxMenu(null) }),
+      renameTarget && /* @__PURE__ */ u3(RenameModal, { target: renameTarget, onDone: () => invalidateValidation(), onClose: () => setRenameTarget(null) })
     ] });
   }
 
+  // preact/query/resolve-ref.ts
+  function resolveRef(alias, colMap) {
+    const entry = colMap.get(alias);
+    if (!entry || entry.kind === "calc" || entry.kind === "band") return quoteId(alias);
+    return `${quoteId(entry.tid)}.${quoteId(entry.col)}`;
+  }
+
+  // preact/query/sql-calcs.ts
+  function toNum(expr) {
+    return `CAST(COALESCE(NULLIF(TRIM(CAST(${expr} AS TEXT)), ''), '0') AS REAL)`;
+  }
+  function findBaseTid(colMap) {
+    for (const entry of colMap.values()) {
+      if (!entry || entry.kind === "calc") continue;
+      const physical = entry;
+      if (physical.col === "_rowno") return physical.tid;
+    }
+    for (const entry of colMap.values()) {
+      if (!entry || entry.kind === "calc") continue;
+      return entry.tid;
+    }
+    return "_base";
+  }
+  function renderCalcExpr(calc, alias, colMap, trail) {
+    if (trail.has(alias)) return "NULL";
+    trail.add(alias);
+    if (calc.mode === "math") {
+      return renderModeMath(calc, alias, colMap, trail);
+    }
+    if (calc.mode === "compare") {
+      return renderModeCompare(calc, alias, colMap, trail);
+    }
+    if (calc.mode === "text") {
+      return renderModeText(calc, alias, colMap, trail);
+    }
+    if (calc.mode === "date") {
+      return renderModeDate(calc, alias, colMap, trail);
+    }
+    throw new Error(`Unknown calc mode "${calc.mode}" for "${alias}"`);
+  }
+  function renderModeMath(calc, alias, colMap, trail) {
+    const math = calc.math;
+    const steps = math.steps;
+    const renderStepVal = (step, t3) => {
+      if (step.type === "number") {
+        const n2 = parseFloat(step.value || "");
+        return Number.isFinite(n2) ? String(n2) : "0";
+      }
+      if (step.type === "column") {
+        const expr2 = resolveRef(step.value || "", colMap);
+        const refEntry = colMap.get(step.value || "");
+        if (refEntry && refEntry.kind === "calc") {
+          const refCalc = refEntry.calc;
+          if (refCalc) {
+            return toNum(renderCalcExpr(refCalc, step.value || "", colMap, t3));
+          }
+        }
+        return toNum(expr2);
+      }
+      if (step.type === "text") {
+        return `'${String(step.value || "").replace(/'/g, "''")}'`;
+      }
+      throw new Error(`Unsupported math step type "${step.type}" in calc "${alias}"`);
+    };
+    const ext = calc;
+    const mathOp = ext.mathOp;
+    const colExpr = renderStepVal(steps[0], trail);
+    const baseTid = findBaseTid(colMap);
+    const rownoRef = `${quoteId(baseTid)}.${quoteId("_rowno")}`;
+    if (mathOp === "ROLLAVG") {
+      const window2 = Math.max(1, parseInt(String(ext.window || "7"), 10) || 7);
+      return `AVG(${colExpr}) OVER (ORDER BY ${rownoRef} ROWS BETWEEN ${window2 - 1} PRECEDING AND CURRENT ROW)`;
+    }
+    if (mathOp === "PCTTOTAL") {
+      return `${colExpr} * 100.0 / NULLIF(SUM(${colExpr}) OVER (), 0)`;
+    }
+    let expr = colExpr;
+    for (let i3 = 1; i3 < steps.length; i3++) {
+      const step = steps[i3];
+      const r3 = renderStepVal(step, trail);
+      switch (step.op) {
+        case "+":
+          expr = `(${expr} + ${r3})`;
+          break;
+        case "-":
+          expr = `(${expr} - ${r3})`;
+          break;
+        case "*":
+          expr = `(${expr} * ${r3})`;
+          break;
+        case "/":
+          expr = `(CASE WHEN ${r3} = 0 THEN NULL ELSE ${expr} / ${r3} END)`;
+          break;
+        case "%":
+          expr = `(CASE WHEN ${r3} = 0 THEN NULL ELSE ${expr} % ${r3} END)`;
+          break;
+        default:
+          throw new Error(`Unsupported math operator "${step.op}" in calc "${alias}"`);
+      }
+    }
+    return expr;
+  }
+  function renderModeCompare(calc, alias, colMap, trail) {
+    const compare = calc.compare;
+    const glue = compare.compareMode === "OR" ? " OR " : " AND ";
+    const condParts = compare.conditions.map((cond) => {
+      const colExpr = resolveRef(cond.col, colMap);
+      const op = cond.op;
+      if (!["=", "!=", ">", ">=", "<", "<="].includes(op)) {
+        throw new Error(`Invalid comparison operator "${op}" in calc "${alias}"`);
+      }
+      const cv = String(cond.val ?? "").trim();
+      const n2 = parseFloat(cv.replace(/,/g, ""));
+      const cNum = toNum(colExpr);
+      const cTxt = `CAST(${colExpr} AS TEXT)`;
+      if ([">", ">=", "<", "<="].includes(op)) return `${cNum} ${op} ${Number.isFinite(n2) ? n2 : 0}`;
+      if (cv !== "" && Number.isFinite(n2)) return `${cNum} ${op} ${n2}`;
+      return `${cTxt} ${op === "=" ? "=" : "!="} '${cv.replace(/'/g, "''")}'`;
+    });
+    const thenExpr = renderTypedValue(compare.trueValue, colMap, trail);
+    const elseExpr = renderTypedValue(compare.falseValue, colMap, trail);
+    return `(CASE WHEN ${condParts.join(glue)} THEN ${thenExpr} ELSE ${elseExpr} END)`;
+  }
+  function renderModeText(calc, alias, colMap, trail) {
+    const text = calc.text;
+    const op = text.operation;
+    if (op === "combine") {
+      const parts = text.parts.map(
+        (p3) => renderTextPart(p3, colMap, trail)
+      );
+      return parts.join(" || ");
+    }
+    if (op === "left") {
+      const src = renderTextSource(text.source, colMap, trail);
+      return `SUBSTR(${src}, 1, ${text.count})`;
+    }
+    if (op === "right") {
+      const src = renderTextSource(text.source, colMap, trail);
+      return `SUBSTR(${src}, -${text.count})`;
+    }
+    if (op === "substring") {
+      const src = renderTextSource(text.source, colMap, trail);
+      return `SUBSTR(${src}, ${text.start}, ${text.length})`;
+    }
+    throw new Error(`Unknown text operation "${op}" in calc "${alias}"`);
+  }
+  function renderModeDate(calc, alias, colMap, trail) {
+    const date = calc.date;
+    const op = date.operation;
+    if (op === "extract") {
+      const inputFormat = getDateInputFormat(date);
+      const src = renderDateSource(date.source, colMap, trail, inputFormat);
+      const part = date.part || "year";
+      const output = date.output || "text";
+      const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const MONTH_FULL = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const DOW_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const DOW_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const monthCase = (names) => {
+        const branches = names.map((n2, j4) => `WHEN ${j4 + 1} THEN '${n2}'`).join(" ");
+        return `(CASE CAST(strftime('%m', ${src}) AS INTEGER) ${branches} END)`;
+      };
+      const dowCase = (names) => {
+        const branches = names.map((n2, j4) => `WHEN ${j4} THEN '${n2}'`).join(" ");
+        return `(CASE CAST(strftime('%w', ${src}) AS INTEGER) ${branches} END)`;
+      };
+      if (part === "quarter") {
+        if (output === "short") {
+          const branches = [1, 2, 3, 4].map((q4) => `WHEN ${q4} THEN 'Q${q4}'`).join(" ");
+          return `(CASE ((CAST(strftime('%m', ${src}) AS INTEGER) - 1) / 3 + 1) ${branches} END)`;
+        }
+        if (output === "text") {
+          const branches = [1, 2, 3, 4].map((q4) => `WHEN ${q4} THEN 'Quarter ${q4}'`).join(" ");
+          return `(CASE ((CAST(strftime('%m', ${src}) AS INTEGER) - 1) / 3 + 1) ${branches} END)`;
+        }
+        return `((CAST(strftime('%m', ${src}) AS INTEGER) - 1) / 3 + 1)`;
+      }
+      if (part === "julian") {
+        return `CAST(julianday(${src}) AS INTEGER)`;
+      }
+      if (part === "month") {
+        if (output === "short") return monthCase(MONTH_SHORT);
+        if (output === "text") return monthCase(MONTH_FULL);
+        return `CAST(strftime('%m', ${src}) AS INTEGER)`;
+      }
+      if (part === "dow") {
+        if (output === "short") return dowCase(DOW_SHORT);
+        if (output === "text") return dowCase(DOW_FULL);
+        return `CAST(strftime('%w', ${src}) AS INTEGER)`;
+      }
+      const partFormat = {
+        "year": "%Y",
+        "day": "%d",
+        "week": "%W"
+      };
+      return `CAST(strftime('${partFormat[part]}', ${src}) AS INTEGER)`;
+    }
+    throw new Error(`Unknown date operation "${op}" in calc "${alias}"`);
+  }
+  function renderDateSource(source, colMap, _trail, format) {
+    if (source.type === "column") {
+      const expr = resolveRef(source.value, colMap);
+      return normalizeDateExpr(expr, format ?? null);
+    }
+    throw new Error(`Unsupported date source type "${source.type}"`);
+  }
+  function renderTypedValue(tv, colMap, _trail) {
+    if (tv.type === "text") return `'${String(tv.value).replace(/'/g, "''")}'`;
+    if (tv.type === "number") return String(Number(tv.value));
+    if (tv.type === "column") return resolveRef(tv.value, colMap);
+    throw new Error(`Unsupported typed-value type "${tv.type}"`);
+  }
+  function renderTextPart(part, colMap, _trail) {
+    if (part.type === "text") return `'${String(part.value).replace(/'/g, "''")}'`;
+    if (part.type === "number") return `CAST(${Number(part.value)} AS TEXT)`;
+    if (part.type === "column") {
+      const expr = resolveRef(part.value, colMap);
+      return `COALESCE(CAST(${expr} AS TEXT), '')`;
+    }
+    throw new Error(`Unsupported text part type "${part.type}"`);
+  }
+  function renderTextSource(source, colMap, _trail) {
+    if (source.type === "text") return `'${String(source.value).replace(/'/g, "''")}'`;
+    if (source.type === "column") return resolveRef(source.value, colMap);
+    throw new Error(`Unsupported text source type "${source.type}"`);
+  }
+  function buildCalcExpressions(calcStages, colMap) {
+    const results = [];
+    for (let i3 = 0; i3 < calcStages.length; i3++) {
+      const calc = calcStages[i3];
+      if (!calc || calc.enabled === false) continue;
+      const alias = (calc.alias || "").trim();
+      if (!alias) continue;
+      if (!calc.mode || !["math", "compare", "text", "date"].includes(calc.mode)) continue;
+      try {
+        const trail = /* @__PURE__ */ new Set();
+        const sql = renderCalcExpr(calc, alias, colMap, trail);
+        results.push({ alias, sql });
+      } catch {
+      }
+    }
+    return results;
+  }
+
+  // preact/query/sql-where.ts
+  function likeEsc(v3) {
+    return v3.replace(/%/g, "\\%").replace(/_/g, "\\_");
+  }
+  function columnRefs(alias, colMap) {
+    const ref = resolveRef(alias, colMap);
+    const txt = `CAST(${ref} AS TEXT)`;
+    const num = `CAST(${ref} AS REAL)`;
+    return { txt, num };
+  }
+  function isDisabled(f4) {
+    return f4.enabled === false;
+  }
+  function getColumnType(alias, colMap) {
+    if (alias === "_rowno" || alias === "_ROWNO") return "number";
+    const entry = colMap.get(alias);
+    if (!entry) return "string";
+    if (entry.kind === "calc") {
+      if (entry.mode === "math") return "number";
+      if (entry.mode === "date") return "date";
+      return "string";
+    }
+    const colType = entry.colType;
+    return colType ?? "string";
+  }
+  function renderClause(op, txt, num, val, params, colType, alias, colMap) {
+    const normVal = String(val ?? "").trim();
+    const numVal = Number(normVal.replace(/,/g, ""));
+    const hasNumericVal = normVal !== "" && Number.isFinite(numVal);
+    const normalizedOp = op === "equals" ? "=" : op === "not equals" ? "!=" : op === "starts with" ? "starts_with" : op === "ends with" ? "ends_with" : op === "is empty" ? "is_null" : op === "not empty" ? "is_not_null" : op;
+    switch (normalizedOp) {
+      case "=":
+        if ((colType === "number" || colType === "boolean") && hasNumericVal) {
+          params.push(numVal);
+          return `${num} = ?`;
+        }
+        params.push(val);
+        return `${txt} = ?`;
+      case "!=":
+        if ((colType === "number" || colType === "boolean") && hasNumericVal) {
+          params.push(numVal);
+          return `${num} != ?`;
+        }
+        params.push(val);
+        return `${txt} != ?`;
+      case ">":
+        if (colType === "number" || colType === "boolean") {
+          params.push(+normVal || 0);
+          return `${num} > ?`;
+        }
+        params.push(normVal);
+        return `${txt} > ?`;
+      case "<":
+        if (colType === "number" || colType === "boolean") {
+          params.push(+normVal || 0);
+          return `${num} < ?`;
+        }
+        params.push(normVal);
+        return `${txt} < ?`;
+      case ">=":
+        if (colType === "number" || colType === "boolean") {
+          params.push(+normVal || 0);
+          return `${num} >= ?`;
+        }
+        params.push(normVal);
+        return `${txt} >= ?`;
+      case "<=":
+        if (colType === "number" || colType === "boolean") {
+          params.push(+normVal || 0);
+          return `${num} <= ?`;
+        }
+        params.push(normVal);
+        return `${txt} <= ?`;
+      case "contains":
+        params.push("%" + likeEsc(val) + "%");
+        return `${txt} LIKE ? ESCAPE '\\'`;
+      case "starts_with":
+        params.push(likeEsc(val) + "%");
+        return `${txt} LIKE ? ESCAPE '\\'`;
+      case "ends_with":
+        params.push("%" + likeEsc(val));
+        return `${txt} LIKE ? ESCAPE '\\'`;
+      case "in": {
+        if (!normVal) return null;
+        const vals = normVal.split(",").map((v3) => v3.trim()).filter(Boolean);
+        if (!vals.length) return null;
+        const ref = resolveRef(alias, colMap);
+        if (colType === "number" || colType === "boolean") {
+          const allNumeric = vals.every((v3) => {
+            const n2 = Number(v3.replace(/,/g, ""));
+            return v3 !== "" && Number.isFinite(n2);
+          });
+          if (allNumeric) {
+            const numVals = vals.map((v3) => Number(v3.replace(/,/g, "")));
+            params.push(...numVals);
+            const placeholders3 = numVals.map(() => "?").join(", ");
+            return `CAST(${ref} AS REAL) IN (${placeholders3})`;
+          }
+          params.push(...vals);
+          const placeholders2 = vals.map(() => "?").join(", ");
+          return `${ref} IN (${placeholders2})`;
+        }
+        if (colType === "date") {
+          params.push(...vals);
+          const placeholders2 = vals.map(() => "?").join(", ");
+          return `CAST(${ref} AS TEXT) IN (${placeholders2})`;
+        }
+        params.push(...vals);
+        const placeholders = vals.map(() => "?").join(", ");
+        return `${ref} IN (${placeholders})`;
+      }
+      case "not_in": {
+        if (!normVal) return null;
+        const vals = normVal.split(",").map((v3) => v3.trim()).filter(Boolean);
+        if (!vals.length) return null;
+        const ref = resolveRef(alias, colMap);
+        if (colType === "number" || colType === "boolean") {
+          const allNumeric = vals.every((v3) => {
+            const n2 = Number(v3.replace(/,/g, ""));
+            return v3 !== "" && Number.isFinite(n2);
+          });
+          if (allNumeric) {
+            const numVals = vals.map((v3) => Number(v3.replace(/,/g, "")));
+            params.push(...numVals);
+            const placeholders3 = numVals.map(() => "?").join(", ");
+            return `CAST(${ref} AS REAL) NOT IN (${placeholders3})`;
+          }
+          params.push(...vals);
+          const placeholders2 = vals.map(() => "?").join(", ");
+          return `${ref} NOT IN (${placeholders2})`;
+        }
+        if (colType === "date") {
+          params.push(...vals);
+          const placeholders2 = vals.map(() => "?").join(", ");
+          return `CAST(${ref} AS TEXT) NOT IN (${placeholders2})`;
+        }
+        params.push(...vals);
+        const placeholders = vals.map(() => "?").join(", ");
+        return `${ref} NOT IN (${placeholders})`;
+      }
+      case "is_null":
+        return `(${txt} IS NULL OR ${txt} = '')`;
+      case "is_not_null":
+        return `(${txt} IS NOT NULL AND ${txt} != '')`;
+      default:
+        return null;
+    }
+  }
+  function renderFilter(f4, colMap, params) {
+    if (!f4.col) return null;
+    const colType = getColumnType(f4.col, colMap);
+    const { txt, num } = columnRefs(f4.col, colMap);
+    const filterVals = Array.isArray(f4.vals) && f4.vals.length > 0 ? f4.vals : [""];
+    const orParts = [];
+    for (const v3 of filterVals) {
+      const clause = renderClause(f4.op, txt, num, String(v3 ?? ""), params, colType, f4.col, colMap);
+      if (clause) orParts.push(clause);
+    }
+    if (!orParts.length) return null;
+    return orParts.length > 1 ? `(${orParts.join(" OR ")})` : orParts[0];
+  }
+  function buildWhere(filters, colMap) {
+    if (!filters || filters.length === 0) return { where: "", params: [] };
+    const params = [];
+    const parts = [];
+    for (const f4 of filters) {
+      if (isDisabled(f4)) continue;
+      const clause = renderFilter(f4, colMap, params);
+      if (clause) parts.push(clause);
+    }
+    return {
+      where: parts.join(" AND "),
+      params
+    };
+  }
+
+  // preact/query/sql-joins.ts
+  function buildJoins(lookups, colMap, _sourceCatalog) {
+    if (!lookups || lookups.length === 0) return { joins: "", params: [] };
+    const params = [];
+    const joinClauses = [];
+    for (const lk of lookups) {
+      if (lk.enabled === false || !lk.rightId) continue;
+      const pairs = Array.isArray(lk.keyPairs) ? lk.keyPairs.filter((p3) => p3.left && p3.right) : [];
+      if (pairs.length === 0) continue;
+      const jType = lk.required ? "INNER" : "LEFT";
+      const rightTableRef = quoteId(lk.rightId);
+      const onParts = [];
+      for (const p3 of pairs) {
+        const leftRef = resolveRef(p3.left, colMap);
+        const rightRef = `${rightTableRef}.${quoteId(p3.right)}`;
+        onParts.push(`${leftRef} = ${rightRef}`);
+      }
+      if (onParts.length === 0) continue;
+      const joinClause = `${jType} JOIN ${rightTableRef} ON ${onParts.join(" AND ")}`;
+      joinClauses.push(joinClause);
+    }
+    return {
+      joins: joinClauses.join("\n"),
+      params
+    };
+  }
+
+  // preact/query/sql-detail.ts
+  function buildDetailQuery(reportSpec, colMap, sourceCatalog, calcExprs = /* @__PURE__ */ new Map()) {
+    if (!reportSpec.pipeline.base) throw new Error("No base table in reportSpec");
+    const outputCols = reportSpec.outputColumns;
+    const projected = outputCols.length > 0 ? outputCols.filter((alias) => colMap.has(alias)) : [...colMap.keys()];
+    const filteredProjected = projected.filter((alias) => {
+      const entry = colMap.get(alias);
+      return !entry || entry.kind !== "band";
+    });
+    const selParts = [];
+    const cols = [];
+    for (const alias of filteredProjected) {
+      const calcExpr = calcExprs.get(alias);
+      if (calcExpr) {
+        selParts.push(`${calcExpr} AS ${quoteId(alias)}`);
+      } else {
+        selParts.push(`${resolveRef(alias, colMap)} AS ${quoteId(alias)}`);
+      }
+      cols.push(alias);
+    }
+    if (!selParts.length) selParts.push("*");
+    const fromClause = quoteId(reportSpec.pipeline.base);
+    const lookups = reportSpec.pipeline.lookups || [];
+    const { joins: joinClause, params: joinParams } = buildJoins(lookups, colMap, sourceCatalog);
+    const filters = reportSpec.filters || [];
+    const { where: whereClause, params: whereParams } = buildWhere(filters, colMap);
+    const sorts = reportSpec.sorts || [];
+    const sortParts = sorts.filter((s3) => s3.enabled !== false).filter((s3) => {
+      const entry = colMap.get(s3.col);
+      return !entry || entry.kind !== "band";
+    }).map((s3) => {
+      const calcExpr = calcExprs.get(s3.col);
+      const sortRef = calcExpr ?? resolveRef(s3.col, colMap);
+      return `${sortRef} ${s3.dir === "DESC" ? "DESC" : "ASC"}`;
+    });
+    let sql = `SELECT ${selParts.join(",\n       ")}
+FROM ${fromClause}`;
+    if (joinClause) sql += "\n" + joinClause;
+    if (whereClause) sql += "\nWHERE " + whereClause;
+    if (sortParts.length) sql += "\nORDER BY " + sortParts.join(", ");
+    const params = [...joinParams, ...whereParams];
+    return { sql, params, cols };
+  }
+
+  // preact/query/sql-aggregates.ts
+  function renderAggregateExpr(fn, colRef) {
+    switch (fn) {
+      case "SUM":
+        return `SUM(${colRef})`;
+      case "AVG":
+        return `AVG(${colRef})`;
+      case "MIN":
+        return `MIN(${colRef})`;
+      case "MAX":
+        return `MAX(${colRef})`;
+      case "COUNT ROWS":
+        return "COUNT(*)";
+      case "COUNT NON-EMPTY":
+        return `COUNT(${colRef})`;
+      case "COUNT DISTINCT":
+        return `COUNT(DISTINCT ${colRef})`;
+      case "FIRST":
+        return `MIN(${colRef})`;
+      case "LAST":
+        return `MAX(${colRef})`;
+      case "DATE RANGE":
+        return `MIN(${colRef}) || ' — ' || MAX(${colRef})`;
+      case "DATE SPAN":
+        return `CAST(julianday(MAX(${colRef})) - julianday(MIN(${colRef})) AS INTEGER)`;
+      case "NUMERIC RANGE":
+        return `MIN(${colRef}) || ' – ' || MAX(${colRef})`;
+      case "NUMERIC SPAN":
+        return `MAX(${colRef}) - MIN(${colRef})`;
+      case "LIST":
+        return `GROUP_CONCAT(DISTINCT ${colRef})`;
+      default:
+        return `COUNT(${colRef})`;
+    }
+  }
+
+  // preact/query/sql-grouped.ts
+  function buildGroupedQuery(reportSpec, colMap, sourceCatalog, calcExprs = /* @__PURE__ */ new Map()) {
+    if (!reportSpec.pipeline.base) throw new Error("No base table in reportSpec");
+    const groupByAliases = reportSpec.aggregation.groupBy || [];
+    const aggregates = reportSpec.aggregation.aggregates || [];
+    const hasAgg = groupByAliases.length > 0 || aggregates.length > 0;
+    const outputCols = reportSpec.outputColumns;
+    const selColSet = outputCols && outputCols.length > 0 ? new Set(outputCols) : null;
+    const isBand = (alias) => {
+      const entry = colMap.get(alias);
+      return !!entry && entry.kind === "band";
+    };
+    const selParts = [];
+    const colAliases = [];
+    const groupRefs = [];
+    if (hasAgg) {
+      for (const alias of groupByAliases) {
+        if (selColSet && !selColSet.has(alias)) continue;
+        if (isBand(alias)) continue;
+        const calcExpr = calcExprs.get(alias);
+        const ref = calcExpr ?? resolveRef(alias, colMap);
+        selParts.push(`${ref} AS ${quoteId(alias)}`);
+        groupRefs.push(ref);
+        colAliases.push(alias);
+      }
+      for (const agg of aggregates) {
+        const colLabel = agg.col && agg.col !== "*" ? agg.col : "all rows";
+        const outName = agg.alias?.trim() || defaultAggAlias(agg.fn, colLabel);
+        if (selColSet && !selColSet.has(outName)) continue;
+        if (isBand(outName)) continue;
+        const calcExpr = agg.col ? calcExprs.get(agg.col) : void 0;
+        const colRef = agg.col && agg.col !== "*" ? calcExpr ?? resolveRef(agg.col, colMap) : null;
+        const expr = renderAggregateExpr(agg.fn, colRef || "*");
+        selParts.push(`${expr} AS ${quoteId(outName)}`);
+        colAliases.push(outName);
+      }
+    } else {
+      const projected = selColSet ? [...colMap.keys()].filter((a3) => selColSet.has(a3)) : [...colMap.keys()];
+      for (const alias of projected) {
+        if (isBand(alias)) continue;
+        const calcExpr = calcExprs.get(alias);
+        if (calcExpr) {
+          selParts.push(`${calcExpr} AS ${quoteId(alias)}`);
+        } else {
+          selParts.push(`${resolveRef(alias, colMap)} AS ${quoteId(alias)}`);
+        }
+        colAliases.push(alias);
+      }
+    }
+    if (!selParts.length) selParts.push("*");
+    const fromClause = quoteId(reportSpec.pipeline.base);
+    const lookups = reportSpec.pipeline.lookups || [];
+    const { joins: joinClause, params: joinParams } = buildJoins(lookups, colMap, sourceCatalog);
+    const filters = reportSpec.filters || [];
+    const { where: whereClause, params: whereParams } = buildWhere(filters, colMap);
+    const groupByClause = groupRefs.length ? "\nGROUP BY " + groupRefs.join(", ") : "";
+    const sorts = reportSpec.sorts || [];
+    const sortParts = sorts.filter((s3) => s3.enabled !== false).filter((s3) => !isBand(s3.col)).map((s3) => {
+      const calcExpr = calcExprs.get(s3.col);
+      const sortRef = calcExpr ?? resolveRef(s3.col, colMap);
+      return `${sortRef} ${s3.dir === "DESC" ? "DESC" : "ASC"}`;
+    });
+    let sql = `SELECT ${selParts.join(",\n       ")}
+FROM ${fromClause}`;
+    if (joinClause) sql += "\n" + joinClause;
+    if (whereClause) sql += "\nWHERE " + whereClause;
+    if (groupByClause) sql += groupByClause;
+    if (sortParts.length) sql += "\nORDER BY " + sortParts.join(", ");
+    const params = [...joinParams, ...whereParams];
+    return { sql, params, cols: colAliases };
+  }
+
+  // preact/query/sql-totals.ts
+  function buildTotalsQuery(reportSpec, colMap, sourceCatalog, calcExprs = /* @__PURE__ */ new Map()) {
+    if (!reportSpec.pipeline.base) throw new Error("No base table in reportSpec");
+    const colTotals = reportSpec.aggregation.colTotals || {};
+    const outputCols = reportSpec.outputColumns;
+    const projected = outputCols && outputCols.length > 0 ? outputCols.filter((alias) => colMap.has(alias)) : [...colMap.keys()];
+    const filteredProjected = projected.filter((alias) => {
+      const entry = colMap.get(alias);
+      return !entry || entry.kind !== "band";
+    });
+    const hasAny = filteredProjected.some((c3) => colTotals[c3] && colTotals[c3] !== "skip");
+    if (!hasAny) return null;
+    const selParts = [];
+    for (const alias of filteredProjected) {
+      const fn = colTotals[alias];
+      if (!fn || fn === "skip") {
+        selParts.push(`NULL AS ${quoteId(alias)}`);
+      } else {
+        const calcExpr = calcExprs.get(alias);
+        const innerRef = calcExpr ?? resolveRef(alias, colMap);
+        selParts.push(`${renderAggregateExpr(fn, innerRef)} AS ${quoteId(alias)}`);
+      }
+    }
+    if (!selParts.length) selParts.push("*");
+    const fromClause = quoteId(reportSpec.pipeline.base);
+    const lookups = reportSpec.pipeline.lookups || [];
+    const { joins: joinClause, params: joinParams } = buildJoins(lookups, colMap, sourceCatalog);
+    const filters = reportSpec.filters || [];
+    const { where: whereClause, params: whereParams } = buildWhere(filters, colMap);
+    let sql = `SELECT ${selParts.join(",\n       ")}
+FROM ${fromClause}`;
+    if (joinClause) sql += "\n" + joinClause;
+    if (whereClause) sql += "\nWHERE " + whereClause;
+    const params = [...joinParams, ...whereParams];
+    return { sql, params, cols: filteredProjected };
+  }
+
+  // preact/query/sql-subtotals.ts
+  function buildSubtotalsQuery(reportSpec, colMap, sourceCatalog, calcExprs = /* @__PURE__ */ new Map()) {
+    if (!reportSpec.pipeline.base) throw new Error("No base table in reportSpec");
+    const agg = reportSpec.aggregation;
+    const outputCols = reportSpec.outputColumns;
+    const rawToShow = outputCols && outputCols.length > 0 ? outputCols.filter((alias) => colMap.has(alias)) : [...colMap.keys()];
+    const toShow = rawToShow.filter((alias) => {
+      const entry = colMap.get(alias);
+      return !entry || entry.kind !== "band";
+    });
+    if (!toShow.length) return null;
+    const subtotalFns = agg.subtotalFns || {};
+    const includeGrand = agg.subtotalGrandTotal !== false;
+    const includeSpacer = !!agg.subtotalSpacer;
+    const subtotalOnTop = !!agg.subtotalOnTop;
+    const isNested = agg.subtotalStrategy === "nested";
+    const orderIdx = new Map(toShow.map((a3, i3) => [a3, i3]));
+    const seenSub = /* @__PURE__ */ new Set();
+    const subtotalBy = (agg.subtotalBy || []).filter((a3) => orderIdx.has(a3) && !seenSub.has(a3) && (seenSub.add(a3), true)).sort((a3, b2) => (orderIdx.get(a3) ?? Infinity) - (orderIdx.get(b2) ?? Infinity));
+    const n2 = subtotalBy.length;
+    if (n2 === 0) return null;
+    const sortGroupKeys = subtotalBy.map((_3, i3) => `_sort_group_${i3}`);
+    const detailSortType = subtotalOnTop ? 1 : 0;
+    const subtotalSortType = subtotalOnTop ? 0 : 1;
+    const subtotalBySet = new Set(subtotalBy);
+    const subAggExpr = (a3) => {
+      const fn = subtotalFns[a3];
+      if (!fn || fn === "skip") return `NULL AS ${quoteId(a3)}`;
+      const calcExpr = calcExprs.get(a3);
+      const innerRef = calcExpr ?? resolveRef(a3, colMap);
+      return `${renderAggregateExpr(fn, innerRef)} AS ${quoteId(a3)}`;
+    };
+    const ref = (a3) => calcExprs.get(a3) ?? resolveRef(a3, colMap);
+    const fromClause = quoteId(reportSpec.pipeline.base);
+    const lookups = reportSpec.pipeline.lookups || [];
+    const { joins: joinClause, params: joinParams } = buildJoins(lookups, colMap, sourceCatalog);
+    const filters = reportSpec.filters || [];
+    const { where: whereClause, params: whereParams } = buildWhere(filters, colMap);
+    const joinPart = joinClause ? "\n" + joinClause : "";
+    const wherePart = whereClause ? "\nWHERE " + whereClause : "";
+    const nullFilter = subtotalBy.map((a3) => `${ref(a3)} IS NOT NULL`).join(" OR ");
+    const subWherePart = whereClause ? `
+WHERE ${whereClause}
+  AND (${nullFilter})` : `
+WHERE (${nullFilter})`;
+    const detailSel = [
+      ...toShow.map((a3) => `${ref(a3)} AS ${quoteId(a3)}`),
+      '0 AS "_row_type"',
+      `${detailSortType} AS "_sort_row_type"`,
+      ...subtotalBy.map((a3, i3) => `${ref(a3)} AS ${quoteId(sortGroupKeys[i3])}`)
+    ].join(",\n       ");
+    function makeSubSel(depth) {
+      const groupCols = subtotalBy.slice(0, depth + 1);
+      const groupSet = new Set(groupCols);
+      return [
+        ...toShow.map((a3) => {
+          if (groupSet.has(a3)) return `${ref(a3)} AS ${quoteId(a3)}`;
+          if (subtotalBySet.has(a3)) return `NULL AS ${quoteId(a3)}`;
+          return subAggExpr(a3);
+        }),
+        '1 AS "_row_type"',
+        `${subtotalSortType} AS "_sort_row_type"`,
+        ...subtotalBy.map((a3, i3) => i3 <= depth ? `${ref(a3)} AS ${quoteId(sortGroupKeys[i3])}` : `NULL AS ${quoteId(sortGroupKeys[i3])}`)
+      ].join(",\n       ");
+    }
+    const grandSel = [
+      ...toShow.map((a3) => subtotalBySet.has(a3) ? `NULL AS ${quoteId(a3)}` : subAggExpr(a3)),
+      '3 AS "_row_type"',
+      '3 AS "_sort_row_type"',
+      ...subtotalBy.map((_3, i3) => `NULL AS ${quoteId(sortGroupKeys[i3])}`)
+    ].join(",\n       ");
+    const spacerSel = [
+      ...toShow.map((a3) => `NULL AS ${quoteId(a3)}`),
+      '2 AS "_row_type"',
+      '2 AS "_sort_row_type"',
+      ...subtotalBy.map((a3, i3) => `${ref(a3)} AS ${quoteId(sortGroupKeys[i3])}`)
+    ].join(",\n       ");
+    const orderParts = [
+      ...sortGroupKeys.map((k3, i3) => {
+        if (isNested && i3 > 0 && subtotalOnTop) return `${quoteId(k3)} ASC NULLS FIRST`;
+        return `${quoteId(k3)} ASC NULLS LAST`;
+      }),
+      '"_sort_row_type" ASC',
+      ...(reportSpec.sorts || []).filter((s3) => s3.enabled !== false && toShow.includes(s3.col) && !subtotalBySet.has(s3.col)).map((s3) => `${quoteId(s3.col)} ${s3.dir === "DESC" ? "DESC" : "ASC"}`)
+    ];
+    const branches = [
+      `SELECT ${detailSel}
+FROM ${fromClause}${joinPart}${wherePart}`
+    ];
+    if (isNested) {
+      for (let d3 = 0; d3 < n2; d3++) {
+        const groupClause = subtotalBy.slice(0, d3 + 1).map((a3) => ref(a3)).join(", ");
+        branches.push(
+          `SELECT ${makeSubSel(d3)}
+FROM ${fromClause}${joinPart}${subWherePart}
+GROUP BY ${groupClause}`
+        );
+      }
+    } else {
+      const groupClause = subtotalBy.map((a3) => ref(a3)).join(", ");
+      branches.push(
+        `SELECT ${makeSubSel(n2 - 1)}
+FROM ${fromClause}${joinPart}${subWherePart}
+GROUP BY ${groupClause}`
+      );
+    }
+    if (includeSpacer) {
+      const groupClause = subtotalBy.map((a3) => ref(a3)).join(", ");
+      branches.push(
+        `SELECT ${spacerSel}
+FROM ${fromClause}${joinPart}${subWherePart}
+GROUP BY ${groupClause}`
+      );
+    }
+    if (includeGrand) {
+      const hasGrandValue = toShow.some(
+        (a3) => !subtotalBySet.has(a3) && subtotalFns[a3] && subtotalFns[a3] !== "skip"
+      );
+      if (hasGrandValue) {
+        branches.push(`SELECT ${grandSel}
+FROM ${fromClause}${joinPart}${wherePart}`);
+      }
+    }
+    const filterParams = [...joinParams, ...whereParams];
+    const params = branches.flatMap(() => [...filterParams]);
+    const sql = branches.join("\nUNION ALL\n") + "\nORDER BY " + orderParts.join(", ");
+    return {
+      sql,
+      params,
+      cols: [...toShow]
+    };
+  }
+
+  // preact/query/query-plan.ts
+  function buildQueryPlan(reportSpec, tables) {
+    const sourceCatalog = buildSourceCatalog(tables);
+    const catalogCtx = {
+      base: reportSpec.pipeline.base,
+      baseCols: reportSpec.pipeline.baseCols,
+      stacks: reportSpec.pipeline.stacks,
+      lookups: reportSpec.pipeline.lookups,
+      calcStages: reportSpec.pipeline.calculatedColumns,
+      detailBands: reportSpec.pipeline.detailBands || []
+    };
+    const { colMap } = buildColumnCatalog(catalogCtx, sourceCatalog);
+    const tablesById = /* @__PURE__ */ new Map();
+    for (const [tid, entry] of sourceCatalog) {
+      tablesById.set(tid, { cols: entry.cols, name: entry.name });
+    }
+    const source = {
+      base: reportSpec.pipeline.base || "",
+      stacks: (reportSpec.pipeline.stacks || []).filter(
+        (id) => tablesById.has(id)
+      ),
+      baseCols: reportSpec.pipeline.baseCols.length > 0 ? reportSpec.pipeline.baseCols : tablesById.has(reportSpec.pipeline.base) ? tablesById.get(reportSpec.pipeline.base).cols : [],
+      excludedRows: {},
+      tablesById
+    };
+    const lookups = reportSpec.pipeline.lookups || [];
+    const joins = lookups.filter((lk) => lk.enabled !== false && lk.rightId && tablesById.has(lk.rightId)).map((lk) => {
+      const rtMeta = tablesById.get(lk.rightId);
+      return {
+        rightId: lk.rightId,
+        rightColumns: rtMeta ? rtMeta.cols : [],
+        rightTableName: rtMeta ? rtMeta.name : lk.rightId,
+        keyPairs: (lk.keyPairs || []).filter((p3) => p3.left && p3.right),
+        required: !!lk.required,
+        duplicatePolicy: lk.duplicatePolicy || { mode: "block" },
+        excludedRows: null
+      };
+    }).filter((j4) => j4.keyPairs.length > 0);
+    const calcStages = reportSpec.pipeline.calculatedColumns || [];
+    const calculatedColumns = buildCalcExpressions(calcStages, colMap);
+    const calcExprs = /* @__PURE__ */ new Map();
+    for (const col of calculatedColumns) {
+      calcExprs.set(col.alias, col.sql);
+    }
+    const filters = (reportSpec.filters || []).filter((f4) => f4.enabled !== false && f4.col);
+    const aggMode = reportSpec.aggregation.mode || "none";
+    const aggregates = reportSpec.aggregation.aggregates || [];
+    const aggAliases = aggMode === "group" ? aggregates.map((a3) => a3.alias).filter(Boolean) : [];
+    const colOrder = reportSpec.outputColumns;
+    const orderedAliases = colOrder.length > 0 ? colOrder.filter((a3) => colMap.has(a3) || aggAliases.includes(a3)) : [...colMap.keys(), ...aggAliases];
+    const selectedColumns = orderedAliases;
+    const sorts = (reportSpec.sorts || []).filter(
+      (s3) => s3.enabled !== false && s3.col && colMap.has(s3.col)
+    );
+    let sql;
+    let params;
+    let cols;
+    switch (aggMode) {
+      case "group": {
+        const result = buildGroupedQuery(reportSpec, colMap, sourceCatalog, calcExprs);
+        sql = result.sql;
+        params = result.params;
+        cols = result.cols;
+        break;
+      }
+      case "totals": {
+        const result = buildTotalsQuery(reportSpec, colMap, sourceCatalog, calcExprs);
+        if (!result) throw new Error("buildQueryPlan: no totals to build");
+        sql = result.sql;
+        params = result.params;
+        cols = result.cols;
+        break;
+      }
+      case "subtotals": {
+        const result = buildSubtotalsQuery(reportSpec, colMap, sourceCatalog, calcExprs);
+        if (!result) throw new Error("buildQueryPlan: no subtotals to build");
+        sql = result.sql;
+        params = result.params;
+        cols = result.cols;
+        break;
+      }
+      default: {
+        const result = buildDetailQuery(reportSpec, colMap, sourceCatalog, calcExprs);
+        sql = result.sql;
+        params = result.params;
+        cols = result.cols;
+        break;
+      }
+    }
+    return {
+      source,
+      joins,
+      calculatedColumns,
+      filters,
+      selectedColumns,
+      groupBy: reportSpec.aggregation.groupBy || [],
+      aggregates,
+      sorts,
+      colTotals: reportSpec.aggregation.colTotals || {},
+      subtotalBy: reportSpec.aggregation.subtotalBy || [],
+      subtotalFns: reportSpec.aggregation.subtotalFns || {},
+      subtotalGrandTotal: reportSpec.aggregation.subtotalGrandTotal !== false,
+      subtotalSpacer: !!reportSpec.aggregation.subtotalSpacer,
+      subtotalOnTop: !!reportSpec.aggregation.subtotalOnTop,
+      subtotalStrategy: reportSpec.aggregation.subtotalStrategy || "combined",
+      aggMode: reportSpec.aggregation.mode || "none",
+      colMap,
+      sql,
+      params,
+      cols
+    };
+  }
+
+  // preact/query/sql-detail-bands.ts
+  function buildBandQuery(band, parentKeyValues, bandColMap, _sourceCatalog) {
+    const childTable = quoteId(band.rightId);
+    const pairs = (band.keyPairs || []).filter((p3) => p3.left && p3.right);
+    const parentKeyAliases = pairs.map((p3) => p3.left);
+    const childKeyCols = pairs.map((p3) => p3.right);
+    const selParts = [];
+    const cols = [];
+    for (const [alias, entry] of bandColMap) {
+      if (entry.kind === "calc") continue;
+      selParts.push(`${childTable}.${quoteId(entry.col)} AS ${quoteId(alias)}`);
+      cols.push(alias);
+    }
+    const seenKeyCols = /* @__PURE__ */ new Set();
+    for (const ck of childKeyCols) {
+      if (seenKeyCols.has(ck)) continue;
+      seenKeyCols.add(ck);
+      selParts.push(`${childTable}.${quoteId(ck)} AS ${quoteId(ck)}`);
+    }
+    const keyValuesArr = Array.from(parentKeyValues);
+    let whereClause;
+    let params;
+    if (pairs.length === 0 || keyValuesArr.length === 0) {
+      whereClause = "1 = 0";
+      params = [];
+    } else if (pairs.length === 1) {
+      const placeholders = keyValuesArr.map(() => "?").join(", ");
+      whereClause = `${childTable}.${quoteId(childKeyCols[0])} IN (${placeholders})`;
+      params = keyValuesArr;
+    } else {
+      const sep = " || " + String.fromCharCode(39) + "|||" + String.fromCharCode(39) + " || ";
+      const concatLeft = childKeyCols.map((ck) => `${childTable}.${quoteId(ck)}`).join(sep);
+      const placeholders = keyValuesArr.map(() => "?").join(", ");
+      whereClause = `(${concatLeft}) IN (${placeholders})`;
+      params = keyValuesArr;
+    }
+    const sortParts = (band.sorts || []).filter((s3) => s3.enabled !== false && s3.col).map((s3) => `${childTable}.${quoteId(s3.col)} ${s3.dir === "DESC" ? "DESC" : "ASC"}`);
+    let sql = `SELECT ${selParts.join(", ")}
+FROM ${childTable}
+WHERE ${whereClause}`;
+    if (sortParts.length) sql += `
+ORDER BY ${sortParts.join(", ")}`;
+    return {
+      sql,
+      params,
+      cols,
+      parentKeyAliases,
+      childKeyCols
+    };
+  }
+
+  // preact/report/result-set.ts
+  function buildResultSet(columns, rows, metadata) {
+    const r3 = Array.isArray(rows) ? rows : [];
+    return {
+      columns: Array.isArray(columns) ? columns : [],
+      rows: r3,
+      metadata: Object.assign(
+        {
+          rowCount: r3.length,
+          generatedAt: Date.now(),
+          aggMode: "none",
+          displayCols: []
+        },
+        metadata || {}
+      )
+    };
+  }
+
+  // preact/report/engine.ts
+  function runDetailMode(plan) {
+    const rows = execQuery(plan.sql, plan.params);
+    return buildResultSet(plan.cols, rows, { aggMode: "none" });
+  }
+  function runTotalsMode(plan, reportSpec, tables) {
+    const sourceCatalog = buildSourceCatalog(tables);
+    const catalogCtx = {
+      base: reportSpec.pipeline.base,
+      baseCols: reportSpec.pipeline.baseCols,
+      stacks: reportSpec.pipeline.stacks,
+      lookups: reportSpec.pipeline.lookups,
+      calcStages: reportSpec.pipeline.calculatedColumns,
+      detailBands: reportSpec.pipeline.detailBands || []
+    };
+    const { colMap } = buildColumnCatalog(catalogCtx, sourceCatalog);
+    const calcStages = reportSpec.pipeline.calculatedColumns || [];
+    const calculatedColumns = buildCalcExpressions(calcStages, colMap);
+    const calcExprs = /* @__PURE__ */ new Map();
+    for (const col of calculatedColumns) {
+      calcExprs.set(col.alias, col.sql);
+    }
+    const detail = buildDetailQuery(reportSpec, colMap, sourceCatalog, calcExprs);
+    const detailRows = execQuery(detail.sql, detail.params);
+    const totalsRows = execQuery(plan.sql, plan.params);
+    const newAggCols = plan.cols.slice(detail.cols.length);
+    const paddedRows = newAggCols.length ? detailRows.map((r3) => {
+      const row = { ...r3 };
+      for (const c3 of newAggCols) row[c3] = null;
+      return row;
+    }) : detailRows;
+    return buildResultSet(plan.cols, paddedRows, {
+      aggMode: "totals",
+      totalsRow: totalsRows[0] || null
+    });
+  }
+  function runSubtotalsMode(plan) {
+    const rows = execQuery(plan.sql, plan.params);
+    return buildResultSet(plan.cols, rows, {
+      aggMode: "subtotals",
+      hasSubtotals: true,
+      allCols: plan.cols
+    });
+  }
+  function runGroupedMode(plan) {
+    const rows = execQuery(plan.sql, plan.params);
+    return buildResultSet(plan.cols, rows, { aggMode: "group" });
+  }
+  var STACK_ROW_LIMIT = 1e4;
+  var RowExplosionError = class extends Error {
+    /** The projected number of rows that would be produced. */
+    projectedCount;
+    /** The limit that was exceeded. */
+    limit;
+    constructor(projectedCount, limit) {
+      super(
+        `Detail band cross-product would produce ${projectedCount} rows, exceeding limit of ${limit}.`
+      );
+      this.name = "RowExplosionError";
+      this.projectedCount = projectedCount;
+      this.limit = limit;
+    }
+  };
+  function computeSupersetCols(parentCols, bandResults) {
+    const superset = [...parentCols];
+    const seen = new Set(parentCols);
+    for (const br of bandResults) {
+      for (const col of br.cols) {
+        if (!seen.has(col)) {
+          superset.push(col);
+          seen.add(col);
+        }
+      }
+    }
+    if (!seen.has("_band_id")) superset.push("_band_id");
+    return superset;
+  }
+  function padParentRow(row, supersetCols) {
+    const padded = { ...row };
+    for (const col of supersetCols) {
+      if (!(col in padded)) padded[col] = null;
+    }
+    padded._band_id = null;
+    return padded;
+  }
+  function padBandRow(row, supersetCols, bandId) {
+    const padded = {};
+    for (const col of supersetCols) {
+      padded[col] = col in row ? row[col] : null;
+    }
+    padded._band_id = bandId;
+    return padded;
+  }
+  function interleaveRows(parentRows, bandResults, supersetCols) {
+    const bandIndex = /* @__PURE__ */ new Map();
+    for (const br of bandResults) {
+      const idx = /* @__PURE__ */ new Map();
+      for (const row of br.rows) {
+        const key = makeKeyValue(row, br.childKeyCols);
+        if (!idx.has(key)) idx.set(key, []);
+        idx.get(key).push(row);
+      }
+      bandIndex.set(br.band.id, idx);
+    }
+    const result = [];
+    for (const parentRow of parentRows) {
+      result.push(padParentRow(parentRow, supersetCols));
+      for (const br of bandResults) {
+        const key = makeKeyValue(parentRow, br.parentKeyAliases);
+        const children = bandIndex.get(br.band.id)?.get(key) || [];
+        for (const child of children) {
+          result.push(padBandRow(child, supersetCols, br.band.id));
+        }
+      }
+    }
+    return result;
+  }
+  function makeKeyValue(row, keyCols) {
+    if (keyCols.length === 1) return String(row[keyCols[0]] ?? "");
+    return keyCols.map((k3) => String(row[k3] ?? "")).join("|||");
+  }
+  function buildBandChildIndex(bandResults) {
+    const index = /* @__PURE__ */ new Map();
+    for (const br of bandResults) {
+      const idx = /* @__PURE__ */ new Map();
+      for (const row of br.rows) {
+        const key = makeKeyValue(row, br.childKeyCols);
+        let bucket = idx.get(key);
+        if (!bucket) {
+          bucket = [];
+          idx.set(key, bucket);
+        }
+        bucket.push(row);
+      }
+      index.set(br.band.id, idx);
+    }
+    return index;
+  }
+  function crossProductRows(parentRow, bandResults, supersetCols, limit = STACK_ROW_LIMIT, childIndex) {
+    let combinations = [parentRow];
+    for (const br of bandResults) {
+      const parentKey = makeKeyValue(parentRow, br.parentKeyAliases);
+      let children;
+      if (childIndex) {
+        children = childIndex.get(br.band.id)?.get(parentKey) || [];
+      } else {
+        children = br.rows.filter(
+          (r3) => makeKeyValue(r3, br.childKeyCols) === parentKey
+        );
+      }
+      if (children.length === 0) continue;
+      const next = [];
+      for (const combo of combinations) {
+        for (const child of children) {
+          next.push({ ...combo, ...child, _band_id: br.band.id });
+        }
+      }
+      if (next.length > limit) {
+        throw new RowExplosionError(next.length, limit);
+      }
+      combinations = next;
+    }
+    return combinations.map((row) => {
+      const padded = {};
+      for (const col of supersetCols) {
+        padded[col] = col in row ? row[col] : null;
+      }
+      return padded;
+    });
+  }
+  function runDetailBandsMode(plan, reportSpec, tables, stackRowLimit = STACK_ROW_LIMIT) {
+    const parentRows = execQuery(plan.sql, plan.params);
+    const sourceCatalog = buildSourceCatalog(tables);
+    const catalogCtx = {
+      base: reportSpec.pipeline.base,
+      baseCols: reportSpec.pipeline.baseCols,
+      stacks: reportSpec.pipeline.stacks,
+      lookups: reportSpec.pipeline.lookups,
+      calcStages: reportSpec.pipeline.calculatedColumns,
+      detailBands: reportSpec.pipeline.detailBands || []
+    };
+    const { colMap } = buildColumnCatalog(catalogCtx, sourceCatalog);
+    const parentCols = [];
+    if (parentRows.length > 0) {
+      const seen = /* @__PURE__ */ new Set();
+      for (const row of parentRows) {
+        for (const key of Object.keys(row)) {
+          if (!seen.has(key)) {
+            parentCols.push(key);
+            seen.add(key);
+          }
+        }
+      }
+    }
+    const bands = (reportSpec.pipeline.detailBands || []).filter((b2) => b2.enabled !== false && b2.rightId);
+    const bandResults = [];
+    for (const band of bands) {
+      const prefix = `_${band.id}_`;
+      const bandColMap = /* @__PURE__ */ new Map();
+      for (const [alias, entry] of colMap) {
+        if (alias.startsWith(prefix) && entry.kind === "band") {
+          bandColMap.set(alias, entry);
+        }
+      }
+      if (bandColMap.size === 0) continue;
+      const pairs = (band.keyPairs || []).filter((p3) => p3.left && p3.right);
+      if (pairs.length === 0) continue;
+      const parentKeyAliases = pairs.map((p3) => p3.left);
+      const keyValues = /* @__PURE__ */ new Set();
+      for (const row of parentRows) {
+        const kv = makeKeyValue(row, parentKeyAliases);
+        if (kv !== void 0) keyValues.add(kv);
+      }
+      if (keyValues.size === 0) continue;
+      const bandQuery = buildBandQuery(band, keyValues, bandColMap, sourceCatalog);
+      const bandRows = execQuery(bandQuery.sql, bandQuery.params);
+      for (const row of bandRows) {
+        row._band_id = band.id;
+      }
+      bandResults.push({
+        band,
+        rows: bandRows,
+        cols: bandQuery.cols,
+        parentKeyAliases: bandQuery.parentKeyAliases,
+        childKeyCols: bandQuery.childKeyCols
+      });
+    }
+    const supersetCols = computeSupersetCols(parentCols, bandResults);
+    const mode = reportSpec.detailBandMode || "separate";
+    let resultRows;
+    if (mode === "stack") {
+      const childIndex = buildBandChildIndex(bandResults);
+      resultRows = [];
+      for (const parentRow of parentRows) {
+        const combos = crossProductRows(parentRow, bandResults, supersetCols, stackRowLimit, childIndex);
+        resultRows.push(...combos);
+        if (resultRows.length > stackRowLimit) {
+          throw new RowExplosionError(resultRows.length, stackRowLimit);
+        }
+      }
+    } else {
+      resultRows = interleaveRows(parentRows, bandResults, supersetCols);
+    }
+    const bandLabels = {};
+    for (const br of bandResults) {
+      bandLabels[br.band.id] = br.band.label || br.band.id;
+    }
+    return buildResultSet(supersetCols, resultRows, {
+      aggMode: "none",
+      bandCount: bandResults.length,
+      bandIds: bandResults.map((br) => br.band.id),
+      bandLabels
+    });
+  }
+  function runPreviewQuery(sql, params) {
+    return execQuery(sql, params);
+  }
+  function runReport(reportSpec, tables, stackRowLimit) {
+    const plan = buildQueryPlan(reportSpec, tables);
+    const enabledBands = (reportSpec.pipeline.detailBands || []).filter((b2) => b2.enabled !== false && b2.rightId);
+    if (enabledBands.length > 0 && plan.aggMode === "none") {
+      return runDetailBandsMode(plan, reportSpec, tables, stackRowLimit);
+    }
+    switch (plan.aggMode) {
+      case "totals":
+        return runTotalsMode(plan, reportSpec, tables);
+      case "subtotals":
+        return runSubtotalsMode(plan);
+      case "group":
+        return runGroupedMode(plan);
+      default:
+        return runDetailMode(plan);
+    }
+  }
+
+  // preact/report/preview-builder.ts
+  function buildPreview(key, state) {
+    try {
+      if (key === "base") {
+        return buildBasePreview(state);
+      }
+      const lkMatch = key.match(/^lk(\d+)$/);
+      if (lkMatch) {
+        return buildStagePreview(+lkMatch[1], "lk", state);
+      }
+      const calcMatch = key.match(/^calc(\d+)$/);
+      if (calcMatch) {
+        return buildStagePreview(+calcMatch[1], "calc", state);
+      }
+      const bandMatch = key.match(/^band(\d+)$/);
+      if (bandMatch) {
+        return buildBandPreview(+bandMatch[1], state);
+      }
+      return { headers: [], rows: [], error: "Unknown stage" };
+    } catch (ex) {
+      return { headers: [], rows: [], error: ex.message };
+    }
+  }
+  function colUserLabelForState(tid, physCol, state) {
+    return state.columnLabels?.[tid]?.[physCol] ?? physCol;
+  }
+  function buildColSourceMapForState(state) {
+    const map = /* @__PURE__ */ new Map();
+    const base = state.base;
+    if (!base || !state.tables[base]) return map;
+    const lookups = state.lookups || [];
+    const calcStages = state.calcStages || [];
+    state.tables[base].cols.forEach((c3) => map.set(c3, { tid: base, col: c3 }));
+    for (const lk of lookups) {
+      if (lk.enabled === false) continue;
+      if (!lk.rightId || !state.tables[lk.rightId]) continue;
+      const pairs = Array.isArray(lk.keyPairs) ? lk.keyPairs.filter((p3) => p3.left && p3.right) : [];
+      if (!pairs.length) continue;
+      const rt = state.tables[lk.rightId];
+      const prefix = tablePrefix(rt.name);
+      rt.cols.forEach((c3) => {
+        const alias = map.has(c3) ? prefix + c3 : c3;
+        if (!map.has(alias)) map.set(alias, { tid: lk.rightId, col: c3 });
+      });
+    }
+    for (let i3 = 0; i3 < calcStages.length; i3++) {
+      const calc = calcStages[i3];
+      if (calc?.enabled === false) continue;
+      const alias = (calc?.alias || "").trim();
+      if (!alias) continue;
+      if (!calc.mode || !["math", "compare", "text", "date"].includes(calc.mode)) continue;
+      let valid = false;
+      if (calc.mode === "math") {
+        const m3 = calc.math;
+        const steps = m3 && Array.isArray(m3.steps) ? m3.steps : [];
+        const structValid = !!(m3 && m3.strategy === "stepChain" && steps.length > 0 && !steps[0].op && steps.every((s3) => s3 && ["column", "number", "text"].includes(s3.type)) && steps.slice(1).every((s3) => s3.op && ["+", "-", "*", "/", "%"].includes(s3.op)));
+        const colsExist = structValid && steps.filter((s3) => s3.type === "column" && s3.value).every((s3) => map.has(s3.value));
+        valid = structValid && colsExist;
+      } else if (calc.mode === "compare") {
+        const c3 = calc.compare;
+        const conds = Array.isArray(c3?.conditions) ? c3.conditions : [];
+        valid = !!(c3 && conds.length > 0 && c3.trueValue && c3.falseValue && conds.every((cond) => cond.col && ["=", "!=", ">", ">=", "<", "<="].includes(cond.op)) && conds.some((cond) => map.has(cond.col)) && ["column", "number", "text"].includes(c3.trueValue.type) && ["column", "number", "text"].includes(c3.falseValue.type));
+      } else if (calc.mode === "text") {
+        const t3 = calc.text;
+        if (t3 && ["combine", "left", "right", "substring"].includes(t3.operation)) {
+          if (t3.operation === "combine") {
+            const parts = Array.isArray(t3.parts) ? t3.parts : [];
+            const structValid = parts.length > 0 && parts.every((p3) => p3 && ["column", "number", "text"].includes(p3.type));
+            const colsExist = structValid && parts.filter((p3) => p3.type === "column" && p3.value).every((p3) => map.has(p3.value));
+            valid = structValid && colsExist;
+          } else {
+            const src = t3.source;
+            const structValid = !!(src && ["column", "text"].includes(src.type));
+            const colExists = structValid && src.type !== "column" ? true : map.has(src.value);
+            valid = structValid && colExists;
+          }
+        }
+      } else if (calc.mode === "date") {
+        const d3 = calc.date;
+        if (d3 && d3.operation === "extract") {
+          const src = d3.source;
+          const structValid = !!(src && src.type === "column");
+          const colExists = structValid && map.has(src.value);
+          valid = colExists && ["year", "month", "day", "dow", "week", "quarter", "julian"].includes(d3.part);
+        }
+      }
+      if (!valid) continue;
+      if (map.has(alias)) continue;
+      map.set(alias, { kind: "calc", mode: calc.mode, idx: i3, calc });
+    }
+    return map;
+  }
+  function buildHeaders(cols, state) {
+    const colMap = buildColSourceMapForState(state);
+    return cols.map((alias) => {
+      const src = colMap.get(alias);
+      if (!src) return alias;
+      if (src.kind === "calc") return alias;
+      if (src.kind === "band") return alias;
+      return colUserLabelForState(src.tid, src.col, state);
+    });
+  }
+  function buildBasePreview(state) {
+    const base = state.base;
+    if (!base || !state.tables[base]) {
+      return { headers: [], rows: [], error: "No base table selected" };
+    }
+    const baseTable = state.tables[base];
+    const baseCols = baseTable.cols;
+    if (!baseCols.length) {
+      return { headers: [], rows: [], error: "Base table has no columns" };
+    }
+    const stackIds = (state.stacks || []).filter((id) => state.tables[id]);
+    const tableIds = [base, ...stackIds];
+    const selects = tableIds.map((tid) => {
+      const table = state.tables[tid];
+      const proj = baseCols.map(
+        (c3) => table.cols.includes(c3) ? quoteId(c3) : "NULL"
+      );
+      return `SELECT ${proj.join(", ")} FROM ${quoteId(tid)}`;
+    });
+    const sql = selects.join(" UNION ALL ") + " LIMIT 5";
+    const rows = runPreviewQuery(sql);
+    const headers = baseCols.map((c3) => colUserLabelForState(base, c3, state));
+    return { headers, rows, error: null };
+  }
+  function buildPreviewReportSpec(state, options) {
+    const enabledLookups = (state.lookups || []).filter((lk) => lk.enabled !== false);
+    const slicedLookups = options.lookupsUpTo < 0 ? [] : enabledLookups.slice(0, options.lookupsUpTo + 1);
+    const slicedCalcs = options.calcsUpTo < 0 ? [] : (state.calcStages || []).slice(0, options.calcsUpTo + 1);
+    return {
+      id: null,
+      name: "preview",
+      enabled: true,
+      pipeline: {
+        base: state.base,
+        baseCols: state.baseCols,
+        stacks: state.stacks || [],
+        lookups: slicedLookups,
+        calculatedColumns: slicedCalcs,
+        detailBands: []
+      },
+      outputColumns: [],
+      filters: [],
+      sorts: [],
+      aggregation: {
+        mode: "none",
+        groupBy: [],
+        aggregates: [],
+        colTotals: {},
+        subtotalBy: [],
+        subtotalFns: {},
+        subtotalGrandTotal: false,
+        subtotalSpacer: false,
+        subtotalOnTop: false,
+        subtotalStrategy: "combined"
+      },
+      mergeDisplay: { mergedCols: [], mergeGroupUnderline: false },
+      outputDefinition: null,
+      publish: { enabled: false, tableName: "" },
+      detailBandMode: "separate"
+    };
+  }
+  function buildStagePreview(depth, kind, state) {
+    const base = state.base;
+    if (!base || !state.tables[base]) {
+      return { headers: [], rows: [], error: "No base table selected" };
+    }
+    const options = kind === "lk" ? { lookupsUpTo: depth, calcsUpTo: -1 } : { lookupsUpTo: Infinity, calcsUpTo: depth };
+    const reportSpec = buildPreviewReportSpec(state, options);
+    const plan = buildQueryPlan(reportSpec, state.tables);
+    const sql = plan.sql.replace(/\s*ORDER\s+BY\s+[^;]+$/i, "") + " LIMIT 5";
+    const rows = runPreviewQuery(sql, plan.params);
+    const headers = buildHeaders(plan.cols, state);
+    return { headers, rows, error: null };
+  }
+  function buildBandPreview(bandIdx, state) {
+    const bands = state.detailBands || [];
+    if (bandIdx < 0 || bandIdx >= bands.length) {
+      return { headers: [], rows: [], error: "Band not found" };
+    }
+    const band = bands[bandIdx];
+    if (!band.rightId || !state.tables[band.rightId]) {
+      return { headers: [], rows: [], error: "Band table not found" };
+    }
+    const table = state.tables[band.rightId];
+    const sql = `SELECT * FROM ${quoteId(band.rightId)} LIMIT 5`;
+    const rows = runPreviewQuery(sql);
+    const headers = table.cols.map((c3) => colUserLabelForState(band.rightId, c3, state));
+    return { headers, rows, error: null };
+  }
+
   // preact/ui/cards/pipeline-card.tsx
-  init_state();
   function PipelineCard() {
     const [state, setState] = d2(getStore().getState());
-    y2(() => getStore().subscribe((s3) => setState(s3)), []);
+    const [previews, setPreviews] = d2({});
+    y2(() => getStore().subscribe((s3) => {
+      setState(s3);
+      setPreviews({});
+    }), []);
     const tables = state.tables;
     const base = state.base;
     const lookups = state.lookups || [];
@@ -5198,45 +6727,13 @@ Row contents → ${previewStr}`,
       });
       invalidateValidation();
     }, []);
+    const computePreview = q2((id) => {
+      const currentState = getStore().getState();
+      const result = buildPreview(id, currentState);
+      setPreviews((prev) => ({ ...prev, [id]: result }));
+    }, []);
     const hasBase = !!(base && tables[base]);
     const enabledBandCount = detailBands.filter((b2) => b2.enabled !== false).length;
-    const dragBandIdx = A2(null);
-    const [dragOverIdx, setDragOverIdx] = d2(null);
-    const onBandDragStart = q2((idx, e3) => {
-      dragBandIdx.current = idx;
-      if (e3.dataTransfer) {
-        e3.dataTransfer.effectAllowed = "move";
-        e3.dataTransfer.setData("text/plain", String(idx));
-      }
-    }, []);
-    const onBandDragOver = q2((idx, e3) => {
-      e3.preventDefault();
-      if (e3.dataTransfer) e3.dataTransfer.dropEffect = "move";
-      setDragOverIdx(idx);
-    }, []);
-    const onBandDragEnd = q2(() => {
-      dragBandIdx.current = null;
-      setDragOverIdx(null);
-    }, []);
-    const onBandDrop = q2((targetIdx, e3) => {
-      e3.preventDefault();
-      const sourceIdx = dragBandIdx.current;
-      if (sourceIdx === null || sourceIdx === targetIdx) {
-        setDragOverIdx(null);
-        return;
-      }
-      getStore().update((draft) => {
-        if (!draft.detailBands || draft.detailBands.length < 2) return;
-        const bands = [...draft.detailBands];
-        const [moved] = bands.splice(sourceIdx, 1);
-        bands.splice(targetIdx, 0, moved);
-        draft.detailBands = bands;
-      });
-      invalidateValidation();
-      _afterCombineChange();
-      dragBandIdx.current = null;
-      setDragOverIdx(null);
-    }, []);
     return /* @__PURE__ */ u3("div", { id: "pipeline", class: "pipeline", children: [
       /* @__PURE__ */ u3("div", { class: "pl-top-pair", children: [
         /* @__PURE__ */ u3(BaseStage, { sortedIds }),
@@ -5258,7 +6755,7 @@ Row contents → ${previewStr}`,
           ] })
         ] })
       ] }),
-      hasBase && /* @__PURE__ */ u3(PipelineArrow, { id: "base" }),
+      hasBase && /* @__PURE__ */ u3(PipelineArrow, { id: "base", result: previews["base"], onOpen: computePreview }),
       lookups.map((_lk, i3) => /* @__PURE__ */ u3("div", { children: [
         /* @__PURE__ */ u3(
           LookupStage,
@@ -5269,11 +6766,11 @@ Row contents → ${previewStr}`,
             usedAsStack
           }
         ),
-        /* @__PURE__ */ u3(PipelineArrow, { id: `lk${i3}` })
+        /* @__PURE__ */ u3(PipelineArrow, { id: `lk${i3}`, result: previews[`lk${i3}`], onOpen: computePreview })
       ] }, `lk-${i3}`)),
       calcStages.map((_calc, i3) => /* @__PURE__ */ u3("div", { children: [
         /* @__PURE__ */ u3(CalcStageSection, { i: i3 }),
-        /* @__PURE__ */ u3(PipelineArrow, { id: `calc${i3}` })
+        /* @__PURE__ */ u3(PipelineArrow, { id: `calc${i3}`, result: previews[`calc${i3}`], onOpen: computePreview })
       ] }, `calc-${i3}`)),
       enabledBandCount >= 2 && /* @__PURE__ */ u3("div", { class: "pl-band-mode-toggle", style: "display:flex;align-items:center;gap:8px;padding:4px 8px;flex-wrap:wrap", children: [
         /* @__PURE__ */ u3("span", { children: "Multiple bands:" }),
@@ -5305,31 +6802,19 @@ Row contents → ${previewStr}`,
         ] }),
         /* @__PURE__ */ u3(Tip, { text: "Separate: each parent row is followed by its matching child rows from each band.\n\nStack: child rows from all bands are combined for each parent row (like a cross-product). Warning: this can produce many rows." })
       ] }),
-      detailBands.map((_band, i3) => /* @__PURE__ */ u3(
-        "div",
-        {
-          draggable: true,
-          onDragStart: (e3) => onBandDragStart(i3, e3),
-          onDragOver: (e3) => onBandDragOver(i3, e3),
-          onDragEnd: onBandDragEnd,
-          onDrop: (e3) => onBandDrop(i3, e3),
-          style: dragOverIdx === i3 ? "opacity:0.5;border-top:2px solid var(--accent,#4a9eff)" : "",
-          children: [
-            /* @__PURE__ */ u3(
-              DetailBandStage,
-              {
-                i: i3,
-                sortedIds,
-                usedAsLookup,
-                usedAsStack,
-                usedAsBase: base
-              }
-            ),
-            /* @__PURE__ */ u3(PipelineArrow, { id: `band${i3}` })
-          ]
-        },
-        `band-${i3}`
-      )),
+      detailBands.map((_band, i3) => /* @__PURE__ */ u3("div", { children: [
+        /* @__PURE__ */ u3(
+          DetailBandStage,
+          {
+            i: i3,
+            sortedIds,
+            usedAsLookup,
+            usedAsStack,
+            usedAsBase: base
+          }
+        ),
+        /* @__PURE__ */ u3(PipelineArrow, { id: `band${i3}`, result: previews[`band${i3}`], onOpen: computePreview })
+      ] }, `band-${i3}`)),
       hasBase && /* @__PURE__ */ u3("div", { style: "display:flex;justify-content:center;gap:8px;flex-wrap:wrap;padding:2px 0 8px", children: [
         /* @__PURE__ */ u3("div", { class: "pl-add-btn", onClick: addLookup, children: [
           "＋",
@@ -5347,15 +6832,7 @@ Row contents → ${previewStr}`,
     ] });
   }
 
-  // preact/ui/cards/layout-card.tsx
-  init_store();
-  init_state();
-  init_column_catalog();
-
   // preact/ui/sections/column-chips.tsx
-  init_store();
-  init_state();
-  init_column_catalog();
   function _buildTooltip(c3, src, state) {
     if (src?.kind === "calc") {
       const calc = state.calcStages?.[src.idx];
@@ -5420,53 +6897,31 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     y2(() => getStore().subscribe((s3) => setState(s3)), []);
     y2(() => {
       const st = getStore().getState();
-      if (!st.selCols) {
-        const reportSpec2 = buildReportSpecFromState(st);
-        const sourceCatalog2 = buildSourceCatalog(st.tables);
-        const currentCols = projectedCols(reportSpec2, sourceCatalog2);
+      const reportSpec = buildReportSpecFromState(st);
+      const sourceCatalog = buildSourceCatalog(st.tables);
+      const currentCols = projectedCols(reportSpec, sourceCatalog);
+      const colSet = new Set(currentCols);
+      const needsSync = st.colOrder.some((c3) => !colSet.has(c3)) || currentCols.some((c3) => !st.colOrder.includes(c3));
+      if (needsSync) {
         getStore().update((draft) => {
-          draft.selCols = new Set(currentCols);
-          _seenCols.clear();
-          currentCols.forEach((c3) => _seenCols.add(c3));
+          const cs = projectedCols(reportSpec, sourceCatalog);
+          const currentSet = new Set(cs);
+          draft.colOrder = [
+            ...draft.colOrder.filter((c3) => currentSet.has(c3)),
+            ...cs.filter((c3) => !draft.colOrder.includes(c3))
+          ];
         });
       }
-    }, []);
-    y2(() => {
-      const st = getStore().getState();
-      const reportSpec2 = buildReportSpecFromState(st);
-      const sourceCatalog2 = buildSourceCatalog(st.tables);
-      const currentCols = projectedCols(reportSpec2, sourceCatalog2);
-      if (!st.colOrder) {
-        getStore().update((draft) => {
-          draft.colOrder = [...currentCols];
-        });
-      } else {
-        const colSet = new Set(currentCols);
-        const needsSync = st.colOrder.some((c3) => !colSet.has(c3)) || currentCols.some((c3) => !st.colOrder.includes(c3));
-        if (needsSync) {
-          getStore().update((draft) => {
-            const cs = projectedCols(reportSpec2, sourceCatalog2);
-            const currentSet = new Set(cs);
-            draft.colOrder = [
-              ...(draft.colOrder || []).filter((c3) => currentSet.has(c3)),
-              ...cs.filter((c3) => !(draft.colOrder || []).includes(c3))
-            ];
-          });
-        }
-        _syncSubtotalByToLayout();
-      }
+      _syncSubtotalByToLayout();
     }, [state.base, state.lookups.length, state.calcStages.length]);
     const base = state.base;
     if (!base) return null;
-    const reportSpec = buildReportSpecFromState(state);
-    const sourceCatalog = buildSourceCatalog(state.tables);
-    const cols = projectedCols(reportSpec, sourceCatalog);
     const colMap = buildColSourceMap();
     const mode = state.aggMode || "none";
     const groupSet = new Set(state.groupBy);
     const showBadges = mode === "group" && groupSet.size > 0;
     const selSet = state.selCols;
-    const colOrder = state.colOrder || cols;
+    const colOrder = state.colOrder;
     const handleDblClick = q2((col) => {
       const currentMode = getStore().getState().aggMode || "none";
       if (currentMode === "group") {
@@ -5507,11 +6962,6 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
         _syncSubtotalByToLayout();
       } else {
         getStore().update((draft) => {
-          if (!draft.selCols) {
-            const rs = buildReportSpecFromState(draft);
-            const sc = buildSourceCatalog(draft.tables);
-            draft.selCols = new Set(projectedCols(rs, sc));
-          }
           const s3 = draft.selCols;
           if (s3.has(col)) s3.delete(col);
           else s3.add(col);
@@ -5545,11 +6995,6 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
       const dragCol = dragColRef.current;
       if (!nearest || !dragCol || nearest.dataset.col === dragCol) return;
       getStore().update((draft) => {
-        if (!draft.colOrder) {
-          const rs = buildReportSpecFromState(draft);
-          const sc = buildSourceCatalog(draft.tables);
-          draft.colOrder = projectedCols(rs, sc);
-        }
         const from = draft.colOrder.indexOf(dragCol);
         const to = draft.colOrder.indexOf(nearest.dataset.col);
         if (from < 0 || to < 0) return;
@@ -5655,9 +7100,6 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
   }
 
   // preact/ui/sections/merge-toggles.tsx
-  init_store();
-  init_state();
-  init_column_catalog();
   function MergeToggles() {
     const [state, setState] = d2(getStore().getState());
     y2(() => getStore().subscribe((s3) => setState(s3)), []);
@@ -6040,13 +7482,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     ] });
   }
 
-  // preact/ui/cards/filter-sort-card.tsx
-  init_store();
-
   // preact/ui/sections/filter-list.tsx
-  init_store();
-  init_state();
-  init_column_catalog();
   var FILTER_OPS = [
     "contains",
     "equals",
@@ -6197,9 +7633,6 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
   }
 
   // preact/ui/sections/sort-list.tsx
-  init_store();
-  init_state();
-  init_column_catalog();
   function SortRow({ s: s3, i: i3, cols, colMap }) {
     const sEnabled = s3.enabled !== false;
     const updateSort = q2((updater) => {
@@ -6352,9 +7785,6 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     ] });
   }
 
-  // preact/ui/sections/run-bar.tsx
-  init_store();
-
   // preact/ui/components/row-explosion-dialog.tsx
   function RowExplosionDialog({
     projectedCount,
@@ -6393,1190 +7823,6 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
         ]
       }
     );
-  }
-
-  // preact/query/query-plan.ts
-  init_column_catalog();
-
-  // preact/query/resolve-ref.ts
-  function resolveRef(alias, colMap) {
-    const entry = colMap.get(alias);
-    if (!entry || entry.kind === "calc" || entry.kind === "band") return quoteId(alias);
-    return `${quoteId(entry.tid)}.${quoteId(entry.col)}`;
-  }
-
-  // preact/query/sql-calcs.ts
-  function toNum(expr) {
-    return `CAST(COALESCE(NULLIF(TRIM(CAST(${expr} AS TEXT)), ''), '0') AS REAL)`;
-  }
-  function findBaseTid(colMap) {
-    for (const entry of colMap.values()) {
-      if (!entry || entry.kind === "calc") continue;
-      const physical = entry;
-      if (physical.col === "_rowno") return physical.tid;
-    }
-    for (const entry of colMap.values()) {
-      if (!entry || entry.kind === "calc") continue;
-      return entry.tid;
-    }
-    return "_base";
-  }
-  function renderCalcExpr(calc, alias, colMap, trail) {
-    if (trail.has(alias)) return "NULL";
-    trail.add(alias);
-    if (calc.mode === "math") {
-      return renderModeMath(calc, alias, colMap, trail);
-    }
-    if (calc.mode === "compare") {
-      return renderModeCompare(calc, alias, colMap, trail);
-    }
-    if (calc.mode === "text") {
-      return renderModeText(calc, alias, colMap, trail);
-    }
-    if (calc.mode === "date") {
-      return renderModeDate(calc, alias, colMap, trail);
-    }
-    throw new Error(`Unknown calc mode "${calc.mode}" for "${alias}"`);
-  }
-  function renderModeMath(calc, alias, colMap, trail) {
-    const math = calc.math;
-    const steps = math.steps;
-    const renderStepVal = (step, t3) => {
-      if (step.type === "number") {
-        const n2 = parseFloat(step.value || "");
-        return Number.isFinite(n2) ? String(n2) : "0";
-      }
-      if (step.type === "column") {
-        const expr2 = resolveRef(step.value || "", colMap);
-        const refEntry = colMap.get(step.value || "");
-        if (refEntry && refEntry.kind === "calc") {
-          const refCalc = refEntry.calc;
-          if (refCalc) {
-            return toNum(renderCalcExpr(refCalc, step.value || "", colMap, t3));
-          }
-        }
-        return toNum(expr2);
-      }
-      if (step.type === "text") {
-        return `'${String(step.value || "").replace(/'/g, "''")}'`;
-      }
-      throw new Error(`Unsupported math step type "${step.type}" in calc "${alias}"`);
-    };
-    const ext = calc;
-    const mathOp = ext.mathOp;
-    const colExpr = renderStepVal(steps[0], trail);
-    const baseTid = findBaseTid(colMap);
-    const rownoRef = `${quoteId(baseTid)}.${quoteId("_rowno")}`;
-    if (mathOp === "ROLLAVG") {
-      const window2 = Math.max(1, parseInt(String(ext.window || "7"), 10) || 7);
-      return `AVG(${colExpr}) OVER (ORDER BY ${rownoRef} ROWS BETWEEN ${window2 - 1} PRECEDING AND CURRENT ROW)`;
-    }
-    if (mathOp === "PCTTOTAL") {
-      return `${colExpr} * 100.0 / NULLIF(SUM(${colExpr}) OVER (), 0)`;
-    }
-    let expr = colExpr;
-    for (let i3 = 1; i3 < steps.length; i3++) {
-      const step = steps[i3];
-      const r3 = renderStepVal(step, trail);
-      switch (step.op) {
-        case "+":
-          expr = `(${expr} + ${r3})`;
-          break;
-        case "-":
-          expr = `(${expr} - ${r3})`;
-          break;
-        case "*":
-          expr = `(${expr} * ${r3})`;
-          break;
-        case "/":
-          expr = `(CASE WHEN ${r3} = 0 THEN NULL ELSE ${expr} / ${r3} END)`;
-          break;
-        case "%":
-          expr = `(CASE WHEN ${r3} = 0 THEN NULL ELSE ${expr} % ${r3} END)`;
-          break;
-        default:
-          throw new Error(`Unsupported math operator "${step.op}" in calc "${alias}"`);
-      }
-    }
-    return expr;
-  }
-  function renderModeCompare(calc, alias, colMap, trail) {
-    const compare = calc.compare;
-    const glue = compare.compareMode === "OR" ? " OR " : " AND ";
-    const condParts = compare.conditions.map((cond) => {
-      const colExpr = resolveRef(cond.col, colMap);
-      const op = cond.op;
-      if (!["=", "!=", ">", ">=", "<", "<="].includes(op)) {
-        throw new Error(`Invalid comparison operator "${op}" in calc "${alias}"`);
-      }
-      const cv = String(cond.val ?? "").trim();
-      const n2 = parseFloat(cv.replace(/,/g, ""));
-      const cNum = toNum(colExpr);
-      const cTxt = `CAST(${colExpr} AS TEXT)`;
-      if ([">", ">=", "<", "<="].includes(op)) return `${cNum} ${op} ${Number.isFinite(n2) ? n2 : 0}`;
-      if (cv !== "" && Number.isFinite(n2)) return `${cNum} ${op} ${n2}`;
-      return `${cTxt} ${op === "=" ? "=" : "!="} '${cv.replace(/'/g, "''")}'`;
-    });
-    const thenExpr = renderTypedValue(compare.trueValue, colMap, trail);
-    const elseExpr = renderTypedValue(compare.falseValue, colMap, trail);
-    return `(CASE WHEN ${condParts.join(glue)} THEN ${thenExpr} ELSE ${elseExpr} END)`;
-  }
-  function renderModeText(calc, alias, colMap, trail) {
-    const text = calc.text;
-    const op = text.operation;
-    if (op === "combine") {
-      const parts = text.parts.map(
-        (p3) => renderTextPart(p3, colMap, trail)
-      );
-      return parts.join(" || ");
-    }
-    if (op === "left") {
-      const src = renderTextSource(text.source, colMap, trail);
-      return `SUBSTR(${src}, 1, ${text.count})`;
-    }
-    if (op === "right") {
-      const src = renderTextSource(text.source, colMap, trail);
-      return `SUBSTR(${src}, -${text.count})`;
-    }
-    if (op === "substring") {
-      const src = renderTextSource(text.source, colMap, trail);
-      return `SUBSTR(${src}, ${text.start}, ${text.length})`;
-    }
-    throw new Error(`Unknown text operation "${op}" in calc "${alias}"`);
-  }
-  function renderModeDate(calc, alias, colMap, trail) {
-    const date = calc.date;
-    const op = date.operation;
-    if (op === "extract") {
-      const inputFormat = getDateInputFormat(date);
-      const src = renderDateSource(date.source, colMap, trail, inputFormat);
-      const part = date.part || "year";
-      const output = date.output || "text";
-      const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      const MONTH_FULL = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-      const DOW_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-      const DOW_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-      const monthCase = (names) => {
-        const branches = names.map((n2, j4) => `WHEN ${j4 + 1} THEN '${n2}'`).join(" ");
-        return `(CASE CAST(strftime('%m', ${src}) AS INTEGER) ${branches} END)`;
-      };
-      const dowCase = (names) => {
-        const branches = names.map((n2, j4) => `WHEN ${j4} THEN '${n2}'`).join(" ");
-        return `(CASE CAST(strftime('%w', ${src}) AS INTEGER) ${branches} END)`;
-      };
-      if (part === "quarter") {
-        if (output === "short") {
-          const branches = [1, 2, 3, 4].map((q4) => `WHEN ${q4} THEN 'Q${q4}'`).join(" ");
-          return `(CASE ((CAST(strftime('%m', ${src}) AS INTEGER) - 1) / 3 + 1) ${branches} END)`;
-        }
-        if (output === "text") {
-          const branches = [1, 2, 3, 4].map((q4) => `WHEN ${q4} THEN 'Quarter ${q4}'`).join(" ");
-          return `(CASE ((CAST(strftime('%m', ${src}) AS INTEGER) - 1) / 3 + 1) ${branches} END)`;
-        }
-        return `((CAST(strftime('%m', ${src}) AS INTEGER) - 1) / 3 + 1)`;
-      }
-      if (part === "julian") {
-        return `CAST(julianday(${src}) AS INTEGER)`;
-      }
-      if (part === "month") {
-        if (output === "short") return monthCase(MONTH_SHORT);
-        if (output === "text") return monthCase(MONTH_FULL);
-        return `CAST(strftime('%m', ${src}) AS INTEGER)`;
-      }
-      if (part === "dow") {
-        if (output === "short") return dowCase(DOW_SHORT);
-        if (output === "text") return dowCase(DOW_FULL);
-        return `CAST(strftime('%w', ${src}) AS INTEGER)`;
-      }
-      const partFormat = {
-        "year": "%Y",
-        "day": "%d",
-        "week": "%W"
-      };
-      return `CAST(strftime('${partFormat[part]}', ${src}) AS INTEGER)`;
-    }
-    throw new Error(`Unknown date operation "${op}" in calc "${alias}"`);
-  }
-  function renderDateSource(source, colMap, _trail, format) {
-    if (source.type === "column") {
-      const expr = resolveRef(source.value, colMap);
-      return normalizeDateExpr(expr, format ?? null);
-    }
-    throw new Error(`Unsupported date source type "${source.type}"`);
-  }
-  function renderTypedValue(tv, colMap, _trail) {
-    if (tv.type === "text") return `'${String(tv.value).replace(/'/g, "''")}'`;
-    if (tv.type === "number") return String(Number(tv.value));
-    if (tv.type === "column") return resolveRef(tv.value, colMap);
-    throw new Error(`Unsupported typed-value type "${tv.type}"`);
-  }
-  function renderTextPart(part, colMap, _trail) {
-    if (part.type === "text") return `'${String(part.value).replace(/'/g, "''")}'`;
-    if (part.type === "number") return `CAST(${Number(part.value)} AS TEXT)`;
-    if (part.type === "column") {
-      const expr = resolveRef(part.value, colMap);
-      return `COALESCE(CAST(${expr} AS TEXT), '')`;
-    }
-    throw new Error(`Unsupported text part type "${part.type}"`);
-  }
-  function renderTextSource(source, colMap, _trail) {
-    if (source.type === "text") return `'${String(source.value).replace(/'/g, "''")}'`;
-    if (source.type === "column") return resolveRef(source.value, colMap);
-    throw new Error(`Unsupported text source type "${source.type}"`);
-  }
-  function buildCalcExpressions(calcStages, colMap) {
-    const results = [];
-    for (let i3 = 0; i3 < calcStages.length; i3++) {
-      const calc = calcStages[i3];
-      if (!calc || calc.enabled === false) continue;
-      const alias = (calc.alias || "").trim();
-      if (!alias) continue;
-      if (!calc.mode || !["math", "compare", "text", "date"].includes(calc.mode)) continue;
-      try {
-        const trail = /* @__PURE__ */ new Set();
-        const sql = renderCalcExpr(calc, alias, colMap, trail);
-        results.push({ alias, sql });
-      } catch {
-      }
-    }
-    return results;
-  }
-
-  // preact/query/sql-where.ts
-  function likeEsc(v3) {
-    return v3.replace(/%/g, "\\%").replace(/_/g, "\\_");
-  }
-  function columnRefs(alias, colMap) {
-    const ref = resolveRef(alias, colMap);
-    const txt = `CAST(${ref} AS TEXT)`;
-    const num = `CAST(${ref} AS REAL)`;
-    return { txt, num };
-  }
-  function isDisabled(f4) {
-    return f4.enabled === false;
-  }
-  function isNumericCalc(alias, colMap) {
-    const entry = colMap.get(alias);
-    return entry?.kind === "calc" && entry.mode === "math";
-  }
-  function renderClause(op, txt, num, val, params, numericHint, alias, colMap) {
-    const normVal = String(val ?? "").trim();
-    const numVal = Number(normVal.replace(/,/g, ""));
-    const hasNumericVal = normVal !== "" && Number.isFinite(numVal);
-    const normalizedOp = op === "equals" ? "=" : op === "not equals" ? "!=" : op === "starts with" ? "starts_with" : op === "ends with" ? "ends_with" : op === "is empty" ? "is_null" : op === "not empty" ? "is_not_null" : op;
-    switch (normalizedOp) {
-      case "=":
-        if (numericHint && hasNumericVal) {
-          params.push(numVal);
-          return `${num} = ?`;
-        }
-        params.push(val);
-        return `${txt} = ?`;
-      case "!=":
-        if (numericHint && hasNumericVal) {
-          params.push(numVal);
-          return `${num} != ?`;
-        }
-        params.push(val);
-        return `${txt} != ?`;
-      case ">":
-        params.push(+val || 0);
-        return `${num} > ?`;
-      case "<":
-        params.push(+val || 0);
-        return `${num} < ?`;
-      case ">=":
-        params.push(+val || 0);
-        return `${num} >= ?`;
-      case "<=":
-        params.push(+val || 0);
-        return `${num} <= ?`;
-      case "contains":
-        params.push("%" + likeEsc(val) + "%");
-        return `${txt} LIKE ? ESCAPE '\\'`;
-      case "starts_with":
-        params.push(likeEsc(val) + "%");
-        return `${txt} LIKE ? ESCAPE '\\'`;
-      case "ends_with":
-        params.push("%" + likeEsc(val));
-        return `${txt} LIKE ? ESCAPE '\\'`;
-      case "in": {
-        if (!normVal) return null;
-        const vals = normVal.split(",").map((v3) => v3.trim()).filter(Boolean);
-        if (!vals.length) return null;
-        const allNumeric = numericHint && vals.every((v3) => {
-          const n2 = Number(v3.replace(/,/g, ""));
-          return v3 !== "" && Number.isFinite(n2);
-        });
-        const ref = resolveRef(alias, colMap);
-        if (allNumeric) {
-          const numVals = vals.map((v3) => Number(v3.replace(/,/g, "")));
-          params.push(...numVals);
-          const placeholders2 = numVals.map(() => "?").join(", ");
-          return `CAST(${ref} AS REAL) IN (${placeholders2})`;
-        }
-        params.push(...vals);
-        const placeholders = vals.map(() => "?").join(", ");
-        return `${ref} IN (${placeholders})`;
-      }
-      case "not_in": {
-        if (!normVal) return null;
-        const vals = normVal.split(",").map((v3) => v3.trim()).filter(Boolean);
-        if (!vals.length) return null;
-        const allNumeric = numericHint && vals.every((v3) => {
-          const n2 = Number(v3.replace(/,/g, ""));
-          return v3 !== "" && Number.isFinite(n2);
-        });
-        const ref = resolveRef(alias, colMap);
-        if (allNumeric) {
-          const numVals = vals.map((v3) => Number(v3.replace(/,/g, "")));
-          params.push(...numVals);
-          const placeholders2 = numVals.map(() => "?").join(", ");
-          return `CAST(${ref} AS REAL) NOT IN (${placeholders2})`;
-        }
-        params.push(...vals);
-        const placeholders = vals.map(() => "?").join(", ");
-        return `${ref} NOT IN (${placeholders})`;
-      }
-      case "is_null":
-        return `(${txt} IS NULL OR ${txt} = '')`;
-      case "is_not_null":
-        return `(${txt} IS NOT NULL AND ${txt} != '')`;
-      default:
-        return null;
-    }
-  }
-  function renderFilter(f4, colMap, params) {
-    if (!f4.col) return null;
-    const numericHint = isNumericCalc(f4.col, colMap);
-    const { txt, num } = columnRefs(f4.col, colMap);
-    const filterVals = Array.isArray(f4.vals) && f4.vals.length > 0 ? f4.vals : [""];
-    const orParts = [];
-    for (const v3 of filterVals) {
-      const clause = renderClause(f4.op, txt, num, String(v3 ?? ""), params, numericHint, f4.col, colMap);
-      if (clause) orParts.push(clause);
-    }
-    if (!orParts.length) return null;
-    return orParts.length > 1 ? `(${orParts.join(" OR ")})` : orParts[0];
-  }
-  function buildWhere(filters, colMap, _colState) {
-    if (!filters || filters.length === 0) return { where: "", params: [] };
-    const params = [];
-    const parts = [];
-    for (const f4 of filters) {
-      if (isDisabled(f4)) continue;
-      const clause = renderFilter(f4, colMap, params);
-      if (clause) parts.push(clause);
-    }
-    return {
-      where: parts.join(" AND "),
-      params
-    };
-  }
-
-  // preact/query/sql-joins.ts
-  function buildJoins(lookups, colMap, _sourceCatalog) {
-    if (!lookups || lookups.length === 0) return { joins: "", params: [] };
-    const params = [];
-    const joinClauses = [];
-    for (const lk of lookups) {
-      if (lk.enabled === false || !lk.rightId) continue;
-      const pairs = Array.isArray(lk.keyPairs) ? lk.keyPairs.filter((p3) => p3.left && p3.right) : [];
-      if (pairs.length === 0) continue;
-      const jType = lk.required ? "INNER" : "LEFT";
-      const rightTableRef = quoteId(lk.rightId);
-      const onParts = [];
-      for (const p3 of pairs) {
-        const leftRef = resolveRef(p3.left, colMap);
-        const rightRef = `${rightTableRef}.${quoteId(p3.right)}`;
-        onParts.push(`${leftRef} = ${rightRef}`);
-      }
-      if (onParts.length === 0) continue;
-      const joinClause = `${jType} JOIN ${rightTableRef} ON ${onParts.join(" AND ")}`;
-      joinClauses.push(joinClause);
-    }
-    return {
-      joins: joinClauses.join("\n"),
-      params
-    };
-  }
-
-  // preact/query/sql-detail.ts
-  function buildDetailQuery(reportSpec, colMap, sourceCatalog, calcExprs = /* @__PURE__ */ new Map()) {
-    if (!reportSpec.pipeline.base) throw new Error("No base table in reportSpec");
-    const outputCols = reportSpec.outputColumns;
-    const projected = outputCols && outputCols.length > 0 ? outputCols.filter((alias) => colMap.has(alias)) : [...colMap.keys()];
-    const filteredProjected = projected.filter((alias) => {
-      const entry = colMap.get(alias);
-      return !entry || entry.kind !== "band";
-    });
-    const selParts = [];
-    const cols = [];
-    for (const alias of filteredProjected) {
-      const calcExpr = calcExprs.get(alias);
-      if (calcExpr) {
-        selParts.push(`${calcExpr} AS ${quoteId(alias)}`);
-      } else {
-        selParts.push(`${resolveRef(alias, colMap)} AS ${quoteId(alias)}`);
-      }
-      cols.push(alias);
-    }
-    if (!selParts.length) selParts.push("*");
-    const fromClause = quoteId(reportSpec.pipeline.base);
-    const lookups = reportSpec.pipeline.lookups || [];
-    const { joins: joinClause, params: joinParams } = buildJoins(lookups, colMap, sourceCatalog);
-    const filters = reportSpec.filters || [];
-    const { where: whereClause, params: whereParams } = buildWhere(filters, colMap);
-    const sorts = reportSpec.sorts || [];
-    const sortParts = sorts.filter((s3) => s3.enabled !== false).filter((s3) => {
-      const entry = colMap.get(s3.col);
-      return !entry || entry.kind !== "band";
-    }).map((s3) => {
-      const calcExpr = calcExprs.get(s3.col);
-      const sortRef = calcExpr ?? resolveRef(s3.col, colMap);
-      return `${sortRef} ${s3.dir === "DESC" ? "DESC" : "ASC"}`;
-    });
-    let sql = `SELECT ${selParts.join(",\n       ")}
-FROM ${fromClause}`;
-    if (joinClause) sql += "\n" + joinClause;
-    if (whereClause) sql += "\nWHERE " + whereClause;
-    if (sortParts.length) sql += "\nORDER BY " + sortParts.join(", ");
-    const params = [...joinParams, ...whereParams];
-    return { sql, params, cols };
-  }
-
-  // preact/query/sql-aggregates.ts
-  function renderAggregateExpr(fn, colRef) {
-    switch (fn) {
-      case "SUM":
-        return `SUM(${colRef})`;
-      case "AVG":
-        return `AVG(${colRef})`;
-      case "MIN":
-        return `MIN(${colRef})`;
-      case "MAX":
-        return `MAX(${colRef})`;
-      case "COUNT ROWS":
-        return "COUNT(*)";
-      case "COUNT NON-EMPTY":
-        return `COUNT(${colRef})`;
-      case "COUNT DISTINCT":
-        return `COUNT(DISTINCT ${colRef})`;
-      case "FIRST":
-        return `MIN(${colRef})`;
-      case "LAST":
-        return `MAX(${colRef})`;
-      case "DATE RANGE":
-        return `MIN(${colRef}) || ' — ' || MAX(${colRef})`;
-      case "DATE SPAN":
-        return `CAST(julianday(MAX(${colRef})) - julianday(MIN(${colRef})) AS INTEGER)`;
-      case "NUMERIC RANGE":
-        return `MIN(${colRef}) || ' – ' || MAX(${colRef})`;
-      case "NUMERIC SPAN":
-        return `MAX(${colRef}) - MIN(${colRef})`;
-      case "LIST":
-        return `GROUP_CONCAT(DISTINCT ${colRef})`;
-      default:
-        return `COUNT(${colRef})`;
-    }
-  }
-
-  // preact/query/sql-grouped.ts
-  function buildGroupedQuery(reportSpec, colMap, sourceCatalog, calcExprs = /* @__PURE__ */ new Map()) {
-    if (!reportSpec.pipeline.base) throw new Error("No base table in reportSpec");
-    const groupByAliases = reportSpec.aggregation.groupBy || [];
-    const aggregates = reportSpec.aggregation.aggregates || [];
-    const hasAgg = groupByAliases.length > 0 || aggregates.length > 0;
-    const outputCols = reportSpec.outputColumns;
-    const selColSet = outputCols && outputCols.length > 0 ? new Set(outputCols) : null;
-    const isBand = (alias) => {
-      const entry = colMap.get(alias);
-      return !!entry && entry.kind === "band";
-    };
-    const selParts = [];
-    const colAliases = [];
-    const groupRefs = [];
-    if (hasAgg) {
-      for (const alias of groupByAliases) {
-        if (selColSet && !selColSet.has(alias)) continue;
-        if (isBand(alias)) continue;
-        const calcExpr = calcExprs.get(alias);
-        const ref = calcExpr ?? resolveRef(alias, colMap);
-        selParts.push(`${ref} AS ${quoteId(alias)}`);
-        groupRefs.push(ref);
-        colAliases.push(alias);
-      }
-      for (const agg of aggregates) {
-        const colLabel = agg.col && agg.col !== "*" ? agg.col : "all rows";
-        const outName = agg.alias?.trim() || defaultAggAlias(agg.fn, colLabel);
-        if (selColSet && !selColSet.has(outName)) continue;
-        if (isBand(outName)) continue;
-        const calcExpr = agg.col ? calcExprs.get(agg.col) : void 0;
-        const colRef = agg.col && agg.col !== "*" ? calcExpr ?? resolveRef(agg.col, colMap) : null;
-        const expr = renderAggregateExpr(agg.fn, colRef || "*");
-        selParts.push(`${expr} AS ${quoteId(outName)}`);
-        colAliases.push(outName);
-      }
-    } else {
-      const projected = selColSet ? [...colMap.keys()].filter((a3) => selColSet.has(a3)) : [...colMap.keys()];
-      for (const alias of projected) {
-        if (isBand(alias)) continue;
-        const calcExpr = calcExprs.get(alias);
-        if (calcExpr) {
-          selParts.push(`${calcExpr} AS ${quoteId(alias)}`);
-        } else {
-          selParts.push(`${resolveRef(alias, colMap)} AS ${quoteId(alias)}`);
-        }
-        colAliases.push(alias);
-      }
-    }
-    if (!selParts.length) selParts.push("*");
-    const fromClause = quoteId(reportSpec.pipeline.base);
-    const lookups = reportSpec.pipeline.lookups || [];
-    const { joins: joinClause, params: joinParams } = buildJoins(lookups, colMap, sourceCatalog);
-    const filters = reportSpec.filters || [];
-    const { where: whereClause, params: whereParams } = buildWhere(filters, colMap);
-    const groupByClause = groupRefs.length ? "\nGROUP BY " + groupRefs.join(", ") : "";
-    const sorts = reportSpec.sorts || [];
-    const sortParts = sorts.filter((s3) => s3.enabled !== false).filter((s3) => !isBand(s3.col)).map((s3) => {
-      const calcExpr = calcExprs.get(s3.col);
-      const sortRef = calcExpr ?? resolveRef(s3.col, colMap);
-      return `${sortRef} ${s3.dir === "DESC" ? "DESC" : "ASC"}`;
-    });
-    let sql = `SELECT ${selParts.join(",\n       ")}
-FROM ${fromClause}`;
-    if (joinClause) sql += "\n" + joinClause;
-    if (whereClause) sql += "\nWHERE " + whereClause;
-    if (groupByClause) sql += groupByClause;
-    if (sortParts.length) sql += "\nORDER BY " + sortParts.join(", ");
-    const params = [...joinParams, ...whereParams];
-    return { sql, params, cols: colAliases };
-  }
-
-  // preact/query/sql-totals.ts
-  function buildTotalsQuery(reportSpec, colMap, sourceCatalog, calcExprs = /* @__PURE__ */ new Map()) {
-    if (!reportSpec.pipeline.base) throw new Error("No base table in reportSpec");
-    const colTotals = reportSpec.aggregation.colTotals || {};
-    const outputCols = reportSpec.outputColumns;
-    const projected = outputCols && outputCols.length > 0 ? outputCols.filter((alias) => colMap.has(alias)) : [...colMap.keys()];
-    const filteredProjected = projected.filter((alias) => {
-      const entry = colMap.get(alias);
-      return !entry || entry.kind !== "band";
-    });
-    const hasAny = filteredProjected.some((c3) => colTotals[c3] && colTotals[c3] !== "skip");
-    if (!hasAny) return null;
-    const selParts = [];
-    for (const alias of filteredProjected) {
-      const fn = colTotals[alias];
-      if (!fn || fn === "skip") {
-        selParts.push(`NULL AS ${quoteId(alias)}`);
-      } else {
-        const calcExpr = calcExprs.get(alias);
-        const innerRef = calcExpr ?? resolveRef(alias, colMap);
-        selParts.push(`${renderAggregateExpr(fn, innerRef)} AS ${quoteId(alias)}`);
-      }
-    }
-    if (!selParts.length) selParts.push("*");
-    const fromClause = quoteId(reportSpec.pipeline.base);
-    const lookups = reportSpec.pipeline.lookups || [];
-    const { joins: joinClause, params: joinParams } = buildJoins(lookups, colMap, sourceCatalog);
-    const filters = reportSpec.filters || [];
-    const { where: whereClause, params: whereParams } = buildWhere(filters, colMap);
-    let sql = `SELECT ${selParts.join(",\n       ")}
-FROM ${fromClause}`;
-    if (joinClause) sql += "\n" + joinClause;
-    if (whereClause) sql += "\nWHERE " + whereClause;
-    const params = [...joinParams, ...whereParams];
-    return { sql, params, cols: filteredProjected };
-  }
-
-  // preact/query/sql-subtotals.ts
-  function buildSubtotalsQuery(reportSpec, colMap, sourceCatalog, calcExprs = /* @__PURE__ */ new Map()) {
-    if (!reportSpec.pipeline.base) throw new Error("No base table in reportSpec");
-    const agg = reportSpec.aggregation;
-    const outputCols = reportSpec.outputColumns;
-    const rawToShow = outputCols && outputCols.length > 0 ? outputCols.filter((alias) => colMap.has(alias)) : [...colMap.keys()];
-    const toShow = rawToShow.filter((alias) => {
-      const entry = colMap.get(alias);
-      return !entry || entry.kind !== "band";
-    });
-    if (!toShow.length) return null;
-    const subtotalFns = agg.subtotalFns || {};
-    const includeGrand = agg.subtotalGrandTotal !== false;
-    const includeSpacer = !!agg.subtotalSpacer;
-    const subtotalOnTop = !!agg.subtotalOnTop;
-    const isNested = agg.subtotalStrategy === "nested";
-    const orderIdx = new Map(toShow.map((a3, i3) => [a3, i3]));
-    const seenSub = /* @__PURE__ */ new Set();
-    const subtotalBy = (agg.subtotalBy || []).filter((a3) => orderIdx.has(a3) && !seenSub.has(a3) && (seenSub.add(a3), true)).sort((a3, b2) => (orderIdx.get(a3) ?? Infinity) - (orderIdx.get(b2) ?? Infinity));
-    const n2 = subtotalBy.length;
-    if (n2 === 0) return null;
-    const sortGroupKeys = subtotalBy.map((_3, i3) => `_sort_group_${i3}`);
-    const detailSortType = subtotalOnTop ? 1 : 0;
-    const subtotalSortType = subtotalOnTop ? 0 : 1;
-    const subtotalBySet = new Set(subtotalBy);
-    const subAggExpr = (a3) => {
-      const fn = subtotalFns[a3];
-      if (!fn || fn === "skip") return `NULL AS ${quoteId(a3)}`;
-      const calcExpr = calcExprs.get(a3);
-      const innerRef = calcExpr ?? resolveRef(a3, colMap);
-      return `${renderAggregateExpr(fn, innerRef)} AS ${quoteId(a3)}`;
-    };
-    const ref = (a3) => calcExprs.get(a3) ?? resolveRef(a3, colMap);
-    const fromClause = quoteId(reportSpec.pipeline.base);
-    const lookups = reportSpec.pipeline.lookups || [];
-    const { joins: joinClause, params: joinParams } = buildJoins(lookups, colMap, sourceCatalog);
-    const filters = reportSpec.filters || [];
-    const { where: whereClause, params: whereParams } = buildWhere(filters, colMap);
-    const joinPart = joinClause ? "\n" + joinClause : "";
-    const wherePart = whereClause ? "\nWHERE " + whereClause : "";
-    const nullFilter = subtotalBy.map((a3) => `${ref(a3)} IS NOT NULL`).join(" OR ");
-    const subWherePart = whereClause ? `
-WHERE ${whereClause}
-  AND (${nullFilter})` : `
-WHERE (${nullFilter})`;
-    const detailSel = [
-      ...toShow.map((a3) => `${ref(a3)} AS ${quoteId(a3)}`),
-      '0 AS "_row_type"',
-      `${detailSortType} AS "_sort_row_type"`,
-      ...subtotalBy.map((a3, i3) => `${ref(a3)} AS ${quoteId(sortGroupKeys[i3])}`)
-    ].join(",\n       ");
-    function makeSubSel(depth) {
-      const groupCols = subtotalBy.slice(0, depth + 1);
-      const groupSet = new Set(groupCols);
-      return [
-        ...toShow.map((a3) => {
-          if (groupSet.has(a3)) return `${ref(a3)} AS ${quoteId(a3)}`;
-          if (subtotalBySet.has(a3)) return `NULL AS ${quoteId(a3)}`;
-          return subAggExpr(a3);
-        }),
-        '1 AS "_row_type"',
-        `${subtotalSortType} AS "_sort_row_type"`,
-        ...subtotalBy.map((a3, i3) => i3 <= depth ? `${ref(a3)} AS ${quoteId(sortGroupKeys[i3])}` : `NULL AS ${quoteId(sortGroupKeys[i3])}`)
-      ].join(",\n       ");
-    }
-    const grandSel = [
-      ...toShow.map((a3) => subtotalBySet.has(a3) ? `NULL AS ${quoteId(a3)}` : subAggExpr(a3)),
-      '3 AS "_row_type"',
-      '3 AS "_sort_row_type"',
-      ...subtotalBy.map((_3, i3) => `NULL AS ${quoteId(sortGroupKeys[i3])}`)
-    ].join(",\n       ");
-    const spacerSel = [
-      ...toShow.map((a3) => `NULL AS ${quoteId(a3)}`),
-      '2 AS "_row_type"',
-      '2 AS "_sort_row_type"',
-      ...subtotalBy.map((a3, i3) => `${ref(a3)} AS ${quoteId(sortGroupKeys[i3])}`)
-    ].join(",\n       ");
-    const orderParts = [
-      ...sortGroupKeys.map((k3, i3) => {
-        if (isNested && i3 > 0 && subtotalOnTop) return `${quoteId(k3)} ASC NULLS FIRST`;
-        return `${quoteId(k3)} ASC NULLS LAST`;
-      }),
-      '"_sort_row_type" ASC',
-      ...(reportSpec.sorts || []).filter((s3) => s3.enabled !== false && toShow.includes(s3.col) && !subtotalBySet.has(s3.col)).map((s3) => `${quoteId(s3.col)} ${s3.dir === "DESC" ? "DESC" : "ASC"}`)
-    ];
-    const branches = [
-      `SELECT ${detailSel}
-FROM ${fromClause}${joinPart}${wherePart}`
-    ];
-    if (isNested) {
-      for (let d3 = 0; d3 < n2; d3++) {
-        const groupClause = subtotalBy.slice(0, d3 + 1).map((a3) => ref(a3)).join(", ");
-        branches.push(
-          `SELECT ${makeSubSel(d3)}
-FROM ${fromClause}${joinPart}${subWherePart}
-GROUP BY ${groupClause}`
-        );
-      }
-    } else {
-      const groupClause = subtotalBy.map((a3) => ref(a3)).join(", ");
-      branches.push(
-        `SELECT ${makeSubSel(n2 - 1)}
-FROM ${fromClause}${joinPart}${subWherePart}
-GROUP BY ${groupClause}`
-      );
-    }
-    if (includeSpacer) {
-      const groupClause = subtotalBy.map((a3) => ref(a3)).join(", ");
-      branches.push(
-        `SELECT ${spacerSel}
-FROM ${fromClause}${joinPart}${subWherePart}
-GROUP BY ${groupClause}`
-      );
-    }
-    if (includeGrand) {
-      const hasGrandValue = toShow.some(
-        (a3) => !subtotalBySet.has(a3) && subtotalFns[a3] && subtotalFns[a3] !== "skip"
-      );
-      if (hasGrandValue) {
-        branches.push(`SELECT ${grandSel}
-FROM ${fromClause}${joinPart}${wherePart}`);
-      }
-    }
-    const filterParams = [...joinParams, ...whereParams];
-    const params = branches.flatMap(() => [...filterParams]);
-    const sql = branches.join("\nUNION ALL\n") + "\nORDER BY " + orderParts.join(", ");
-    return {
-      sql,
-      params,
-      cols: [...toShow]
-    };
-  }
-
-  // preact/query/query-plan.ts
-  function buildQueryPlan(reportSpec, tables) {
-    const sourceCatalog = buildSourceCatalog(tables);
-    const catalogCtx = {
-      base: reportSpec.pipeline.base,
-      baseCols: reportSpec.pipeline.baseCols,
-      stacks: reportSpec.pipeline.stacks,
-      lookups: reportSpec.pipeline.lookups,
-      calcStages: reportSpec.pipeline.calculatedColumns,
-      detailBands: reportSpec.pipeline.detailBands || []
-    };
-    const { colMap } = buildColumnCatalog(catalogCtx, sourceCatalog);
-    const tablesById = /* @__PURE__ */ new Map();
-    for (const [tid, entry] of sourceCatalog) {
-      tablesById.set(tid, { cols: entry.cols, name: entry.name });
-    }
-    const source = {
-      base: reportSpec.pipeline.base || "",
-      stacks: (reportSpec.pipeline.stacks || []).filter(
-        (id) => tablesById.has(id)
-      ),
-      baseCols: reportSpec.pipeline.baseCols ?? (tablesById.has(reportSpec.pipeline.base) ? tablesById.get(reportSpec.pipeline.base).cols : null),
-      excludedRows: {},
-      tablesById
-    };
-    const lookups = reportSpec.pipeline.lookups || [];
-    const joins = lookups.filter((lk) => lk.enabled !== false && lk.rightId && tablesById.has(lk.rightId)).map((lk) => {
-      const rtMeta = tablesById.get(lk.rightId);
-      return {
-        rightId: lk.rightId,
-        rightColumns: rtMeta ? rtMeta.cols : [],
-        rightTableName: rtMeta ? rtMeta.name : lk.rightId,
-        keyPairs: (lk.keyPairs || []).filter((p3) => p3.left && p3.right),
-        required: !!lk.required,
-        duplicatePolicy: lk.duplicatePolicy || { mode: "block" },
-        excludedRows: null
-      };
-    }).filter((j4) => j4.keyPairs.length > 0);
-    const calcStages = reportSpec.pipeline.calculatedColumns || [];
-    const calculatedColumns = buildCalcExpressions(calcStages, colMap);
-    const calcExprs = /* @__PURE__ */ new Map();
-    for (const col of calculatedColumns) {
-      calcExprs.set(col.alias, col.sql);
-    }
-    const filters = (reportSpec.filters || []).filter((f4) => f4.enabled !== false && f4.col);
-    const aggMode = reportSpec.aggregation.mode || "none";
-    const aggregates = reportSpec.aggregation.aggregates || [];
-    const aggAliases = aggMode === "group" ? aggregates.map((a3) => a3.alias).filter(Boolean) : [];
-    const colOrder = reportSpec.outputColumns;
-    const orderedAliases = colOrder && colOrder.length > 0 ? colOrder.filter((a3) => colMap.has(a3) || aggAliases.includes(a3)) : [...colMap.keys(), ...aggAliases];
-    const selectedColumns = orderedAliases;
-    const sorts = (reportSpec.sorts || []).filter(
-      (s3) => s3.enabled !== false && s3.col && colMap.has(s3.col)
-    );
-    let sql;
-    let params;
-    let cols;
-    switch (aggMode) {
-      case "group": {
-        const result = buildGroupedQuery(reportSpec, colMap, sourceCatalog, calcExprs);
-        sql = result.sql;
-        params = result.params;
-        cols = result.cols;
-        break;
-      }
-      case "totals": {
-        const result = buildTotalsQuery(reportSpec, colMap, sourceCatalog, calcExprs);
-        if (!result) throw new Error("buildQueryPlan: no totals to build");
-        sql = result.sql;
-        params = result.params;
-        cols = result.cols;
-        break;
-      }
-      case "subtotals": {
-        const result = buildSubtotalsQuery(reportSpec, colMap, sourceCatalog, calcExprs);
-        if (!result) throw new Error("buildQueryPlan: no subtotals to build");
-        sql = result.sql;
-        params = result.params;
-        cols = result.cols;
-        break;
-      }
-      default: {
-        const result = buildDetailQuery(reportSpec, colMap, sourceCatalog, calcExprs);
-        sql = result.sql;
-        params = result.params;
-        cols = result.cols;
-        break;
-      }
-    }
-    return {
-      source,
-      joins,
-      calculatedColumns,
-      filters,
-      selectedColumns,
-      groupBy: reportSpec.aggregation.groupBy || [],
-      aggregates,
-      sorts,
-      colTotals: reportSpec.aggregation.colTotals || {},
-      subtotalBy: reportSpec.aggregation.subtotalBy || [],
-      subtotalFns: reportSpec.aggregation.subtotalFns || {},
-      subtotalGrandTotal: reportSpec.aggregation.subtotalGrandTotal !== false,
-      subtotalSpacer: !!reportSpec.aggregation.subtotalSpacer,
-      subtotalOnTop: !!reportSpec.aggregation.subtotalOnTop,
-      subtotalStrategy: reportSpec.aggregation.subtotalStrategy || "combined",
-      aggMode: reportSpec.aggregation.mode || "none",
-      colMap,
-      sql,
-      params,
-      cols
-    };
-  }
-
-  // preact/report/engine.ts
-  init_column_catalog();
-
-  // preact/query/sql-detail-bands.ts
-  function buildBandQuery(band, parentKeyValues, bandColMap, _sourceCatalog) {
-    const childTable = quoteId(band.rightId);
-    const pairs = (band.keyPairs || []).filter((p3) => p3.left && p3.right);
-    const parentKeyAliases = pairs.map((p3) => p3.left);
-    const childKeyCols = pairs.map((p3) => p3.right);
-    const selParts = [];
-    const cols = [];
-    for (const [alias, entry] of bandColMap) {
-      if (entry.kind === "calc") continue;
-      selParts.push(`${childTable}.${quoteId(entry.col)} AS ${quoteId(alias)}`);
-      cols.push(alias);
-    }
-    const seenKeyCols = /* @__PURE__ */ new Set();
-    for (const ck of childKeyCols) {
-      if (seenKeyCols.has(ck)) continue;
-      seenKeyCols.add(ck);
-      selParts.push(`${childTable}.${quoteId(ck)} AS ${quoteId(ck)}`);
-    }
-    const keyValuesArr = Array.from(parentKeyValues);
-    let whereClause;
-    let params;
-    if (pairs.length === 0 || keyValuesArr.length === 0) {
-      whereClause = "1 = 0";
-      params = [];
-    } else if (pairs.length === 1) {
-      const placeholders = keyValuesArr.map(() => "?").join(", ");
-      whereClause = `${childTable}.${quoteId(childKeyCols[0])} IN (${placeholders})`;
-      params = keyValuesArr;
-    } else {
-      const sep = " || " + String.fromCharCode(39) + "|||" + String.fromCharCode(39) + " || ";
-      const concatLeft = childKeyCols.map((ck) => `${childTable}.${quoteId(ck)}`).join(sep);
-      const placeholders = keyValuesArr.map(() => "?").join(", ");
-      whereClause = `(${concatLeft}) IN (${placeholders})`;
-      params = keyValuesArr;
-    }
-    const sortParts = (band.sorts || []).filter((s3) => s3.enabled !== false && s3.col).map((s3) => `${childTable}.${quoteId(s3.col)} ${s3.dir === "DESC" ? "DESC" : "ASC"}`);
-    let sql = `SELECT ${selParts.join(", ")}
-FROM ${childTable}
-WHERE ${whereClause}`;
-    if (sortParts.length) sql += `
-ORDER BY ${sortParts.join(", ")}`;
-    return {
-      sql,
-      params,
-      cols,
-      parentKeyAliases,
-      childKeyCols
-    };
-  }
-
-  // preact/report/result-set.ts
-  function buildResultSet(columns, rows, metadata) {
-    const r3 = Array.isArray(rows) ? rows : [];
-    return {
-      columns: Array.isArray(columns) ? columns : [],
-      rows: r3,
-      metadata: Object.assign(
-        {
-          rowCount: r3.length,
-          generatedAt: Date.now(),
-          aggMode: "none",
-          displayCols: null
-        },
-        metadata || {}
-      )
-    };
-  }
-
-  // preact/report/engine.ts
-  function runDetailMode(plan) {
-    const rows = execQuery(plan.sql, plan.params);
-    return buildResultSet(plan.cols, rows, { aggMode: "none" });
-  }
-  function runTotalsMode(plan, reportSpec, tables) {
-    const sourceCatalog = buildSourceCatalog(tables);
-    const catalogCtx = {
-      base: reportSpec.pipeline.base,
-      baseCols: reportSpec.pipeline.baseCols,
-      stacks: reportSpec.pipeline.stacks,
-      lookups: reportSpec.pipeline.lookups,
-      calcStages: reportSpec.pipeline.calculatedColumns,
-      detailBands: reportSpec.pipeline.detailBands || []
-    };
-    const { colMap } = buildColumnCatalog(catalogCtx, sourceCatalog);
-    const calcStages = reportSpec.pipeline.calculatedColumns || [];
-    const calculatedColumns = buildCalcExpressions(calcStages, colMap);
-    const calcExprs = /* @__PURE__ */ new Map();
-    for (const col of calculatedColumns) {
-      calcExprs.set(col.alias, col.sql);
-    }
-    const detail = buildDetailQuery(reportSpec, colMap, sourceCatalog, calcExprs);
-    const detailRows = execQuery(detail.sql, detail.params);
-    const totalsRows = execQuery(plan.sql, plan.params);
-    const newAggCols = plan.cols.slice(detail.cols.length);
-    const paddedRows = newAggCols.length ? detailRows.map((r3) => {
-      const row = { ...r3 };
-      for (const c3 of newAggCols) row[c3] = null;
-      return row;
-    }) : detailRows;
-    return buildResultSet(plan.cols, paddedRows, {
-      aggMode: "totals",
-      totalsRow: totalsRows[0] || null
-    });
-  }
-  function runSubtotalsMode(plan) {
-    const rows = execQuery(plan.sql, plan.params);
-    return buildResultSet(plan.cols, rows, {
-      aggMode: "subtotals",
-      hasSubtotals: true,
-      allCols: plan.cols
-    });
-  }
-  function runGroupedMode(plan) {
-    const rows = execQuery(plan.sql, plan.params);
-    return buildResultSet(plan.cols, rows, { aggMode: "group" });
-  }
-  var STACK_ROW_LIMIT = 1e4;
-  var RowExplosionError = class extends Error {
-    /** The projected number of rows that would be produced. */
-    projectedCount;
-    /** The limit that was exceeded. */
-    limit;
-    constructor(projectedCount, limit) {
-      super(
-        `Detail band cross-product would produce ${projectedCount} rows, exceeding limit of ${limit}.`
-      );
-      this.name = "RowExplosionError";
-      this.projectedCount = projectedCount;
-      this.limit = limit;
-    }
-  };
-  function computeSupersetCols(parentCols, bandResults) {
-    const superset = [...parentCols];
-    const seen = new Set(parentCols);
-    for (const br of bandResults) {
-      for (const col of br.cols) {
-        if (!seen.has(col)) {
-          superset.push(col);
-          seen.add(col);
-        }
-      }
-    }
-    if (!seen.has("_band_id")) superset.push("_band_id");
-    return superset;
-  }
-  function padParentRow(row, supersetCols) {
-    const padded = { ...row };
-    for (const col of supersetCols) {
-      if (!(col in padded)) padded[col] = null;
-    }
-    padded._band_id = null;
-    return padded;
-  }
-  function padBandRow(row, supersetCols, bandId) {
-    const padded = {};
-    for (const col of supersetCols) {
-      padded[col] = col in row ? row[col] : null;
-    }
-    padded._band_id = bandId;
-    return padded;
-  }
-  function interleaveRows(parentRows, bandResults, supersetCols) {
-    const bandIndex = /* @__PURE__ */ new Map();
-    for (const br of bandResults) {
-      const idx = /* @__PURE__ */ new Map();
-      for (const row of br.rows) {
-        const key = makeKeyValue(row, br.childKeyCols);
-        if (!idx.has(key)) idx.set(key, []);
-        idx.get(key).push(row);
-      }
-      bandIndex.set(br.band.id, idx);
-    }
-    const result = [];
-    for (const parentRow of parentRows) {
-      result.push(padParentRow(parentRow, supersetCols));
-      for (const br of bandResults) {
-        const key = makeKeyValue(parentRow, br.parentKeyAliases);
-        const children = bandIndex.get(br.band.id)?.get(key) || [];
-        for (const child of children) {
-          result.push(padBandRow(child, supersetCols, br.band.id));
-        }
-      }
-    }
-    return result;
-  }
-  function makeKeyValue(row, keyCols) {
-    if (keyCols.length === 1) return String(row[keyCols[0]] ?? "");
-    return keyCols.map((k3) => String(row[k3] ?? "")).join("|||");
-  }
-  function buildBandChildIndex(bandResults) {
-    const index = /* @__PURE__ */ new Map();
-    for (const br of bandResults) {
-      const idx = /* @__PURE__ */ new Map();
-      for (const row of br.rows) {
-        const key = makeKeyValue(row, br.childKeyCols);
-        let bucket = idx.get(key);
-        if (!bucket) {
-          bucket = [];
-          idx.set(key, bucket);
-        }
-        bucket.push(row);
-      }
-      index.set(br.band.id, idx);
-    }
-    return index;
-  }
-  function crossProductRows(parentRow, bandResults, supersetCols, limit = STACK_ROW_LIMIT, childIndex) {
-    let combinations = [parentRow];
-    for (const br of bandResults) {
-      const parentKey = makeKeyValue(parentRow, br.parentKeyAliases);
-      let children;
-      if (childIndex) {
-        children = childIndex.get(br.band.id)?.get(parentKey) || [];
-      } else {
-        children = br.rows.filter(
-          (r3) => makeKeyValue(r3, br.childKeyCols) === parentKey
-        );
-      }
-      if (children.length === 0) continue;
-      const next = [];
-      for (const combo of combinations) {
-        for (const child of children) {
-          next.push({ ...combo, ...child, _band_id: br.band.id });
-        }
-      }
-      if (next.length > limit) {
-        throw new RowExplosionError(next.length, limit);
-      }
-      combinations = next;
-    }
-    return combinations.map((row) => {
-      const padded = {};
-      for (const col of supersetCols) {
-        padded[col] = col in row ? row[col] : null;
-      }
-      return padded;
-    });
-  }
-  function runDetailBandsMode(plan, reportSpec, tables, stackRowLimit = STACK_ROW_LIMIT) {
-    const parentRows = execQuery(plan.sql, plan.params);
-    const sourceCatalog = buildSourceCatalog(tables);
-    const catalogCtx = {
-      base: reportSpec.pipeline.base,
-      baseCols: reportSpec.pipeline.baseCols,
-      stacks: reportSpec.pipeline.stacks,
-      lookups: reportSpec.pipeline.lookups,
-      calcStages: reportSpec.pipeline.calculatedColumns,
-      detailBands: reportSpec.pipeline.detailBands || []
-    };
-    const { colMap } = buildColumnCatalog(catalogCtx, sourceCatalog);
-    const parentCols = [];
-    if (parentRows.length > 0) {
-      const seen = /* @__PURE__ */ new Set();
-      for (const row of parentRows) {
-        for (const key of Object.keys(row)) {
-          if (!seen.has(key)) {
-            parentCols.push(key);
-            seen.add(key);
-          }
-        }
-      }
-    }
-    const bands = (reportSpec.pipeline.detailBands || []).filter((b2) => b2.enabled !== false && b2.rightId);
-    const bandResults = [];
-    for (const band of bands) {
-      const prefix = `_${band.id}_`;
-      const bandColMap = /* @__PURE__ */ new Map();
-      for (const [alias, entry] of colMap) {
-        if (alias.startsWith(prefix) && entry.kind === "band") {
-          bandColMap.set(alias, entry);
-        }
-      }
-      const pairs = (band.keyPairs || []).filter((p3) => p3.left && p3.right);
-      if (pairs.length === 0) continue;
-      const parentKeyAliases = pairs.map((p3) => p3.left);
-      const keyValues = /* @__PURE__ */ new Set();
-      for (const row of parentRows) {
-        const kv = makeKeyValue(row, parentKeyAliases);
-        if (kv !== void 0) keyValues.add(kv);
-      }
-      if (keyValues.size === 0) continue;
-      const bandQuery = buildBandQuery(band, keyValues, bandColMap, sourceCatalog);
-      const bandRows = execQuery(bandQuery.sql, bandQuery.params);
-      for (const row of bandRows) {
-        row._band_id = band.id;
-      }
-      bandResults.push({
-        band,
-        rows: bandRows,
-        cols: bandQuery.cols,
-        parentKeyAliases: bandQuery.parentKeyAliases,
-        childKeyCols: bandQuery.childKeyCols
-      });
-    }
-    const supersetCols = computeSupersetCols(parentCols, bandResults);
-    const mode = reportSpec.detailBandMode || "separate";
-    let resultRows;
-    if (mode === "stack") {
-      const childIndex = buildBandChildIndex(bandResults);
-      resultRows = [];
-      for (const parentRow of parentRows) {
-        const combos = crossProductRows(parentRow, bandResults, supersetCols, stackRowLimit, childIndex);
-        resultRows.push(...combos);
-        if (resultRows.length > stackRowLimit) {
-          throw new RowExplosionError(resultRows.length, stackRowLimit);
-        }
-      }
-    } else {
-      resultRows = interleaveRows(parentRows, bandResults, supersetCols);
-    }
-    const bandLabels = {};
-    for (const br of bandResults) {
-      bandLabels[br.band.id] = br.band.label || br.band.id;
-    }
-    return buildResultSet(supersetCols, resultRows, {
-      aggMode: "none",
-      bandCount: bandResults.length,
-      bandIds: bandResults.map((br) => br.band.id),
-      bandLabels
-    });
-  }
-  function runReport(reportSpec, tables, stackRowLimit) {
-    const plan = buildQueryPlan(reportSpec, tables);
-    const enabledBands = (reportSpec.pipeline.detailBands || []).filter((b2) => b2.enabled !== false && b2.rightId);
-    if (enabledBands.length > 0 && plan.aggMode === "none") {
-      return runDetailBandsMode(plan, reportSpec, tables, stackRowLimit);
-    }
-    switch (plan.aggMode) {
-      case "totals":
-        return runTotalsMode(plan, reportSpec, tables);
-      case "subtotals":
-        return runSubtotalsMode(plan);
-      case "group":
-        return runGroupedMode(plan);
-      default:
-        return runDetailMode(plan);
-    }
   }
 
   // preact/ui/sections/run-bar.tsx
@@ -7721,7 +7967,6 @@ ORDER BY ${sortParts.join(", ")}`;
   }
 
   // preact/ui/tabs.ts
-  init_store();
   function switchTab(name) {
     getStore().update((draft) => {
       draft.activeTab = name;
@@ -7729,8 +7974,6 @@ ORDER BY ${sortParts.join(", ")}`;
   }
 
   // preact/ui/grid.tsx
-  init_store();
-  init_column_catalog();
   function _displayLabel(alias, colMap) {
     const src = colMap.get(alias);
     if (!src) return alias;
@@ -7813,6 +8056,23 @@ ORDER BY ${sortParts.join(", ")}`;
   }
   function ResultGrid({ result, onRenameDone }) {
     const gridRef = A2(null);
+    const [ctxMenu, setCtxMenu] = d2(null);
+    const onTypeContextMenu = (e3, tid, col) => {
+      const state = getStore().getState();
+      const currentType = state.columnTypeOverrides?.[tid]?.[col] ?? state.tables[tid]?.colTypes?.[col] ?? "string";
+      const items = ["string", "number", "date", "boolean"].map((type) => ({
+        label: "Type: " + type.charAt(0).toUpperCase() + type.slice(1),
+        checked: currentType === type,
+        action: () => {
+          getStore().update((draft) => {
+            if (!draft.columnTypeOverrides[tid]) draft.columnTypeOverrides[tid] = {};
+            draft.columnTypeOverrides[tid][col] = type;
+          });
+          invalidateValidation();
+        }
+      }));
+      setCtxMenu({ x: e3.clientX, y: e3.clientY, items });
+    };
     y2(() => {
       const el = gridRef.current;
       if (!el) return;
@@ -7824,7 +8084,7 @@ ORDER BY ${sortParts.join(", ")}`;
       }
       if (!hasData2) return;
       const tableData = totalsRow2 ? [...rows2, { ...totalsRow2, _isTotalsRow: true }] : rows2;
-      const colDefs = makeResultCols(cols2, onRenameDone);
+      const colDefs = makeResultCols(cols2, onRenameDone, onTypeContextMenu);
       const bandStyler = createBandRowStyler(rows2);
       const options = {
         rowData: tableData,
@@ -7866,7 +8126,8 @@ ORDER BY ${sortParts.join(", ")}`;
     const hasData = rows.length > 0 || totalsRow !== null;
     return /* @__PURE__ */ u3(S, { children: hasData ? /* @__PURE__ */ u3(S, { children: [
       /* @__PURE__ */ u3("span", { class: "results-count", style: "font-size:0.76rem;color:var(--muted)", children: totalsRow ? rows.length.toLocaleString() + " rows + 1 totals row · " + cols.length + " columns" : rows.length.toLocaleString() + " rows · " + cols.length + " columns" }),
-      /* @__PURE__ */ u3("div", { ref: gridRef, class: "ag-theme-balham-dark", style: "height:100%;width:100%" })
+      /* @__PURE__ */ u3("div", { ref: gridRef, class: "ag-theme-balham-dark", style: "height:100%;width:100%" }),
+      ctxMenu && /* @__PURE__ */ u3(ContextMenu, { x: ctxMenu.x, y: ctxMenu.y, items: ctxMenu.items, onClose: () => setCtxMenu(null) })
     ] }) : /* @__PURE__ */ u3("div", { class: "empty", children: [
       /* @__PURE__ */ u3("div", { class: "empty-icon", children: "🔍" }),
       /* @__PURE__ */ u3("div", { children: "No rows matched your query" })
@@ -7874,6 +8135,23 @@ ORDER BY ${sortParts.join(", ")}`;
   }
   function PreviewGrid({ tableId, onRenameDone }) {
     const gridRef = A2(null);
+    const [ctxMenu, setCtxMenu] = d2(null);
+    const onTypeContextMenu = (e3, tid, col) => {
+      const state2 = getStore().getState();
+      const currentType = state2.columnTypeOverrides?.[tid]?.[col] ?? state2.tables[tid]?.colTypes?.[col] ?? "string";
+      const items = ["string", "number", "date", "boolean"].map((type) => ({
+        label: "Type: " + type.charAt(0).toUpperCase() + type.slice(1),
+        checked: currentType === type,
+        action: () => {
+          getStore().update((draft) => {
+            if (!draft.columnTypeOverrides[tid]) draft.columnTypeOverrides[tid] = {};
+            draft.columnTypeOverrides[tid][col] = type;
+          });
+          invalidateValidation();
+        }
+      }));
+      setCtxMenu({ x: e3.clientX, y: e3.clientY, items });
+    };
     y2(() => {
       const el = gridRef.current;
       if (!el) return;
@@ -7926,7 +8204,7 @@ ORDER BY ${sortParts.join(", ")}`;
       };
       gridPreview = agGrid.createGrid(el, {
         rowData: rows,
-        columnDefs: [excludeColDef, ...makePreviewCols(tableId, t4.cols, onRenameDone)],
+        columnDefs: [excludeColDef, ...makePreviewCols(tableId, t4.cols, onRenameDone, onTypeContextMenu)],
         defaultColDef: {
           sortable: true,
           resizable: true,
@@ -8012,10 +8290,11 @@ ORDER BY ${sortParts.join(", ")}`;
         excCount ? " · " + excCount + " excluded" : "",
         t3.rowCount > cap ? " (preview: first " + cap.toLocaleString() + ")" : ""
       ] }),
-      /* @__PURE__ */ u3("div", { ref: gridRef, class: "ag-theme-balham-dark", style: "height:100%;width:100%" })
+      /* @__PURE__ */ u3("div", { ref: gridRef, class: "ag-theme-balham-dark", style: "height:100%;width:100%" }),
+      ctxMenu && /* @__PURE__ */ u3(ContextMenu, { x: ctxMenu.x, y: ctxMenu.y, items: ctxMenu.items, onClose: () => setCtxMenu(null) })
     ] });
   }
-  function makeResultCols(cols, onRenameDone) {
+  function makeResultCols(cols, onRenameDone, onTypeContextMenu) {
     const colMap = buildColSourceMap();
     const state = getStore().getState();
     const dataCols = cols.filter((c3) => c3 !== "_rowno" && c3 !== "_row_type" && c3 !== "_isTotalsRow" && c3 !== "_band_id");
@@ -8048,7 +8327,8 @@ ORDER BY ${sortParts.join(", ")}`;
           src && src.kind !== "calc" && renamed ? () => {
             setColLabel(src.tid, src.col, src.col);
             if (onRenameDone) onRenameDone();
-          } : null
+          } : null,
+          onTypeContextMenu && src && src.kind !== "calc" ? (e3) => onTypeContextMenu(e3, src.tid, src.col) : null
         ),
         cellRenderer: (params) => {
           const v3 = params.value;
@@ -8057,7 +8337,7 @@ ORDER BY ${sortParts.join(", ")}`;
       };
     });
   }
-  function makePreviewCols(tid, physCols, onRenameDone) {
+  function makePreviewCols(tid, physCols, onRenameDone, onTypeContextMenu) {
     const color = getTableColor(tid);
     const state = getStore().getState();
     return physCols.filter((c3) => c3 !== "_rowno").map((c3) => {
@@ -8085,7 +8365,7 @@ ORDER BY ${sortParts.join(", ")}`;
         floatingFilter: true,
         sortable: true,
         resizable: true,
-        headerComponent: _makeHeaderComponent(label, color, renamed, c3, doRename, doClear),
+        headerComponent: _makeHeaderComponent(label, color, renamed, c3, doRename, doClear, onTypeContextMenu ? (e3) => onTypeContextMenu(e3, tid, c3) : null),
         cellRenderer: (params) => {
           const v3 = params.value;
           return v3 == null ? "" : String(v3);
@@ -8093,7 +8373,7 @@ ORDER BY ${sortParts.join(", ")}`;
       };
     });
   }
-  function _makeHeaderComponent(label, color, renamed, origCol, onRename, onClear) {
+  function _makeHeaderComponent(label, color, renamed, origCol, onRename, onClear, onContextMenu = null) {
     return class {
       _params;
       _gui;
@@ -8112,14 +8392,19 @@ ORDER BY ${sortParts.join(", ")}`;
         if (origCol) txt.title = renamed ? `Original: ${origCol}` : origCol;
         txt.addEventListener("click", (e3) => params.progressSort(e3.shiftKey));
         this._gui.appendChild(txt);
-        if (onRename) {
+        if (onRename || onContextMenu) {
           const more = document.createElement("button");
           more.textContent = "⋯";
           more.title = "Rename column";
           more.style.cssText = "background:none;border:none;cursor:pointer;font-size:13px;padding:0 2px;color:#aaa;flex-shrink:0;line-height:1";
           more.addEventListener("click", (e3) => {
             e3.stopPropagation();
-            onRename();
+            if (onRename) onRename();
+          });
+          more.addEventListener("contextmenu", (e3) => {
+            e3.preventDefault();
+            e3.stopPropagation();
+            if (onContextMenu) onContextMenu(e3);
           });
           this._gui.appendChild(more);
         }
@@ -8147,8 +8432,6 @@ ORDER BY ${sortParts.join(", ")}`;
   }
 
   // preact/ui/export.ts
-  init_store();
-  init_column_catalog();
   var XLSX_INTERNAL_COLS = /* @__PURE__ */ new Set([
     "_rowno",
     "_row_type",
