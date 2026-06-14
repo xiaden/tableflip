@@ -7625,7 +7625,7 @@ ORDER BY ${sortParts.join(", ")}`;
               calculatedColumns: currentState.calcStages,
               detailBands: currentState.detailBands || []
             },
-            outputColumns: currentState.colOrder,
+            outputColumns: currentState.selCols instanceof Set ? (currentState.colOrder || []).filter((c3) => currentState.selCols instanceof Set && currentState.selCols.has(c3)) : currentState.colOrder,
             filters: currentState.filters,
             sorts: currentState.sorts,
             aggregation: {
