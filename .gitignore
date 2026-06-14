@@ -12,9 +12,7 @@ Thumbs.db
 dist/
 build/
 coverage/
-docs/
 node_modules/
 
-# artifacts dir and test fixtures
-/artifacts
+# test fixtures
 /SRC/tests/testfixtures/
