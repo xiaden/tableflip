@@ -2,13 +2,13 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'feat/**']
+  delete:
+    branches: ['feat/**']
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
@@ -16,16 +16,43 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/setup-node@v4
         with:
-          path: pkg
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: SRC/package-lock.json
 
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - run: npm ci
+        working-directory: SRC
+
+      - run: npm run build
+        working-directory: SRC
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./pkg
+          destination_dir: ${{ github.ref_name == 'main' && '.' || github.ref_name }}
+          keep_files: true
+
+  cleanup:
+    if: github.event_name == 'delete'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: gh-pages
+
+      - name: Remove deleted branch directory
+        run: |
+          git rm -rf "${{ github.event.ref }}" || true
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Remove deploy for deleted branch ${{ github.event.ref }}" || exit 0
+          git push
