@@ -42,7 +42,7 @@ describe('Query Plan — Band Column Handling', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -58,7 +58,7 @@ describe('Query Plan — Band Column Handling', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -87,7 +87,7 @@ describe('Query Plan — Band Column Handling', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -108,7 +108,7 @@ describe('Query Plan — Band Column Handling', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -138,7 +138,7 @@ describe('Query Plan — Band Column Handling', () => {
         outputColumns: ['Company', 'Amount'],
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -167,7 +167,7 @@ describe('Query Plan — Band Column Handling', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -200,7 +200,7 @@ describe('Query Plan — Band Column Handling', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -223,7 +223,7 @@ describe('Query Plan — Band Column Handling', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -246,7 +246,7 @@ describe('Query Plan — Band Column Handling', () => {
         ],
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],

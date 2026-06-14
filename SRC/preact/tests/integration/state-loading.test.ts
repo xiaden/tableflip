@@ -61,7 +61,7 @@ describe('Integration: State Loading', () => {
 
     it('should return true for a config with many recognizable keys', () => {
       const payload = validPayload({
-        baseCols: null,
+        baseCols: [],
         stacks: [],
         lookups: [],
         filters: [],
@@ -187,47 +187,7 @@ describe('Integration: State Loading', () => {
       expect(next['columnLabels']).toEqual({ Orders: { Company: 'Client' } });
     });
 
-    it('should load old .rcjson without detailBands with empty array and default mode', () => {
-      // Simulate an old .rcjson payload that has no detailBands or detailBandMode fields
-      const oldPayload: Record<string, unknown> = {
-        v: 1,
-        base: 'Orders',
-        baseCols: ['OrderId', 'Company'],
-        aggMode: 'none',
-        stacks: [],
-        lookups: [],
-        calcStages: [],
-        filters: [],
-        sorts: [],
-        groupBy: [],
-        aggregates: [],
-        colTotals: {},
-        subtotalBy: [],
-        subtotalFns: {},
-        subtotalGrandTotal: true,
-        subtotalSpacer: false,
-        subtotalOnTop: false,
-        subtotalStrategy: 'combined',
-        mergedCols: [],
-        mergeGroupUnderline: false,
-        // NOTE: no detailBands or detailBandMode fields — simulates old format
-      };
 
-      const { next, brokenRefs } = hydrateState(oldPayload, loadedTables());
-
-      // detailBands defaults to empty array
-      expect(next.detailBands).toEqual([]);
-      // detailBandMode defaults to 'separate'
-      expect(next.detailBandMode).toBe('separate');
-      // No broken refs from missing detail band data
-      expect(brokenRefs).toEqual([]);
-
-      // Verify it applies to store correctly
-      applyState(next, {});
-      const state = getStore().getState();
-      expect(state.detailBands).toEqual([]);
-      expect(state.detailBandMode).toBe('separate');
-    });
   });
 
   // ── applyState ───────────────────────────────────────────────────────────

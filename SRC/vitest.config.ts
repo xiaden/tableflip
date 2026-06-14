@@ -8,7 +8,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['preact/tests/vitest-setup.ts'],
-    include: ['preact/tests/**/*.test.ts'],
+    include: ['preact/tests/**/*.test.ts', 'preact/tests/**/*.test.tsx'],
     globals: true,
     coverage: {
       provider: 'v8',

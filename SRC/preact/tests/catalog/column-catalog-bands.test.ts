@@ -388,10 +388,7 @@ describe('Column Catalog — Detail Band Extension', () => {
     });
   });
 
-  // ── Backward compatibility ─────────────────────────────────────────────────
-
-  describe('backward compatibility', () => {
-    it('should work when detailBands is absent from reportSpec', () => {
+  it('should work when detailBands is absent from reportSpec', () => {
       const spec = {
         base: 'Orders',
         lookups: [],
@@ -414,4 +411,3 @@ describe('Column Catalog — Detail Band Extension', () => {
       expect(cat.colMap.size).toBe(3);
     });
   });
-});

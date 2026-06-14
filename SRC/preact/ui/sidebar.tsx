@@ -41,7 +41,7 @@ export function Sidebar() {
       delete draft.tableColors[id];
       if (draft.base === id) {
         draft.base = '';
-        draft.selCols = null;
+        draft.selCols = new Set();
         draft.groupBy = [];
         draft.aggregates = [];
         draft.filters = [];

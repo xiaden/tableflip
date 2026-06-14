@@ -51,6 +51,7 @@ interface XLSXSheet {
   '!rows'?: Array<Record<string, unknown>>;
   '!freeze'?: Record<string, unknown>;
   '!autofilter'?: { ref: string };
+  '!data'?: unknown[][];  /** Dense worksheet array (array of rows, each row is an array of cell objects from SheetJS). */
   [cell: string]: unknown;
 }
 

@@ -76,11 +76,6 @@ body {
 }
 .sidebar-toggle:hover { color: var(--text); background: var(--bg3); }
 .sidebar-toggle.collapsed { left: 0; }
-.sidebar-inner {
-  width: 270px; min-width: 270px;
-  display: flex; flex-direction: column;
-  flex: 1; overflow: hidden;
-}
 .sidebar-wrap {
   position: relative; display: flex; flex-shrink: 0; align-self: stretch;
 }
@@ -233,15 +228,7 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
 .btn-green:disabled { background: var(--border); color: var(--muted); border-color: var(--border); cursor: not-allowed; opacity: 0.6; }
 .btn-row { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
 
-/* ── Query builder cards ─────────────────────────────────── */
-.qb-card {
-  background: var(--bg2); border: 1px solid var(--border);
-  border-radius: 8px; padding: 12px 14px; flex-shrink: 0;
-}
-.qb-title {
-  font-size: 0.68rem; text-transform: uppercase;
-  letter-spacing: 0.07em; color: var(--muted); margin-bottom: 8px;
-}
+/* ── Cards ─────────────────────────────────── */
 .card {
   background: var(--bg2); border: 1px solid var(--border);
   border-radius: 8px; padding: 12px 14px; flex-shrink: 0;
@@ -249,18 +236,6 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
 .card-header {
   font-size: 0.68rem; text-transform: uppercase;
   letter-spacing: 0.07em; color: var(--muted); margin-bottom: 8px;
-}
-
-/* Join row */
-.join-divider {
-  display: flex; align-items: center; gap: 8px;
-  padding: 4px 0; color: var(--muted); font-size: 0.78rem; flex-shrink: 0;
-}
-.join-divider-line { flex: 1; height: 1px; background: var(--border); }
-.join-grid {
-  display: grid; grid-template-columns: 1fr 1fr 1fr auto;
-  gap: 8px; align-items: end;
-  background: var(--bg3); border-radius: 6px; padding: 10px;
 }
 
 /* ── Column chips ────────────────────────────────────────── */
@@ -327,7 +302,6 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
 }
 
 /* Filter rows */
-.filter-row-wrap { display: flex; flex-direction: column; gap: 6px; }
 .filter-row {
   display: flex; gap: 5px; align-items: center; flex-wrap: wrap;
   background: var(--bg3); border-radius: 6px; padding: 6px 8px;
@@ -372,21 +346,6 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
 }
 .totals-fn-sel { flex-shrink: 0; width: 160px !important; }
 
-/* Lookup cards */
-.lookup-card {
-  background: var(--bg2); border: 1px solid var(--border); border-radius: 7px;
-  padding: 12px; margin-bottom: 10px;
-}
-.lookup-row {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;
-}
-.lookup-row:last-child { margin-bottom: 0; }
-.lookup-label { font-size: 0.75rem; color: var(--muted); flex-shrink: 0; min-width: 80px; }
-.lookup-cols {
-  display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; margin-top: 4px;
-}
-.lookup-cols .chip-wrap { display: flex; flex-wrap: wrap; gap: 5px; }
-
 /* ── Pipeline ─────────────────────────────────────────────── */
 .pipeline { display: flex; flex-direction: column; gap: 0; }
 
@@ -425,10 +384,6 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
   white-space: nowrap;
 }
 .pl-add-btn:hover { border-color: var(--accent); color: var(--accent); }
-/* hidden select used by stack add */
-.pl-add-select {
-  position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0;
-}
 
 /* Lookup stage */
 .pl-lookup-stage {
@@ -530,6 +485,19 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
 }
 .pl-col-chip:hover:not(.on) { border-color: var(--chip-color, var(--accent)); color: var(--chip-color, var(--accent)); }
 
+/* Detail band label and sort rows */
+.pl-band-label-row {
+  display: flex; align-items: center; gap: 6px; margin-top: 8px;
+}
+.pl-band-label-input {
+  flex: 1; min-width: 0;
+}
+.pl-band-sorts {
+  display: flex; flex-direction: column; align-items: stretch;
+  margin-top: 8px; font-size: 0.78rem; gap: 4px;
+}
+.pl-band-sorts select { width: auto; flex: 1; min-width: 120px; }
+
 /* Arrow connector between stages */
 .pl-arrow {
   display: flex; flex-direction: column; align-items: center;
@@ -548,11 +516,6 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
 .pl-arrow-meta {
   display: flex; align-items: center; gap: 6px;
   padding: 3px 0;
-}
-.pl-row-badge {
-  font-size: 0.68rem; color: var(--muted);
-  background: var(--bg3); border: 1px solid var(--border);
-  border-radius: 10px; padding: 1px 8px; white-space: nowrap;
 }
 .pl-preview-btn {
   font-size: 0.68rem; color: var(--muted);
@@ -642,6 +605,11 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
   box-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 .tab-opt:hover:not(:has(input:checked)) { color: var(--text); }
+.tab-opt--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 
 /* ── Data grid wrapper ───────────────────────────────────── */
 .grid-wrap {
@@ -650,19 +618,6 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
   overflow: hidden;
   display: flex; flex-direction: column;
 }
-
-/* Host divs for Tabulator instances */
-#resGrid, #prevGrid { flex: 1; min-height: 0; }
-
-/* Browse Sheet (prevGrid) — softer background + off-white text */
-#prevGrid .tabulator            { background: #181c22; }
-#prevGrid .tabulator-header     { background: #1d2129; }
-#prevGrid .tabulator-row        { background: #181c22; color: #c9d1d9; }
-#prevGrid .tabulator-row.tabulator-row-even { background: #1a1f27; }
-#prevGrid .tabulator-row:hover  { background: #21262d; }
-#prevGrid .tabulator-cell       { color: #c9d1d9; border-color: #2d333b; }
-#prevGrid .tabulator-col        { background: #1d2129; border-color: #2d333b; }
-#prevGrid .tabulator-col-title  { color: #aab4bf; }
 
 /* Results bar */
 .results-bar {
@@ -682,18 +637,11 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
 .empty-sub   { font-size: 0.76rem; }
 
 /* ── Sheet-selector modal ────────────────────────────────── */
-.modal-bg {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.72);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 1000; backdrop-filter: blur(2px);
-}
 .modal {
   background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
   padding: 18px; min-width: 340px; max-width: 480px;
   max-height: 80vh; overflow-y: auto;
 }
-.modal h3   { font-size: 1rem; margin-bottom: 4px; }
-.modal .msub { font-size: 0.75rem; color: var(--muted); margin-bottom: 12px; word-break: break-all; }
 .sheet-opt {
   display: flex; align-items: center;
   padding: 7px 4px; border-bottom: 1px solid var(--border);
@@ -762,7 +710,7 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
   border: 3px solid var(--border); border-top-color: var(--accent);
   border-radius: 50%; animation: spin 0.7s linear infinite;
 }
-#loadOverlay .lo-title { font-size: 1rem; font-weight: 600; color: var(--fg); }
+#loadOverlay .lo-title { font-size: 1rem; font-weight: 600; color: var(--text); }
 
 /* ── Tooltip badge ───────────────────────────────────────── */
 .tip {
@@ -796,63 +744,6 @@ label { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 
   --ag-selected-row-background-color: rgba(88,166,255,0.12);
   --ag-font-size:                 13px;
   --ag-font-family:               -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-}
-
-/* Hide cells covered by a row-spanning cell */
-.ag-theme-balham-dark .cell-span-hidden {
-  display: none;
-}
-
-/* Keep merged (row-spanned) cell content top-aligned */
-.ag-theme-balham-dark .cell-span-top .ag-cell-wrapper {
-  align-items: flex-start;
-}
-
-/* Optional underline at merged-group boundary (from merge-end to row end) */
-.ag-theme-balham-dark .merge-group-underline {
-  position: relative;
-  border-bottom: none !important;
-}
-.ag-theme-balham-dark .merge-group-underline::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  border-bottom: 2px solid rgba(139, 148, 158, 0.85);
-  pointer-events: none;
-  z-index: 3;
-}
-
-/* Boxed summary rows */
-.ag-theme-balham-dark .row-summary-subtotal .summary-box-h {
-  border-top: 2px solid rgba(160,160,160,0.45) !important;
-  border-bottom: 2px solid rgba(160,160,160,0.45) !important;
-}
-.ag-theme-balham-dark .row-summary-subtotal .summary-box-left {
-  border-left: 2px solid rgba(160,160,160,0.45) !important;
-}
-.ag-theme-balham-dark .row-summary-subtotal .summary-box-right {
-  border-right: 2px solid rgba(160,160,160,0.45) !important;
-}
-
-.ag-theme-balham-dark .row-summary-grand .summary-box-h {
-  border-top: 3px solid rgba(88,166,255,0.55) !important;
-  border-bottom: 3px solid rgba(88,166,255,0.55) !important;
-}
-.ag-theme-balham-dark .row-summary-grand .summary-box-left {
-  border-left: 3px solid rgba(88,166,255,0.55) !important;
-}
-.ag-theme-balham-dark .row-summary-grand .summary-box-right {
-  border-right: 3px solid rgba(88,166,255,0.55) !important;
-}
-
-/* Spacer rows keep normal height; just make them visually neutral */
-.ag-theme-balham-dark .row-spacer {
-  pointer-events: none;
-}
-.ag-theme-balham-dark .row-spacer .ag-cell {
-  border: none !important;
 }
 
 /* Custom scrollbars inside the grid viewport */

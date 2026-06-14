@@ -9,17 +9,20 @@
  * resolves column aliases through its colMap to produce physical references.
  */
 
-import type { CalcStage, DetailBandSpec, LookupSpec } from '../types';
+import type { CalcStage, ColumnType, DetailBandSpec, LookupSpec } from '../types';
 import type { SourceTableEntry } from './source-catalog';
 import { getStore } from '../core/store';
 
 // ── Types ───────────────────────────────────────────────────────────────────────
 
-/** A physical column — maps an alias to a table ID and column name. */
+/** A physical column — maps an alias to a table ID and column name.
+ *  colType is optionally populated with column type metadata from
+ *  DbTable.colTypes or columnTypeOverrides for type-aware SQL generation. */
 export interface PhysicalColEntry {
   kind?: undefined;
   tid: string;
   col: string;
+  colType?: ColumnType;
 }
 
 /** A calculated column — maps an alias to a calc stage index and its mode. */
@@ -33,11 +36,14 @@ export interface CalcColEntry {
 
 /** A detail band column — maps a prefixed alias to a child table's physical column.
  *  Tagged with kind: 'band' so query builders can skip it in main SELECT projection
- *  while resolveRef() still returns a safe quoted alias reference. */
+ *  while resolveRef() still returns a safe quoted alias reference.
+ *  colType is optionally populated with column type metadata from
+ *  DbTable.colTypes or columnTypeOverrides for type-aware SQL generation. */
 export interface BandColEntry {
   kind: 'band';
   tid: string;
   col: string;
+  colType?: ColumnType;
 }
 
 /** Union type for column map entries — physical, calculated, or band. */
@@ -74,6 +80,9 @@ export function tablePrefix(name: string): string {
  * a Map from column alias to its physical source (table ID + column name)
  * or calculated source (calc stage index).
  *
+ * Also reads columnTypeOverrides and table colTypes from the store to
+ * populate colType metadata on physical column entries.
+ *
  * @returns A Map from column alias to ColMapEntry.
  */
 export function buildColSourceMap(): Map<string, ColMapEntry> {
@@ -86,7 +95,11 @@ export function buildColSourceMap(): Map<string, ColMapEntry> {
   const lookups    = state.lookups || [];
   const calcStages = state.calcStages || [];
 
-  state.tables[base].cols.forEach(c => map.set(c, { tid: base, col: c }));
+  function resolveColType(tid: string, col: string): ColumnType | undefined {
+    return state.columnTypeOverrides?.[tid]?.[col] ?? state.tables[tid]?.colTypes?.[col];
+  }
+
+  state.tables[base].cols.forEach(c => map.set(c, { tid: base, col: c, ...(resolveColType(base, c) ? { colType: resolveColType(base, c) } : {}) }));
 
   for (const lk of lookups) {
     if (lk.enabled === false) continue;
@@ -97,7 +110,7 @@ export function buildColSourceMap(): Map<string, ColMapEntry> {
     const prefix = tablePrefix(rt.name);
     rt.cols.forEach(c => {
       const alias = map.has(c) ? prefix + c : c;
-      if (!map.has(alias)) map.set(alias, { tid: lk.rightId, col: c });
+      if (!map.has(alias)) map.set(alias, { tid: lk.rightId, col: c, ...(resolveColType(lk.rightId, c) ? { colType: resolveColType(lk.rightId, c) } : {}) });
     });
   }
 
@@ -170,8 +183,14 @@ export function buildColSourceMap(): Map<string, ColMapEntry> {
  * columns, and validated calculated columns. Also captures lookup boundary
  * snapshots for `projectedColsUpToLookup`.
  *
+ * Propagates column type metadata (colType) from source.colTypes and
+ * columnTypeOverrides into physical and band column entries.
+ *
  * @param reportSpec - Report specification containing base, lookups, and calcStages.
  * @param sourceCatalog - Table metadata catalog (from buildSourceCatalog).
+ * @param options - Optional configuration. Currently supports columnTypeOverrides:
+ *   a map of { tableId: { columnName: ColumnType } } that takes precedence over
+ *   auto-detected colTypes from the source catalog.
  * @returns `{ colMap, lookupBoundaries, reportSpec }` — the column alias map,
  *   ordered snapshots of the colMap at each lookup boundary, and the input spec.
  * @throws If sourceCatalog is not a Map.
@@ -179,6 +198,7 @@ export function buildColSourceMap(): Map<string, ColMapEntry> {
 export function buildColumnCatalog(
   reportSpec: Record<string, unknown>,
   sourceCatalog: Map<string, SourceTableEntry>,
+  options?: { columnTypeOverrides?: Record<string, Record<string, ColumnType>> },
 ): ColumnCatalog {
   if (!(sourceCatalog instanceof Map)) {
     throw new Error('buildColumnCatalog: sourceCatalog (Map) is required');
@@ -198,12 +218,16 @@ export function buildColumnCatalog(
     return entry ? (entry.name ?? tid) : tid;
   }
 
+  function resolveCatalogColType(tid: string, col: string): ColumnType | undefined {
+    return options?.columnTypeOverrides?.[tid]?.[col] ?? sourceCatalog.get(tid)?.source?.colTypes?.[col];
+  }
+
   const colMap = new Map<string, ColMapEntry>();
 
   // Base columns
   const baseCols = base ? tableColumns(base) : null;
   if (baseCols) {
-    baseCols.forEach(c => colMap.set(c, { tid: base!, col: c }));
+    baseCols.forEach(c => colMap.set(c, { tid: base!, col: c, ...(resolveCatalogColType(base!, c) ? { colType: resolveCatalogColType(base!, c) } : {}) }));
   }
 
   // Lookup boundary snapshots for getColumnsAvailableBeforeLookup
@@ -224,7 +248,7 @@ export function buildColumnCatalog(
     const prefix = tablePrefix(rName);
     rtCols.forEach(c => {
       const alias = colMap.has(c) ? prefix + c : c;
-      if (!colMap.has(alias)) colMap.set(alias, { tid: lk.rightId, col: c });
+      if (!colMap.has(alias)) colMap.set(alias, { tid: lk.rightId, col: c, ...(resolveCatalogColType(lk.rightId, c) ? { colType: resolveCatalogColType(lk.rightId, c) } : {}) });
     });
     lookupBoundaries.push(new Map(colMap)); // snapshot after this lookup
   }
@@ -238,11 +262,11 @@ export function buildColumnCatalog(
     const rtCols = tableColumns(band.rightId);
     if (!rtCols) continue;
     const prefix = `_${band.id}_`;
-    const bandCols = (band.cols && band.cols.length > 0) ? band.cols : rtCols;
+    const bandCols = band.cols.length > 0 ? band.cols : rtCols;
     for (const c of bandCols) {
       const alias = prefix + c;
       if (!colMap.has(alias)) {
-        colMap.set(alias, { kind: 'band', tid: band.rightId, col: c });
+        colMap.set(alias, { kind: 'band', tid: band.rightId, col: c, ...(resolveCatalogColType(band.rightId, c) ? { colType: resolveCatalogColType(band.rightId, c) } : {}) });
       }
     }
   }

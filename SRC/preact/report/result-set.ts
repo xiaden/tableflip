@@ -14,7 +14,7 @@
  * @property rowCount - Number of data rows in the result
  * @property generatedAt - Timestamp (ms) when the result was built
  * @property aggMode - Aggregation mode used for this query ('none', 'group', 'totals', 'subtotals')
- * @property displayCols - Explicit display column list (null = use columns array as-is)
+ * @property displayCols - Explicit display column list ([] = use columns array as-is)
  * @property totalsRow - Aggregate totals row (present when aggMode is 'totals')
  * @property hasSubtotals - Whether subtotal rows are included
  * @property allCols - Full column list before output-column filtering
@@ -26,7 +26,7 @@ export interface ResultSetMetadata {
   rowCount: number;
   generatedAt: number;
   aggMode: string;
-  displayCols: string[] | null;
+  displayCols: string[];
   totalsRow?: Record<string, unknown> | null;
   hasSubtotals?: boolean;
   allCols?: string[];
@@ -75,7 +75,7 @@ export function buildResultSet(
         rowCount: r.length,
         generatedAt: Date.now(),
         aggMode: 'none',
-        displayCols: null,
+        displayCols: [],
       },
       metadata || {},
     ),

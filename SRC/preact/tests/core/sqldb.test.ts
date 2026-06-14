@@ -92,9 +92,9 @@ describe('sqldb', () => {
 
       const rows = execQuery('SELECT * FROM "TestInsert" ORDER BY "id"');
       expect(rows).toHaveLength(3);
-      expect(rows[0]).toEqual({ id: 1, name: 'Alice' });
-      expect(rows[1]).toEqual({ id: 2, name: 'Bob' });
-      expect(rows[2]).toEqual({ id: 3, name: 'Carol' });
+      expect(rows[0]).toEqual({ id: '1', name: 'Alice' });
+      expect(rows[1]).toEqual({ id: '2', name: 'Bob' });
+      expect(rows[2]).toEqual({ id: '3', name: 'Carol' });
     });
 
     it('should handle empty data array without error', () => {
@@ -105,14 +105,14 @@ describe('sqldb', () => {
       expect(tableRowCount('TestEmpty')).toBe(0);
     });
 
-    it('should coerce numeric strings to numbers', () => {
+    it('should store numeric strings as strings', () => {
       createTable('TestCoerce', ['val']);
       createdTables.push('TestCoerce');
 
       insertRows('TestCoerce', ['val'], [{ val: '42' }, { val: '3.14' }]);
       const rows = execQuery('SELECT * FROM "TestCoerce"');
-      expect(rows[0].val).toBe(42);
-      expect(rows[1].val).toBe(3.14);
+      expect(rows[0].val).toBe('42');
+      expect(rows[1].val).toBe('3.14');
     });
 
     it('should coerce null and undefined to null', () => {
@@ -125,14 +125,14 @@ describe('sqldb', () => {
       expect(rows[1].val).toBeNull();
     });
 
-    it('should coerce boolean values', () => {
+    it('should store boolean values as strings', () => {
       createTable('TestBool', ['val']);
       createdTables.push('TestBool');
 
       insertRows('TestBool', ['val'], [{ val: true }, { val: false }]);
       const rows = execQuery('SELECT * FROM "TestBool"');
-      expect(rows[0].val).toBe(1);
-      expect(rows[1].val).toBe(0);
+      expect(rows[0].val).toBe('1');
+      expect(rows[1].val).toBe('0');
     });
   });
 

@@ -67,7 +67,7 @@ function makeBandResult(
   return {
     band: spec,
     rows,
-    cols: spec.cols,
+    cols: spec.cols ?? [],
     parentKeyAliases: ['ParentKey'],
     childKeyCols: ['ParentKey'],
   };

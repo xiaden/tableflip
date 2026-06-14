@@ -15,12 +15,12 @@ describe('buildPayload', () => {
 
     expect(payload.v).toBe(2);
     expect(payload.base).toBe('Orders');
-    expect(payload.baseCols).toBeNull();
+    expect(payload.baseCols).toEqual([]);
     expect(payload.stacks).toEqual([]);
     expect(payload.lookups).toEqual([]);
     expect(payload.calcStages).toEqual([]);
-    expect(payload.selCols).toBeNull();
-    expect(payload.colOrder).toBeNull();
+    expect(payload.selCols).toEqual([]);
+    expect(payload.colOrder).toEqual([]);
     expect(payload.filters).toEqual([]);
     expect(payload.sorts).toEqual([]);
     expect(payload.groupBy).toEqual([]);
@@ -55,11 +55,11 @@ describe('buildPayload', () => {
     expect(payload.selCols).toEqual(['OrderId', 'Company', 'Amount']);
   });
 
-  it('should preserve null selCols', () => {
-    const state = createAppState({ base: 'Orders', selCols: null });
+  it('should serialize empty selCols Set as empty array', () => {
+    const state = createAppState({ base: 'Orders', selCols: new Set() });
     const payload = buildPayload(state);
 
-    expect(payload.selCols).toBeNull();
+    expect(payload.selCols).toEqual([]);
   });
 
   it('should convert excludedRows Sets to arrays', () => {

@@ -20,7 +20,6 @@ import { buildColSourceMap, projectedCols } from '../../catalog/column-catalog';
 import { buildSourceCatalog } from '../../catalog/source-catalog';
 import {
   _syncSubtotalByToLayout,
-  _seenCols,
   _afterCombineChange,
 } from '../../query/layout-selection';
 import { Chip } from '../components/chip';
@@ -98,59 +97,37 @@ export function ColumnChips() {
 
   useEffect(() => getStore().subscribe(s => setState(s)), []);
 
-  // Initialize selCols if null (moved from render phase)
-  useEffect(() => {
-    const st = getStore().getState();
-    if (!st.selCols) {
-      const reportSpec = buildReportSpecFromState(st);
-      const sourceCatalog = buildSourceCatalog(st.tables);
-      const currentCols = projectedCols(reportSpec, sourceCatalog);
-      getStore().update(draft => {
-        draft.selCols = new Set(currentCols);
-        _seenCols.clear();
-        currentCols.forEach(c => _seenCols.add(c));
-      });
-    }
-  }, []);
-
-  // Initialize/sync colOrder (moved from render phase)
+  // Sync colOrder
   useEffect(() => {
     const st = getStore().getState();
     const reportSpec = buildReportSpecFromState(st);
     const sourceCatalog = buildSourceCatalog(st.tables);
     const currentCols = projectedCols(reportSpec, sourceCatalog);
-    if (!st.colOrder) {
-      getStore().update(draft => { draft.colOrder = [...currentCols]; });
-    } else {
-      const colSet = new Set(currentCols);
-      const needsSync = st.colOrder.some(c => !colSet.has(c)) || currentCols.some(c => !st.colOrder!.includes(c));
-      if (needsSync) {
-        getStore().update(draft => {
-          const cs = projectedCols(reportSpec, sourceCatalog);
-          const currentSet = new Set(cs);
-          draft.colOrder = [
-            ...(draft.colOrder || []).filter(c => currentSet.has(c)),
-            ...cs.filter(c => !(draft.colOrder || []).includes(c)),
-          ];
-        });
-      }
-      _syncSubtotalByToLayout();
+    const colSet = new Set(currentCols);
+    const needsSync = st.colOrder.some(c => !colSet.has(c)) || currentCols.some(c => !st.colOrder.includes(c));
+    if (needsSync) {
+      getStore().update(draft => {
+        const cs = projectedCols(reportSpec, sourceCatalog);
+        const currentSet = new Set(cs);
+        draft.colOrder = [
+          ...draft.colOrder.filter(c => currentSet.has(c)),
+          ...cs.filter(c => !draft.colOrder.includes(c)),
+        ];
+      });
     }
+    _syncSubtotalByToLayout();
   }, [state.base, state.lookups.length, state.calcStages.length]);
 
   const base = state.base;
   if (!base) return null;
 
-  const reportSpec = buildReportSpecFromState(state);
-  const sourceCatalog = buildSourceCatalog(state.tables);
-  const cols = projectedCols(reportSpec, sourceCatalog);
   const colMap = buildColSourceMap();
   const mode = state.aggMode || 'none';
 
   const groupSet = new Set(state.groupBy);
   const showBadges = mode === 'group' && groupSet.size > 0;
   const selSet = state.selCols;
-  const colOrder = state.colOrder || cols;
+  const colOrder = state.colOrder;
 
   const handleDblClick = useCallback((col: string) => {
     const currentMode = getStore().getState().aggMode || 'none';
@@ -189,12 +166,7 @@ export function ColumnChips() {
       _syncSubtotalByToLayout();
     } else {
       getStore().update(draft => {
-        if (!draft.selCols) {
-          const rs = buildReportSpecFromState(draft);
-          const sc = buildSourceCatalog(draft.tables);
-          draft.selCols = new Set(projectedCols(rs, sc));
-        }
-        const s = draft.selCols as Set<string>;
+        const s = draft.selCols;
         if (s.has(col)) s.delete(col);
         else s.add(col);
       });
@@ -232,16 +204,11 @@ export function ColumnChips() {
     if (!nearest || !dragCol || (nearest as HTMLElement).dataset.col === dragCol) return;
 
     getStore().update(draft => {
-      if (!draft.colOrder) {
-        const rs = buildReportSpecFromState(draft);
-        const sc = buildSourceCatalog(draft.tables);
-        draft.colOrder = projectedCols(rs, sc);
-      }
-      const from = draft.colOrder!.indexOf(dragCol);
-      const to = draft.colOrder!.indexOf((nearest as HTMLElement).dataset.col!);
+      const from = draft.colOrder.indexOf(dragCol);
+      const to = draft.colOrder.indexOf((nearest as HTMLElement).dataset.col!);
       if (from < 0 || to < 0) return;
-      draft.colOrder!.splice(from, 1);
-      draft.colOrder!.splice(to, 0, dragCol);
+      draft.colOrder.splice(from, 1);
+      draft.colOrder.splice(to, 0, dragCol);
     });
     _syncSubtotalByToLayout();
     _afterCombineChange();

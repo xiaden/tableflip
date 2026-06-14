@@ -11,13 +11,15 @@
  * - No import from SRC/js/ — uses preact catalog and utils
  */
 
-import { useRef, useEffect } from 'preact/hooks';
-import type { ColSourceEntry } from '../types';
+import { useRef, useEffect, useState } from 'preact/hooks';
+import type { ColSourceEntry, ColumnType } from '../types';
 import { getStore } from '../core/store';
 import { tableShortName, colUserLabel, getTableColor, setColLabel } from '../core/utils';
 import { buildColSourceMap } from '../catalog/column-catalog';
 import { resolveRenameTarget } from './components/rename-modal';
 import { execQuery, quoteId } from '../core/sqldb';
+import { invalidateValidation } from '../report/validation';
+import { ContextMenu, type CtxMenuItem } from './components/context-menu';
 
 /**
  * Synchronous display label computation (avoids async colDisplayLabel).
@@ -126,9 +128,29 @@ interface ResultGridProps {
 /**
  * Renders query results in an AG Grid with pagination, sorting, filtering,
  * and column rename. Shows an empty state when no rows match.
+ * Right-clicking the column header "⋯" button opens a context menu for
+ * overriding the column type (String/Number/Date/Boolean).
  */
 export function ResultGrid({ result, onRenameDone }: ResultGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
+  const [ctxMenu, setCtxMenu] = useState<{x: number; y: number; items: CtxMenuItem[]} | null>(null);
+
+  const onTypeContextMenu = (e: MouseEvent, tid: string, col: string): void => {
+    const state = getStore().getState();
+    const currentType: ColumnType = state.columnTypeOverrides?.[tid]?.[col] ?? state.tables[tid]?.colTypes?.[col] ?? 'string';
+    const items: CtxMenuItem[] = (['string', 'number', 'date', 'boolean'] as ColumnType[]).map(type => ({
+      label: 'Type: ' + type.charAt(0).toUpperCase() + type.slice(1),
+      checked: currentType === type,
+      action: () => {
+        getStore().update(draft => {
+          if (!draft.columnTypeOverrides[tid]) draft.columnTypeOverrides[tid] = {} as Record<string, ColumnType>;
+          draft.columnTypeOverrides[tid][col] = type;
+        });
+        invalidateValidation();
+      },
+    }));
+    setCtxMenu({ x: e.clientX, y: e.clientY, items });
+  };
 
   useEffect(() => {
     const el = gridRef.current;
@@ -146,7 +168,7 @@ export function ResultGrid({ result, onRenameDone }: ResultGridProps) {
     if (!hasData) return;
 
     const tableData = totalsRow ? [...rows, { ...totalsRow, _isTotalsRow: true }] : rows;
-    const colDefs = makeResultCols(cols, onRenameDone);
+    const colDefs = makeResultCols(cols, onRenameDone, onTypeContextMenu);
     const bandStyler = createBandRowStyler(rows);
 
     const options: Record<string, unknown> = {
@@ -202,6 +224,7 @@ export function ResultGrid({ result, onRenameDone }: ResultGridProps) {
               : rows.length.toLocaleString() + ' rows \u00b7 ' + cols.length + ' columns'}
           </span>
           <div ref={gridRef} class="ag-theme-balham-dark" style="height:100%;width:100%" />
+          {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={ctxMenu.items} onClose={() => setCtxMenu(null)} />}
         </>
       ) : (
         <div class="empty">
@@ -223,9 +246,29 @@ interface PreviewGridProps {
 /**
  * Loads and renders a preview grid for the selected table with row exclusion
  * controls. Shows empty/error states via JSX.
+ * Right-clicking the column header "⋯" button opens a context menu for
+ * overriding the column type (String/Number/Date/Boolean).
  */
 export function PreviewGrid({ tableId, onRenameDone }: PreviewGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
+  const [ctxMenu, setCtxMenu] = useState<{x: number; y: number; items: CtxMenuItem[]} | null>(null);
+
+  const onTypeContextMenu = (e: MouseEvent, tid: string, col: string): void => {
+    const state = getStore().getState();
+    const currentType: ColumnType = state.columnTypeOverrides?.[tid]?.[col] ?? state.tables[tid]?.colTypes?.[col] ?? 'string';
+    const items: CtxMenuItem[] = (['string', 'number', 'date', 'boolean'] as ColumnType[]).map(type => ({
+      label: 'Type: ' + type.charAt(0).toUpperCase() + type.slice(1),
+      checked: currentType === type,
+      action: () => {
+        getStore().update(draft => {
+          if (!draft.columnTypeOverrides[tid]) draft.columnTypeOverrides[tid] = {} as Record<string, ColumnType>;
+          draft.columnTypeOverrides[tid][col] = type;
+        });
+        invalidateValidation();
+      },
+    }));
+    setCtxMenu({ x: e.clientX, y: e.clientY, items });
+  };
 
   useEffect(() => {
     const el = gridRef.current;
@@ -286,7 +329,7 @@ export function PreviewGrid({ tableId, onRenameDone }: PreviewGridProps) {
 
     gridPreview = agGrid.createGrid(el, {
       rowData: rows,
-      columnDefs: [excludeColDef, ...makePreviewCols(tableId, t.cols, onRenameDone)],
+      columnDefs: [excludeColDef, ...makePreviewCols(tableId, t.cols, onRenameDone, onTypeContextMenu)],
       defaultColDef: {
         sortable: true,
         resizable: true,
@@ -368,6 +411,7 @@ export function PreviewGrid({ tableId, onRenameDone }: PreviewGridProps) {
         {t.rowCount > cap ? ' (preview: first ' + cap.toLocaleString() + ')' : ''}
       </span>
       <div ref={gridRef} class="ag-theme-balham-dark" style="height:100%;width:100%" />
+      {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={ctxMenu.items} onClose={() => setCtxMenu(null)} />}
     </>
   );
 }
@@ -376,9 +420,10 @@ export function PreviewGrid({ tableId, onRenameDone }: PreviewGridProps) {
 
 /**
  * Creates AG Grid column definitions for result columns.
- * Includes color stripe, rename button, and clear rename button.
+ * Includes color stripe, rename button, clear rename button,
+ * and an optional onTypeContextMenu callback for column type overrides.
  */
-function makeResultCols(cols: string[], onRenameDone?: () => void): Record<string, unknown>[] {
+function makeResultCols(cols: string[], onRenameDone?: () => void, onTypeContextMenu?: ((e: MouseEvent, tid: string, col: string) => void) | null): Record<string, unknown>[] {
   const colMap = buildColSourceMap();
   const state = getStore().getState();
   const dataCols = cols.filter(c => c !== '_rowno' && c !== '_row_type' && c !== '_isTotalsRow' && c !== '_band_id');
@@ -417,6 +462,7 @@ function makeResultCols(cols: string[], onRenameDone?: () => void): Record<strin
               if (onRenameDone) onRenameDone();
             }
           : null,
+        onTypeContextMenu && src && src.kind !== 'calc' ? (e: MouseEvent) => onTypeContextMenu(e, src.tid, src.col) : null,
       ),
       cellRenderer: (params: { value: unknown }) => {
         const v = params.value;
@@ -428,9 +474,10 @@ function makeResultCols(cols: string[], onRenameDone?: () => void): Record<strin
 
 /**
  * Creates AG Grid column definitions for preview columns.
- * Includes color stripe, rename button, and clear rename button.
+ * Includes color stripe, rename button, clear rename button,
+ * and an optional onTypeContextMenu callback for column type overrides.
  */
-function makePreviewCols(tid: string, physCols: string[], onRenameDone?: () => void): Record<string, unknown>[] {
+function makePreviewCols(tid: string, physCols: string[], onRenameDone?: () => void, onTypeContextMenu?: ((e: MouseEvent, tid: string, col: string) => void) | null): Record<string, unknown>[] {
   const color = getTableColor(tid);
   const state = getStore().getState();
 
@@ -464,7 +511,7 @@ function makePreviewCols(tid: string, physCols: string[], onRenameDone?: () => v
       floatingFilter: true,
       sortable: true,
       resizable: true,
-      headerComponent: _makeHeaderComponent(label, color, renamed, c, doRename, doClear),
+      headerComponent: _makeHeaderComponent(label, color, renamed, c, doRename, doClear, onTypeContextMenu ? (e: MouseEvent) => onTypeContextMenu(e, tid, c) : null),
       cellRenderer: (params: { value: unknown }) => {
         const v = params.value;
         return v == null ? '' : String(v);
@@ -474,7 +521,8 @@ function makePreviewCols(tid: string, physCols: string[], onRenameDone?: () => v
 }
 
 /**
- * Creates an AG Grid header component class with color stripe and rename controls.
+ * Creates an AG Grid header component class with color stripe, rename controls,
+ * and an optional context menu trigger on the "⋯" button.
  */
 function _makeHeaderComponent(
   label: string,
@@ -483,6 +531,7 @@ function _makeHeaderComponent(
   origCol: string | null,
   onRename: (() => void) | null,
   onClear: (() => void) | null,
+  onContextMenu: ((e: MouseEvent) => void) | null = null,
 ): unknown {
   return class {
     _params!: Record<string, unknown>;
@@ -506,12 +555,13 @@ function _makeHeaderComponent(
       txt.addEventListener('click', (e: MouseEvent) => (params.progressSort as (shift: boolean) => void)(e.shiftKey));
       this._gui.appendChild(txt);
 
-      if (onRename) {
+      if (onRename || onContextMenu) {
         const more = document.createElement('button');
         more.textContent = '\u22ef';
         more.title = 'Rename column';
         more.style.cssText = 'background:none;border:none;cursor:pointer;font-size:13px;padding:0 2px;color:#aaa;flex-shrink:0;line-height:1';
-        more.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); onRename(); });
+        more.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); if (onRename) onRename(); });
+        more.addEventListener('contextmenu', (e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); if (onContextMenu) onContextMenu(e); });
         this._gui.appendChild(more);
       }
 

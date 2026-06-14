@@ -51,10 +51,10 @@ export function BaseStage({ sortedIds }: BaseStageProps) {
   const handleBaseChange = useCallback((val: string) => {
     getStore().update(draft => {
       draft.base = val;
-      draft.baseCols = null;
+      draft.baseCols = [];
       draft.stacks = [];
-      draft.selCols = null;
-      draft.colOrder = null;
+      draft.selCols = new Set();
+      draft.colOrder = [];
     });
     _previewOpen.clear();
     _disabledCardCols.clear();

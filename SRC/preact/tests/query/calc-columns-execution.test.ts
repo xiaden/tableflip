@@ -77,7 +77,7 @@ describe('calc column execution in query builders', () => {
         outputColumns: ['OrderId', 'Amount', 'DoubledAmount'],
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: doubledAmountCalc(),
@@ -102,7 +102,7 @@ describe('calc column execution in query builders', () => {
         sorts: [{ col: 'OrderId', dir: 'ASC', enabled: true }],
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: doubledAmountCalc(),
@@ -134,7 +134,7 @@ describe('calc column execution in query builders', () => {
         sorts: [{ col: 'OrderId', dir: 'ASC', enabled: true }],
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: compareCalc(),
@@ -155,7 +155,7 @@ describe('calc column execution in query builders', () => {
       expect(rows.find(r => r['OrderId'] === 'ORD-005')!['AmountLevel']).toBe('Low');
     });
 
-    it('should work with empty calcExprs (backward compat)', () => {
+    it('should work with empty calcExprs', () => {
       const spec = makeReportSpec({
         outputColumns: ['OrderId', 'Amount'],
       });
@@ -188,7 +188,7 @@ describe('calc column execution in query builders', () => {
         },
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: doubledAmountCalc(),
@@ -222,7 +222,7 @@ describe('calc column execution in query builders', () => {
         },
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: doubledAmountCalc(),
@@ -265,7 +265,7 @@ describe('calc column execution in query builders', () => {
         },
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: compareCalc(),
@@ -309,7 +309,7 @@ describe('calc column execution in query builders', () => {
         },
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: doubledAmountCalc(),
@@ -349,7 +349,7 @@ describe('calc column execution in query builders', () => {
         },
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: doubledAmountCalc(),

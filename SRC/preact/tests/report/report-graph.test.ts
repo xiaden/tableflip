@@ -18,7 +18,7 @@ function makeReport(overrides: Partial<ReportSpec> = {}): ReportSpec {
     name: 'Report 1',
     pipeline: {
       base: 'Orders',
-      baseCols: null,
+      baseCols: [],
       stacks: [],
       lookups: [],
       calculatedColumns: [],
@@ -100,7 +100,7 @@ describe('report-graph', () => {
         id: 'r2',
         pipeline: {
           base: 'r1_output',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -124,7 +124,7 @@ describe('report-graph', () => {
         id: 'r2',
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [{
             rightId: 'r1_output',
@@ -153,7 +153,7 @@ describe('report-graph', () => {
         id: 'r2',
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: ['r1_output'],
           lookups: [],
           calculatedColumns: [],
@@ -171,7 +171,7 @@ describe('report-graph', () => {
         publish: { enabled: true, tableName: 'r1_output' },
         pipeline: {
           base: 'r1_output',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -187,7 +187,7 @@ describe('report-graph', () => {
     it('should not create dependency when referenced table is not a published output', () => {
       const r1 = makeReport({
         id: 'r1',
-        pipeline: { base: 'Orders', baseCols: null, stacks: [], lookups: [], calculatedColumns: [] },
+        pipeline: { base: 'Orders', baseCols: [], stacks: [], lookups: [], calculatedColumns: [] },
       });
       const ws = makeWorkspace([r1]);
       const graph = buildReportGraph(ws);
@@ -204,7 +204,7 @@ describe('report-graph', () => {
         id: 'r2',
         pipeline: {
           base: 'r1_output',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -230,7 +230,7 @@ describe('report-graph', () => {
         id: 'r2',
         pipeline: {
           base: 'r1_output',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -261,7 +261,7 @@ describe('report-graph', () => {
         id: 'r2',
         pipeline: {
           base: 'r1_output',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -292,7 +292,7 @@ describe('report-graph', () => {
         id: 'r2',
         pipeline: {
           base: 'r1_output',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -311,7 +311,7 @@ describe('report-graph', () => {
         id: 'A',
         pipeline: {
           base: 'B_output',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -322,7 +322,7 @@ describe('report-graph', () => {
         id: 'B',
         pipeline: {
           base: 'A_output',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -344,7 +344,7 @@ describe('report-graph', () => {
         id: 'A',
         pipeline: {
           base: 'C_output',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -355,7 +355,7 @@ describe('report-graph', () => {
         id: 'B',
         pipeline: {
           base: 'A_output',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -366,7 +366,7 @@ describe('report-graph', () => {
         id: 'C',
         pipeline: {
           base: 'B_output',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -404,7 +404,7 @@ describe('report-graph', () => {
         id: 'r2',
         pipeline: {
           base: 'r1_output',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -415,7 +415,7 @@ describe('report-graph', () => {
         id: 'r3',
         pipeline: {
           base: 'r2_output',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -458,7 +458,7 @@ describe('report-graph', () => {
         id: 'r2',
         pipeline: {
           base: 'r1_output',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -481,7 +481,7 @@ describe('report-graph', () => {
         id: 'A',
         pipeline: {
           base: 'B_output',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -492,7 +492,7 @@ describe('report-graph', () => {
         id: 'B',
         pipeline: {
           base: 'A_output',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],

@@ -3,7 +3,7 @@
  *
  * Tests that the hydrator correctly processes detailBands and detailBandMode
  * from a .rcjson payload, validates references, handles missing tables,
- * broken refs, and backward compatibility with old format.
+ * and broken refs.
  */
 import { describe, it, expect } from 'vitest';
 import { hydrateState } from '../../core/state-hydrator';
@@ -46,7 +46,7 @@ function validPayload(overrides: Record<string, unknown> = {}): Record<string, a
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 describe('hydrateState — detail bands', () => {
-  it('should load old format (no detailBands) with empty array and default mode', () => {
+  it('should default detailBands to empty array and mode to separate when absent', () => {
     const payload = validPayload();
     const { next, brokenRefs } = hydrateState(payload, loadedTables());
 
@@ -56,7 +56,7 @@ describe('hydrateState — detail bands', () => {
     expect(brokenRefs.filter(r => r.includes('detail') || r.includes('Related'))).toEqual([]);
   });
 
-  it('should load old format with explicit null detailBands', () => {
+  it('should treat null detailBands as empty array', () => {
     const payload = validPayload({ detailBands: null });
     const { next } = hydrateState(payload, loadedTables());
 

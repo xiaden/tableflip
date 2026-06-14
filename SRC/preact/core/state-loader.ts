@@ -64,7 +64,9 @@ export function loadState(file: File, store: Store): Promise<LoadResult> {
       }
 
       if (payload.v !== STATE_VERSION) {
-        toast(`Version mismatch (saved: ${JSON.stringify(payload.v)}, app: ${STATE_VERSION}). Loaded with best-effort — check items for issues.`, 'warn');
+        toast(`Version mismatch (saved: ${JSON.stringify(payload.v)}, app: ${STATE_VERSION}). Please re-save with the current version.`, 'err');
+        resolve({ ok: false, brokenRefs: [] });
+        return;
       }
 
       const loadedTables = store.getState().tables;

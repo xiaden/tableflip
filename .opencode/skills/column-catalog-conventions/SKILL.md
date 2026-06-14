@@ -68,7 +68,7 @@ Callers include:
 
 ## Known Bug
 
-**Root cause:** During the Preact migration (commit `19f869b`), the signature and behavior of `buildColSourceMap()` changed radically:
+**Root cause:** In commit `19f869b`, the signature and behavior of `buildColSourceMap()` changed:
 - Lost the context parameter (base/lookups/calcStages)
 - Changed from "base + lookups only" to "all loaded tables"
 - Removed lookup column prefixing

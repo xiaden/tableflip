@@ -97,7 +97,7 @@ describe('query-plan', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [{
             rightId: 'Contacts',
@@ -121,7 +121,7 @@ describe('query-plan', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [{
@@ -202,7 +202,7 @@ describe('query-plan', () => {
 
     it('should throw if no base table', () => {
       const spec = makeReportSpec({
-        pipeline: { base: '', baseCols: null, stacks: [], lookups: [], calculatedColumns: [], detailBands: [] },
+        pipeline: { base: '', baseCols: [], stacks: [], lookups: [], calculatedColumns: [], detailBands: [] },
       });
       expect(() => buildQueryPlan(spec, tables)).toThrow();
     });
@@ -211,7 +211,7 @@ describe('query-plan', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: ['NonExistent', 'Contacts'],
           lookups: [],
           calculatedColumns: [],

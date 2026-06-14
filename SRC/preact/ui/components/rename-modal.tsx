@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { getStore } from '../../core/store';
 import { setColLabel } from '../../core/utils';
 import { buildColSourceMap } from '../../catalog/column-catalog';
-import { _renameProjectedAliasRefs } from '../../query/alias-ref-updater';
+import { renameCalcAlias } from '../../core/alias-rename';
 import { Modal } from './modal';
 
 export interface RenameTarget {
@@ -45,16 +45,7 @@ export function RenameModal({ target, onDone, onClose }: RenameModalProps) {
     const newName = value.trim();
     if (isCalc) {
       if (newName && newName !== current) {
-        const calcStages = getStore().getState().calcStages;
-        const calc = Array.isArray(calcStages) ? calcStages[target.calcIdx!] : null;
-        if (calc) {
-          getStore().update(draft => {
-            if (draft.calcStages[target.calcIdx!]) {
-              draft.calcStages[target.calcIdx!].alias = newName;
-            }
-          });
-          _renameProjectedAliasRefs(current, newName);
-        }
+        renameCalcAlias(target.calcIdx!, newName);
       }
     } else {
       setColLabel(target.tid!, target.col!, newName);

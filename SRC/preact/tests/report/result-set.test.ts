@@ -16,7 +16,7 @@ describe('result-set', () => {
       expect(result.rows).toEqual(rows);
       expect(result.metadata.rowCount).toBe(2);
       expect(result.metadata.aggMode).toBe('none');
-      expect(result.metadata.displayCols).toBeNull();
+      expect(result.metadata.displayCols).toEqual([]);
       expect(typeof result.metadata.generatedAt).toBe('number');
     });
 
@@ -37,9 +37,9 @@ describe('result-set', () => {
       expect(result.metadata.aggMode).toBe('none');
     });
 
-    it('should default metadata: displayCols is null', () => {
+    it('should default metadata: displayCols is empty array', () => {
       const result = buildResultSet(['A'], []);
-      expect(result.metadata.displayCols).toBeNull();
+      expect(result.metadata.displayCols).toEqual([]);
     });
 
     it('should allow custom metadata overrides', () => {
@@ -94,7 +94,7 @@ describe('result-set', () => {
       expect(result.metadata.allCols).toEqual(['A', 'B', 'C']);
     });
 
-    it('should have undefined band metadata fields when not provided (backward-compatible)', () => {
+    it('should have undefined band metadata fields when not provided', () => {
       const result = buildResultSet(['A'], [{ A: 1 }]);
       expect(result.metadata.bandCount).toBeUndefined();
       expect(result.metadata.bandIds).toBeUndefined();

@@ -16,15 +16,22 @@ export function sqlContains(sql: string, ...substrings: string[]): boolean {
   return substrings.every(s => norm.includes(normalizeSql(s)));
 }
 
-/** Standard colMap for Orders table columns. */
+/**
+ * Standard colMap for Orders table columns.
+ *
+ * Includes colType metadata for type-aware WHERE tests:
+ * - Amount → colType: 'number'
+ * - OrderDate → colType: 'date'
+ * - Other columns have no colType (defaults to 'string')
+ */
 export function ordersColMap(): Map<string, ColMapEntry> {
   return new Map<string, ColMapEntry>([
     ['OrderId', { tid: 'Orders', col: 'OrderId' }],
     ['Company', { tid: 'Orders', col: 'Company' }],
     ['Contact', { tid: 'Orders', col: 'Contact' }],
     ['Status', { tid: 'Orders', col: 'Status' }],
-    ['Amount', { tid: 'Orders', col: 'Amount' }],
-    ['OrderDate', { tid: 'Orders', col: 'OrderDate' }],
+    ['Amount', { tid: 'Orders', col: 'Amount', colType: 'number' }],
+    ['OrderDate', { tid: 'Orders', col: 'OrderDate', colType: 'date' }],
     ['Region', { tid: 'Orders', col: 'Region' }],
   ]);
 }
@@ -37,14 +44,14 @@ export function standardSourceCatalog(): Map<string, SourceTableEntry> {
       name: 'Orders',
       cols: ['OrderId', 'Company', 'Contact', 'Status', 'Amount', 'OrderDate', 'Region'],
       kind: 'imported',
-      source: { id: 'Orders', name: 'Orders', cols: ['OrderId', 'Company', 'Contact', 'Status', 'Amount', 'OrderDate', 'Region'], rowCount: 8 },
+      source: { id: 'Orders', name: 'Orders', cols: ['OrderId', 'Company', 'Contact', 'Status', 'Amount', 'OrderDate', 'Region'], rowCount: 8, colTypes: { OrderId: 'number', Amount: 'number', OrderDate: 'date', Company: 'string', Contact: 'string', Status: 'string', Region: 'string' } },
     }],
     ['Contacts', {
       id: 'Contacts',
       name: 'Contacts',
       cols: ['ContactId', 'Name', 'Email', 'Phone'],
       kind: 'imported',
-      source: { id: 'Contacts', name: 'Contacts', cols: ['ContactId', 'Name', 'Email', 'Phone'], rowCount: 5 },
+      source: { id: 'Contacts', name: 'Contacts', cols: ['ContactId', 'Name', 'Email', 'Phone'], rowCount: 5, colTypes: { ContactId: 'number', Name: 'string', Email: 'string', Phone: 'string' } },
     }],
   ]);
 }
@@ -57,13 +64,13 @@ export function makeReportSpec(overrides: Partial<ReportSpec> = {}): ReportSpec 
     enabled: true,
     pipeline: {
       base: 'Orders',
-      baseCols: null,
+      baseCols: [],
       stacks: [],
       lookups: [],
       calculatedColumns: [],
       detailBands: [],
     },
-    outputColumns: null,
+    outputColumns: [],
     filters: [],
     sorts: [],
     aggregation: {
@@ -89,7 +96,7 @@ export function makeReportSpec(overrides: Partial<ReportSpec> = {}): ReportSpec 
 /** Standard tables record for buildQueryPlan. */
 export function standardTables(): Record<string, DbTable> {
   return {
-    Orders: { id: 'Orders', name: 'Orders', cols: ['OrderId', 'Company', 'Contact', 'Status', 'Amount', 'OrderDate', 'Region'], rowCount: 8 },
-    Contacts: { id: 'Contacts', name: 'Contacts', cols: ['ContactId', 'Name', 'Email', 'Phone'], rowCount: 5 },
+    Orders: { id: 'Orders', name: 'Orders', cols: ['OrderId', 'Company', 'Contact', 'Status', 'Amount', 'OrderDate', 'Region'], rowCount: 8, colTypes: { OrderId: 'number', Amount: 'number', OrderDate: 'date', Company: 'string', Contact: 'string', Status: 'string', Region: 'string' } },
+    Contacts: { id: 'Contacts', name: 'Contacts', cols: ['ContactId', 'Name', 'Email', 'Phone'], rowCount: 5, colTypes: { ContactId: 'number', Name: 'string', Email: 'string', Phone: 'string' } },
   };
 }

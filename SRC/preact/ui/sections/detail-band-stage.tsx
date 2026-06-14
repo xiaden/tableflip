@@ -30,6 +30,8 @@ import { buildSourceCatalog } from '../../catalog/source-catalog';
 import { getValidation, invalidateValidation } from '../../report/validation';
 import { Chip } from '../components/chip';
 import { Tip } from '../components/tip';
+import { ContextMenu, type CtxMenuItem } from '../components/context-menu';
+import { resolveRenameTarget, RenameModal, type RenameTarget } from '../components/rename-modal';
 import type { AppState, DetailBandSpec } from '../../types';
 
 export interface DetailBandStageProps {
@@ -47,6 +49,8 @@ export interface DetailBandStageProps {
 
 export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedAsBase }: DetailBandStageProps) {
   const [state, setState] = useState<AppState>(getStore().getState());
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; items: CtxMenuItem[] } | null>(null);
+  const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
 
   useEffect(() => getStore().subscribe(s => setState(s)), []);
 
@@ -94,9 +98,9 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
   );
 
   const stageClasses = [
-    'pl-band-stage',
-    bandVBlocked ? 'pl-band-stage--invalid' : '',
-    bandVUnresolved && !bandEnabled ? 'pl-band-stage--disabled-issue' : '',
+    'pl-lookup-stage',
+    bandVBlocked ? 'pl-lookup-stage--invalid' : '',
+    bandVUnresolved && !bandEnabled ? 'pl-lookup-stage--disabled-issue' : '',
     !bandEnabled ? 'pl-stage-disabled' : '',
   ].filter(Boolean).join(' ');
 
@@ -113,8 +117,8 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
     updateBand((_draft, bandDraft) => {
       bandDraft.rightId = val;
       bandDraft.keyPairs = [{ left: '', right: '' }];
-      // When table changes, reset cols to empty (meaning "all" in catalog)
-      bandDraft.cols = [];
+      const rt = val && _draft.tables[val] ? _draft.tables[val] : null;
+      bandDraft.cols = rt ? [...rt.cols] : [];
     });
   }, [updateBand]);
 
@@ -163,28 +167,29 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
   /** Toggle a column in/out of band.cols. */
   const toggleCol = useCallback((col: string) => {
     updateBand((_draft, bandDraft) => {
-      const rtCols = bandDraft.rightId && _draft.tables[bandDraft.rightId]
-        ? _draft.tables[bandDraft.rightId].cols
-        : [];
-      // Materialize implicit "all" into explicit list if needed
-      let cols = bandDraft.cols;
-      if (!cols || cols.length === 0) {
-        // Currently "all selected" — materialize as all except the one being deselected
-        cols = rtCols.filter(c => c !== col);
+      let cols = [...bandDraft.cols];
+      const idx = cols.indexOf(col);
+      if (idx >= 0) {
+        cols = cols.filter(c => c !== col);
       } else {
-        const idx = cols.indexOf(col);
-        if (idx >= 0) {
-          cols = cols.filter(c => c !== col);
-        } else {
-          cols = [...cols, col];
-        }
+        cols.push(col);
       }
       bandDraft.cols = cols;
     });
   }, [updateBand]);
 
-  /** Select all columns (reset to implicit "all"). */
+  /** Select all columns (set to full child table column list). */
   const selectAllCols = useCallback(() => {
+    updateBand((_draft, bandDraft) => {
+      const rtCols = bandDraft.rightId && _draft.tables[bandDraft.rightId]
+        ? _draft.tables[bandDraft.rightId].cols
+        : [];
+      bandDraft.cols = [...rtCols];
+    });
+  }, [updateBand]);
+
+  /** Select no columns. */
+  const selectNoneCols = useCallback(() => {
     updateBand((_draft, bandDraft) => {
       bandDraft.cols = [];
     });
@@ -234,7 +239,8 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
   }, [updateBand]);
 
   return (
-    <div class={stageClasses}>
+    <>
+      <div class={stageClasses}>
       <div class="pl-stage-label">
         Related Details from <Tip text={"Add related rows from another sheet beneath each parent row — like sub-report details.\n\nFor example: show each Order followed by its Line Items. Use '+ AND' to match on multiple columns at once."} />
         <label class="pl-enable-toggle" title={bandEnabled ? "Disable this detail band (won't block report)" : 'Enable this detail band'}>
@@ -242,8 +248,8 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
           <span class="pl-enable-label">{bandEnabled ? 'Enabled' : 'Disabled'}</span>
         </label>
       </div>
-      {bandVMsg && <div class="pl-band-error">{bandVBlocked ? '\u26D4' : '\u26A0'} {bandVMsg}</div>}
-      <div class="pl-band-header">
+      {bandVMsg && <div class="pl-lookup-error">{bandVBlocked ? '\u26D4' : '\u26A0'} {bandVMsg}</div>}
+      <div class="pl-lookup-header">
         <select value={band.rightId || ''} onChange={e => handleRightIdChange((e.target as HTMLSelectElement).value)}>
           <option value="">{'\u2014'} pick a sheet {'\u2014'}</option>
           {sortedIds
@@ -258,7 +264,7 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
         <button class="btn btn-danger" style="flex-shrink:0" onClick={removeBand}>{'\u2715'}</button>
       </div>
       {rt && (
-        <div class="pl-band-keys">
+        <div class="pl-lookup-keys">
           {pairs.map((pair, pi) => (
             <div key={pi} class="pl-key-pair">
               <span class="pl-key-pair-label">{pi === 0 ? 'Where' : 'AND'}</span>
@@ -270,7 +276,7 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
                   return <option key={c} value={c}>{label}</option>;
                 })}
               </select>
-              <span class="pl-band-eq">=</span>
+              <span class="pl-lookup-eq">=</span>
               <select value={pair.right || ''} onChange={e => handleKpRightChange(pi, (e.target as HTMLSelectElement).value)}>
                 <option value="">{'\u2014'} column {'\u2014'}</option>
                 {rightCols.map(c => <option key={c} value={c}>{`${tables[band.rightId]?.name || band.rightId} \u2192 ${colUserLabel(band.rightId, c)}`}</option>)}
@@ -286,9 +292,9 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
       {rt && (
         <div class="pl-band-cols">
           <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Include:</span>
-          <Tip text="These are the columns from the child sheet. Click a chip to include or exclude it from the detail band." />
+          <Tip text="These are the columns from the child sheet. Click a chip to include or exclude it from the detail band. Right-click any chip to rename it." />
           {rt.cols.map(c => {
-            const isSelected = (band.cols.length === 0) || band.cols.includes(c);
+            const isSelected = band.cols.includes(c);
             return (
               <Chip
                 key={c}
@@ -301,10 +307,24 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
                 tooltip={`Click to ${isSelected ? 'exclude' : 'include'} this column from the detail band.`}
                 dataAttrs={{ 'data-bi': String(i), 'data-bcc': c }}
                 onClick={() => toggleCol(c)}
+                onContextMenu={e => {
+                  e.preventDefault();
+                  if (!band.rightId) return;
+                  const colMap2 = buildColSourceMap();
+                  const bandPrefix = `_${band.id}_`;
+                  const alias = bandPrefix + c;
+                  if (!colMap2.has(alias)) return;
+                  setCtxMenu({
+                    x: e.clientX,
+                    y: e.clientY,
+                    items: [{ label: 'Rename', action: () => setRenameTarget(resolveRenameTarget(alias)) }],
+                  });
+                }}
               />
             );
           })}
           <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" onClick={selectAllCols}>All</button>
+          <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" onClick={selectNoneCols}>None</button>
         </div>
       )}
       {rt && (
@@ -359,6 +379,9 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
           <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" onClick={addSort}>{'\uFF0B'} sort</button>
         </div>
       )}
-    </div>
+      </div>
+      {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={ctxMenu.items} onClose={() => setCtxMenu(null)} />}
+      {renameTarget && <RenameModal target={renameTarget} onDone={() => invalidateValidation()} onClose={() => setRenameTarget(null)} />}
+    </>
   );
 }

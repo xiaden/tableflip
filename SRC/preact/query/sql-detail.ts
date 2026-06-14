@@ -69,7 +69,7 @@ export function buildDetailQuery(
   // ── Determine projected columns ────────────────────────────────────────────
   // Use outputColumns if set (and non-empty), otherwise project all colMap keys.
   const outputCols = reportSpec.outputColumns;
-  const projected: string[] = (outputCols && outputCols.length > 0)
+  const projected: string[] = (outputCols.length > 0)
     ? outputCols.filter(alias => colMap.has(alias))
     : [...colMap.keys()];
 

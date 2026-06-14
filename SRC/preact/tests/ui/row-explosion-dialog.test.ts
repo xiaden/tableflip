@@ -119,7 +119,7 @@ describe('runReport with custom stackRowLimit', () => {
     const spec = makeReportSpec({
       pipeline: {
         base: 'Orders',
-        baseCols: null,
+        baseCols: [],
         stacks: [],
         lookups: [],
         calculatedColumns: [],

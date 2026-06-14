@@ -1,9 +1,14 @@
 import { createPortal } from 'preact/compat';
 import { useEffect, useRef } from 'preact/hooks';
 
+/** A single item in a context menu. */
 export interface CtxMenuItem {
+  /** Display text for the menu item. */
   label: string;
+  /** Callback invoked when the item is selected. */
   action: () => void;
+  /** When true, a checkmark indicator is shown before the label. */
+  checked?: boolean;
 }
 
 export interface ContextMenuProps {
@@ -13,6 +18,11 @@ export interface ContextMenuProps {
   onClose: () => void;
 }
 
+/**
+ * Renders a positioned context menu as a portal at the given (x, y) coordinates.
+ * Each item is rendered as a button with an optional checkmark prefix.
+ * The menu closes when the user clicks outside it or right-clicks anywhere.
+ */
 export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -45,7 +55,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
           class="ctx-menu-item"
           onClick={() => { onClose(); item.action(); }}
         >
-          {item.label}
+          {item.checked ? '✓ ' + item.label : item.label}
         </button>
       ))}
     </div>,

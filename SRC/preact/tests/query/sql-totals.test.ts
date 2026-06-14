@@ -112,7 +112,7 @@ describe('sql-totals', () => {
 
     it('should throw if no base table', () => {
       const spec = makeReportSpec({
-        pipeline: { base: '', baseCols: null, stacks: [], lookups: [], calculatedColumns: [] },
+        pipeline: { base: '', baseCols: [], stacks: [], lookups: [], calculatedColumns: [] },
         aggregation: {
           mode: 'totals',
           groupBy: [],
@@ -156,7 +156,7 @@ describe('sql-totals', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [{
             rightId: 'Contacts',

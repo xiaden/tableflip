@@ -9,10 +9,10 @@
  * Ported from SRC/js/ui/views/pipeline-card.tsx. Key differences:
  * - Composes Preact section components instead of inline sub-components
  * - Uses store.subscribe() for reactive updates instead of re-render calls
- * - Preview HTML builder is passed as a prop to PipelineArrow
+ * - Preview result data is computed via buildPreview() and passed as a prop to PipelineArrow
  */
 
-import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
+import { useState, useEffect, useCallback } from 'preact/hooks';
 import { getStore } from '../../core/store';
 import { _afterCombineChange } from '../../query/layout-selection';
 import { BaseStage } from '../sections/base-stage';
@@ -24,12 +24,19 @@ import { DetailBandStage } from '../sections/detail-band-stage';
 import { createDetailBandSpec } from '../../core/state';
 import { invalidateValidation } from '../../report/validation';
 import { Tip } from '../components/tip';
+import { buildPreview } from '../../report/preview-builder';
+import type { PreviewResult } from '../../report/preview-builder';
 import type { AppState } from '../../types';
 
 export function PipelineCard() {
   const [state, setState] = useState<AppState>(getStore().getState());
+  const [previews, setPreviews] = useState<Record<string, PreviewResult>>({});
 
-  useEffect(() => getStore().subscribe(s => setState(s)), []);
+  // Subscribe to store changes and clear preview cache on any state change
+  useEffect(() => getStore().subscribe(s => {
+    setState(s);
+    setPreviews({});
+  }), []);
 
   const tables = state.tables;
   const base = state.base;
@@ -98,52 +105,14 @@ export function PipelineCard() {
     invalidateValidation();
   }, []);
 
+  const computePreview = useCallback((id: string) => {
+    const currentState = getStore().getState();
+    const result = buildPreview(id, currentState);
+    setPreviews(prev => ({ ...prev, [id]: result }));
+  }, []);
+
   const hasBase = !!(base && tables[base]);
   const enabledBandCount = detailBands.filter(b => b.enabled !== false).length;
-
-  // ── Band reorder drag-and-drop ──────────────────────────────────
-  const dragBandIdx = useRef<number | null>(null);
-  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
-
-  const onBandDragStart = useCallback((idx: number, e: DragEvent) => {
-    dragBandIdx.current = idx;
-    if (e.dataTransfer) {
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', String(idx));
-    }
-  }, []);
-
-  const onBandDragOver = useCallback((idx: number, e: DragEvent) => {
-    e.preventDefault();
-    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-    setDragOverIdx(idx);
-  }, []);
-
-  const onBandDragEnd = useCallback(() => {
-    dragBandIdx.current = null;
-    setDragOverIdx(null);
-  }, []);
-
-  const onBandDrop = useCallback((targetIdx: number, e: DragEvent) => {
-    e.preventDefault();
-    const sourceIdx = dragBandIdx.current;
-    if (sourceIdx === null || sourceIdx === targetIdx) {
-      setDragOverIdx(null);
-      return;
-    }
-
-    getStore().update(draft => {
-      if (!draft.detailBands || draft.detailBands.length < 2) return;
-      const bands = [...draft.detailBands];
-      const [moved] = bands.splice(sourceIdx, 1);
-      bands.splice(targetIdx, 0, moved);
-      draft.detailBands = bands;
-    });
-    invalidateValidation();
-    _afterCombineChange();
-    dragBandIdx.current = null;
-    setDragOverIdx(null);
-  }, []);
 
   return (
     <div id="pipeline" class="pipeline">
@@ -171,7 +140,7 @@ export function PipelineCard() {
       </div>
 
       {hasBase && (
-        <PipelineArrow id="base" />
+        <PipelineArrow id="base" result={previews['base']} onOpen={computePreview} />
       )}
 
       {/* Lookup stages */}
@@ -183,7 +152,7 @@ export function PipelineCard() {
             usedAsLookup={usedAsLookup}
             usedAsStack={usedAsStack}
           />
-          <PipelineArrow id={`lk${i}`} />
+          <PipelineArrow id={`lk${i}`} result={previews[`lk${i}`]} onOpen={computePreview} />
         </div>
       ))}
 
@@ -191,7 +160,7 @@ export function PipelineCard() {
       {calcStages.map((_calc, i) => (
         <div key={`calc-${i}`}>
           <CalcStageSection i={i} />
-          <PipelineArrow id={`calc${i}`} />
+          <PipelineArrow id={`calc${i}`} result={previews[`calc${i}`]} onOpen={computePreview} />
         </div>
       ))}
 
@@ -225,15 +194,7 @@ export function PipelineCard() {
 
       {/* Detail band stages */}
       {detailBands.map((_band, i) => (
-        <div
-          key={`band-${i}`}
-          draggable={true}
-          onDragStart={(e: DragEvent) => onBandDragStart(i, e)}
-          onDragOver={(e: DragEvent) => onBandDragOver(i, e)}
-          onDragEnd={onBandDragEnd}
-          onDrop={(e: DragEvent) => onBandDrop(i, e)}
-          style={dragOverIdx === i ? 'opacity:0.5;border-top:2px solid var(--accent,#4a9eff)' : ''}
-        >
+        <div key={`band-${i}`}>
           <DetailBandStage
             i={i}
             sortedIds={sortedIds}
@@ -241,7 +202,7 @@ export function PipelineCard() {
             usedAsStack={usedAsStack}
             usedAsBase={base}
           />
-          <PipelineArrow id={`band${i}`} />
+          <PipelineArrow id={`band${i}`} result={previews[`band${i}`]} onOpen={computePreview} />
         </div>
       ))}
 

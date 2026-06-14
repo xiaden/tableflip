@@ -61,7 +61,7 @@ describe('sql-detail', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [{
             rightId: 'Contacts',
@@ -92,7 +92,7 @@ describe('sql-detail', () => {
 
     it('should throw if no base table', () => {
       const spec = makeReportSpec({
-        pipeline: { base: '', baseCols: null, stacks: [], lookups: [], calculatedColumns: [] },
+        pipeline: { base: '', baseCols: [], stacks: [], lookups: [], calculatedColumns: [] },
       });
       expect(() => buildDetailQuery(spec, colMap, sourceCatalog)).toThrow('No base table');
     });
@@ -111,7 +111,7 @@ describe('sql-detail', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [{
             rightId: 'Contacts',

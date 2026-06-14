@@ -23,7 +23,6 @@ applyTo: SRC/preact/query/**
 - **`query-plan.ts`** — Query plan orchestrator (top-level entry point)
 - **`lookup-resolver.ts`** — Lookup validation, expansion, duplicate detection
 - **`layout-selection.ts`** — Column layout/visibility management (EXCEPTION: impure, accesses store)
-- **`alias-ref-updater.ts`** — Rename alias references across pipeline state (EXCEPTION: impure, accesses `window.__db`)
 
 ## Allowed Imports
 
@@ -39,7 +38,7 @@ Query modules may import from:
 
 - **No `../report/*` imports** — query layer does not execute queries, construct result sets, or validate reports. (Exception: `layout-selection.ts` is the sole file that imports `invalidateValidation` from `../report/validation` — this is a known impurity.)
 - **No `../ui/*` imports** — query layer has no UI dependencies.
-- **No `../core/store` imports** — query modules must NOT read from the reactive store. (Exception: `layout-selection.ts` and `alias-ref-updater.ts` access store/global state.)
+- **No `../core/store` imports** — query modules must NOT read from the reactive store. (Exception: `layout-selection.ts` accesses store/global state.)
 
 ## Forbidden Patterns
 
@@ -140,9 +139,7 @@ Two files in the query layer intentionally break the pure-function rule and acce
 | File | Impurity | Reason |
 |------|----------|--------|
 | `layout-selection.ts` | Reads/writes `getStore()` state; imports `invalidateValidation` from report layer | Column visibility is inherently stateful; toggles `selCols` on the store |
-| `alias-ref-updater.ts` | Reads/writes `window.__db` directly | Legacy migration of alias references across pipeline state objects |
 
-These files are legacy/transitional. New query modules must NOT follow their pattern.
 
 ## Validation
 

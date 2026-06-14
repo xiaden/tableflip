@@ -59,7 +59,6 @@ Three non-Preact surfaces are managed from UI code:
 | Report engine | `SRC/preact/report/engine.ts` |
 | Column catalog | `SRC/preact/catalog/column-catalog.ts` |
 | Source catalog | `SRC/preact/catalog/source-catalog.ts` |
-| Alias ref updater | `SRC/preact/query/alias-ref-updater.ts` |
 | Barrel exports | `SRC/preact/index.ts` |
 
 ## Composition Map
@@ -120,7 +119,6 @@ Shared components (used by sections):
 - Validation — that's `report/validation.ts` (called throughout UI via `invalidateValidation()` / `getValidation()`)
 - Catalog building — that's `catalog/column-catalog.ts` and `catalog/source-catalog.ts` (called from UI for display only)
 - Column visibility logic — that's `query/layout-selection.ts` (called from UI chips)
-- Alias reference management — that's `query/alias-ref-updater.ts`
 - SQLite operations — that's `core/sqldb.ts` (called or delegated by UI actions)
 - State serialization/loading — that's `core/state-serializer.ts` and `core/state-loader.ts`
 
@@ -169,7 +167,6 @@ The function `_afterCombineChange()` from `query/layout-selection.ts` is called 
 | **File not loading or wrong data** | `SRC/preact/ui/loader.ts` — `loadSpreadsheet()` → `ingestSheet()` → SQLite insert chain |
 | **Modal not appearing/behaving** | `SRC/preact/ui/components/modal.tsx` — uses `createPortal` to `document.body` |
 | **Aggregation mode state loss** | `SRC/preact/ui/aggregation.ts` — `saveActiveAggModeState()` / `loadAggModeState()` |
-| **Aliases broken after rename** | `SRC/preact/query/alias-ref-updater.ts` — `_renameProjectedAliasRefs()` |
 | **Detail band not producing rows** | `SRC/preact/query/sql-detail-bands.ts` — `buildBandQuery()`, also check `engine.ts` band stitching |
 
 ### Tracing a Bug without Rereading the Tree
@@ -207,7 +204,7 @@ Grids are created imperatively in useEffect hooks. The `gridResult`/`gridPreview
 The `handleDblClick()` function in `column-chips.tsx` is 40+ lines with three branches (group mode, subtotals mode, none mode) including auto-aggregate creation and subtotal sync. This is the thickest "logic in UI" code — if aggregation behavior is wrong, the answer is likely here rather than in the report layer.
 
 ### Deferred async imports in core/utils
-`core/utils.ts` uses `await import('../catalog/column-catalog.js')` for catalog functions. This means calling `buildColSourceMap()` through some code paths may fail if called synchronously before the import resolves. This is a Phase 1→2 migration artifact.
+`core/utils.ts` imports `buildColSourceMap` from `../catalog/column-catalog.js` for catalog functions.
 
 ### XLSX export has format-specific column filtering
 `filterExportCols()` keeps `_band_id` for CSV but removes it for XLSX. This means the same data exported in two formats produces structurally different rows. Band headers are inserted for XLSX but not CSV. Any downstream consumer parsing both formats must handle this asymmetry.

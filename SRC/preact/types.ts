@@ -1,6 +1,9 @@
 /** Calculation mode for computed columns. */
 export type CalcMode = 'math' | 'text' | 'compare' | 'date';
 
+/** Column data type for type-aware SQL WHERE generation. Detected at import or set via user override. */
+export type ColumnType = 'string' | 'number' | 'date' | 'boolean';
+
 /** Aggregation mode determining how results are grouped. */
 export type AggMode = 'none' | 'totals' | 'subtotals' | 'group';
 
@@ -10,6 +13,7 @@ export type AggMode = 'none' | 'totals' | 'subtotals' | 'group';
  * @property name - Human-readable display name
  * @property cols - Column names in physical order
  * @property rowCount - Number of data rows
+ * @property colTypes - Per-column type metadata detected at import (keyed by column name)
  */
 export interface DbTable {
   id: string;
@@ -17,6 +21,7 @@ export interface DbTable {
   cols: string[];
   rowCount: number;
   samples?: Record<string, string[]>;
+  colTypes?: Record<string, ColumnType>;
 }
 
 /**
@@ -45,7 +50,7 @@ export interface LookupSpec {
  * @property id - Unique band identifier (generated on creation, e.g. "band_0")
  * @property rightId - Child table ID
  * @property keyPairs - Parent→child column mappings (left=parent alias, right=child column)
- * @property cols - Columns to include from the child table
+ * @property cols - Columns to include from the child table. Empty array = no columns selected; populated with full child table column list when table is assigned.
  * @property enabled - Whether this band is active in the pipeline
  * @property sorts - Sort specifications for child rows within each band
  * @property label - User-visible band label for section headers (defaults to table name)
@@ -133,13 +138,14 @@ export interface AggregateSpec {
  * @property excludedRows - Rows excluded from results, keyed by table ID
  * @property tableColors - Color assignments per table for UI display
  * @property columnLabels - User-defined column display labels, keyed by table ID then column name
+ * @property columnTypeOverrides - User overrides for column types keyed by table ID then column name. Takes precedence over auto-detected colTypes.
  * @property base - Base table ID for the report
- * @property baseCols - Columns to include from base table (null = all)
+ * @property baseCols - Columns to include from base table ([] = no base columns selected; populated lazily when base table is set)
  * @property stacks - Table IDs stacked (unions) with the base
  * @property lookups - Array of join specifications
  * @property calcStages - Array of calculated column stages
- * @property selCols - Selected columns for output (null = all)
- * @property colOrder - User-defined column order (null = default)
+ * @property selCols - Selected columns for output (empty Set = nothing selected; populated lazily with all projected columns)
+ * @property colOrder - User-defined column order ([] = use default ordering; populated lazily with natural column order)
  * @property filters - Array of filter specifications
  * @property groupBy - Column aliases to group by
  * @property aggregates - Array of aggregate specifications
@@ -166,12 +172,12 @@ export interface AppState {
   tableColors: Record<string, string>;
   columnLabels: Record<string, Record<string, string>>;
   base: string;
-  baseCols: string[] | null;
+  baseCols: string[];
   stacks: string[];
   lookups: LookupSpec[];
   calcStages: CalcStage[];
-  selCols: Set<string> | null;
-  colOrder: string[] | null;
+  selCols: Set<string>;
+  colOrder: string[];
   filters: FilterSpec[];
   groupBy: string[];
   aggregates: AggregateSpec[];
@@ -193,6 +199,7 @@ export interface AppState {
   previewTableId: string | null;
   detailBands: DetailBandSpec[];
   detailBandMode: 'separate' | 'stack';
+  columnTypeOverrides: Record<string, Record<string, ColumnType>>;
 }
 
 /**
@@ -201,7 +208,7 @@ export interface AppState {
  * @property name - User-visible report name
  * @property enabled - Whether this report is active
  * @property pipeline - Pipeline configuration (base table, stacks, lookups, calcs)
- * @property outputColumns - Explicit output column order (null = auto)
+ * @property outputColumns - Explicit output column order ([] = project nothing; populated lazily with all projected aliases)
  * @property filters - Filter specifications
  * @property sorts - Sort specifications
  * @property aggregation - Aggregation configuration (mode, groupBy, aggregates, etc.)
@@ -217,13 +224,13 @@ export interface ReportSpec {
   enabled: boolean;
   pipeline: {
     base: string;
-    baseCols: string[] | null;
+    baseCols: string[];
     stacks: string[];
     lookups: LookupSpec[];
     calculatedColumns: CalcStage[];
     detailBands?: DetailBandSpec[];
   };
-  outputColumns: string[] | null;
+  outputColumns: string[];
   filters: FilterSpec[];
   sorts: SortSpec[];
   aggregation: {
@@ -252,7 +259,7 @@ export interface ReportSpec {
 
 /**
  * Top-level workspace state containing all reports and runtime data.
- * @property version - Schema version for migration compatibility
+ * @property version - Schema version
  * @property sourceTables - All loaded tables keyed by table ID
  * @property reports - Array of report specifications
  * @property activeReportId - Currently selected report ID (null if none)

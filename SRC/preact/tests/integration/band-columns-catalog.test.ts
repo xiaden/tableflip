@@ -71,7 +71,7 @@ describe('Integration — Band Columns in Catalog → Query Pipeline', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -90,7 +90,7 @@ describe('Integration — Band Columns in Catalog → Query Pipeline', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -116,7 +116,7 @@ describe('Integration — Band Columns in Catalog → Query Pipeline', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -149,7 +149,7 @@ describe('Integration — Band Columns in Catalog → Query Pipeline', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -192,7 +192,7 @@ describe('Integration — Band Columns in Catalog → Query Pipeline', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [],
@@ -250,7 +250,7 @@ describe('Integration — Band Columns in Catalog → Query Pipeline', () => {
       const sourceCatalog = buildSourceCatalog(tables);
       const catalogCtx = {
         base: 'Orders',
-        baseCols: null,
+        baseCols: [],
         stacks: [],
         lookups: [],
         calcStages: [],
@@ -267,7 +267,7 @@ describe('Integration — Band Columns in Catalog → Query Pipeline', () => {
       const sourceCatalog = buildSourceCatalog(tables);
       const catalogCtx = {
         base: 'Orders',
-        baseCols: null,
+        baseCols: [],
         stacks: [],
         lookups: [],
         calcStages: [],

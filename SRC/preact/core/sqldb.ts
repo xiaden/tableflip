@@ -30,20 +30,23 @@ export function quoteId(name: string): string {
 }
 
 /**
- * Coerces a JavaScript value to a SQLite-compatible type.
- * Handles null, Date, boolean, number, and string conversion.
- * Numeric strings are converted to numbers; empty strings become null.
+ * Coerces a JavaScript value to a SQLite-compatible string value.
+ * All values stored as strings. Conversion rules:
+ * - null/undefined → null
+ * - Date → ISO string truncated to seconds (YYYY-MM-DDTHH:mm:ss)
+ * - boolean → '1' / '0'
+ * - number → String(v)
+ * - string → trimmed; empty strings become null
+ * Numeric strings stay as strings (no Number conversion).
  * @param v - The value to coerce
- * @returns A value safe for SQLite parameter binding
+ * @returns A string value safe for SQLite parameter binding, or null
  */
-function coerceForSQL(v: unknown): string | number | null {
+function coerceForSQL(v: unknown): string | null {
   if (v == null) return null;
   if (v instanceof Date) return v.toISOString().slice(0, 19);
-  if (typeof v === 'boolean') return v ? 1 : 0;
-  if (typeof v === 'number') return v;
+  if (typeof v === 'boolean') return v ? '1' : '0';
+  if (typeof v === 'number') return String(v);
   const s = String(v).trim();
-  const n = Number(s);
-  if (s !== '' && !isNaN(n)) return n;
   return s || null;
 }
 

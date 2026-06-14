@@ -119,7 +119,7 @@ describe('engine', () => {
 
     it('should throw if no base table', () => {
       const s = spec({
-        pipeline: { base: '', baseCols: null, stacks: [], lookups: [], calculatedColumns: [], detailBands: [] },
+        pipeline: { base: '', baseCols: [], stacks: [], lookups: [], calculatedColumns: [], detailBands: [] },
       });
       expect(() => runReport(s, ordersTables())).toThrow();
     });

@@ -53,12 +53,14 @@ export function hydrateState(
     brokenRefs.push(`Primary sheet "${savedBase || '(none)'}" is not loaded`);
   }
 
+  if (baseLoaded) {
+    next.baseCols = [...loadedTables[savedBase].cols];
+  }
+
   if (Array.isArray(payload.baseCols)) {
     const dropped = baseLoaded ? payload.baseCols.filter((c: string) => !loadedTables[savedBase].cols.includes(c)) : [];
     if (dropped.length) brokenRefs.push(`Base columns not available: ${dropped.join(', ')}`);
     next.baseCols = [...payload.baseCols];
-  } else {
-    next.baseCols = null;
   }
 
   // ── Stacked tables ────────────────────────────────────────────────────────────
@@ -181,17 +183,17 @@ export function hydrateState(
   // ── Selected columns ──────────────────────────────────────────────────────────
 
   const available = nextAvailableCols();
+  next.selCols = new Set(available);
 
-  if (payload.selCols === null) {
-    next.selCols = null;
-  } else if (Array.isArray(payload.selCols)) {
+  if (Array.isArray(payload.selCols)) {
     const dropped = baseLoaded ? payload.selCols.filter((c: string) => !available.has(c)) : [];
     if (dropped.length) brokenRefs.push(`Selected columns not available: ${dropped.join(', ')}`);
     next.selCols = new Set(payload.selCols);
-  } else {
-    next.selCols = null;
   }
-  next.colOrder = Array.isArray(payload.colOrder) ? [...payload.colOrder] : null;
+  next.colOrder = [...available];
+  if (Array.isArray(payload.colOrder)) {
+    next.colOrder = [...payload.colOrder];
+  }
 
   // ── Filters ───────────────────────────────────────────────────────────────────
 
@@ -269,7 +271,7 @@ export function hydrateState(
     const rawSubtotals = raw.subtotals && typeof raw.subtotals === 'object' ? raw.subtotals : null;
     next.aggModeState = {
       none: rawNone ? {
-        selCols: Array.isArray(rawNone.selCols) ? [...rawNone.selCols] : null,
+        selCols: Array.isArray(rawNone.selCols) ? [...rawNone.selCols] : [],
       } : null,
       group: rawGroup ? {
         groupBy:    Array.isArray(rawGroup.groupBy) ? [...rawGroup.groupBy] : [],
@@ -278,11 +280,11 @@ export function hydrateState(
           : [],
       } : null,
       totals: rawTotals ? {
-        selCols:   Array.isArray(rawTotals.selCols) ? [...rawTotals.selCols] : null,
+        selCols:   Array.isArray(rawTotals.selCols) ? [...rawTotals.selCols] : [],
         colTotals: rawTotals.colTotals && typeof rawTotals.colTotals === 'object' ? { ...rawTotals.colTotals } : {},
       } : null,
       subtotals: rawSubtotals ? {
-        selCols:          Array.isArray(rawSubtotals.selCols) ? [...rawSubtotals.selCols] : null,
+        selCols:          Array.isArray(rawSubtotals.selCols) ? [...rawSubtotals.selCols] : [],
         subtotalBy:       Array.isArray(rawSubtotals.subtotalBy) ? [...rawSubtotals.subtotalBy] : [],
         subtotalFns:      rawSubtotals.subtotalFns && typeof rawSubtotals.subtotalFns === 'object' ? { ...rawSubtotals.subtotalFns } : {},
         subtotalGrandTotal: rawSubtotals.subtotalGrandTotal !== false,
@@ -361,7 +363,7 @@ export function hydrateState(
         return { left: p.left || '', right: p.right || '' };
       });
 
-      const cols = Array.isArray(band.cols) ? band.cols.filter((c: string) => rt.cols.includes(c)) : [...rt.cols];
+      const cols = Array.isArray(band.cols) ? band.cols.filter((c: string) => rt.cols.includes(c)) : [];
       const droppedCols = Array.isArray(band.cols) ? band.cols.filter((c: string) => !rt.cols.includes(c)) : [];
       if (droppedCols.length) brokenRefs.push(`Detail band "${band.label || band.id}" columns not available: ${droppedCols.join(', ')}`);
 
@@ -382,12 +384,19 @@ export function hydrateState(
       });
     }
   }
-  // Backward compatibility: old .rcjson without detailBands loads with empty array
-  // (handled by the Array.isArray check above — if payload.detailBands is undefined, the loop is skipped)
-
   // ── Detail band mode ───────────────────────────────────────────────────────────
 
   next.detailBandMode = payload.detailBandMode === 'stack' ? 'stack' : 'separate';
+
+  // ── Column type overrides ─────────────────────────────────────────
+  next.columnTypeOverrides = {};
+  if (payload.columnTypeOverrides && typeof payload.columnTypeOverrides === 'object') {
+    for (const [tid, cols] of Object.entries(payload.columnTypeOverrides)) {
+      if (cols && typeof cols === 'object') {
+        next.columnTypeOverrides[tid] = { ...(cols as Record<string, string>) };
+      }
+    }
+  }
 
   return { next, brokenRefs, nextExcludedRows };
 }

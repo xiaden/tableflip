@@ -50,7 +50,9 @@ export interface PublishedOutput {
  * @returns Object with columns and filtered rows
  */
 function createResultTable(resultSet: ResultSet): { columns: string[]; rows: Record<string, unknown>[] } {
-  const cols = (resultSet.metadata && resultSet.metadata.displayCols) || resultSet.columns;
+  const cols = (resultSet.metadata && resultSet.metadata.displayCols.length > 0)
+    ? resultSet.metadata.displayCols
+    : resultSet.columns;
 
   // Ensure _band_id is included in published columns for downstream consumers.
   // displayCols may omit _band_id (it's an internal tagging column filtered from

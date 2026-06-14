@@ -33,8 +33,8 @@ export interface SourcePlan {
   base: string;
   /** Stacked (union) table IDs. */
   stacks: string[];
-  /** Base column aliases, or null to use all base columns. */
-  baseCols: string[] | null;
+  /** Base column aliases; empty array means use all base columns. */
+  baseCols: string[];
   /** Excluded row indices per table (currently unused in plan). */
   excludedRows: Record<string, Set<number>>;
   /** Table metadata keyed by table ID. */
@@ -161,9 +161,11 @@ export function buildQueryPlan(
     stacks: (reportSpec.pipeline.stacks || []).filter(
       (id: string) => tablesById.has(id),
     ),
-    baseCols: reportSpec.pipeline.baseCols ?? (tablesById.has(reportSpec.pipeline.base)
-      ? tablesById.get(reportSpec.pipeline.base)!.cols
-      : null),
+    baseCols: reportSpec.pipeline.baseCols.length > 0
+      ? reportSpec.pipeline.baseCols
+      : (tablesById.has(reportSpec.pipeline.base)
+        ? tablesById.get(reportSpec.pipeline.base)!.cols
+        : []),
     excludedRows: {},
     tablesById,
   };
@@ -206,7 +208,7 @@ export function buildQueryPlan(
     ? aggregates.map(a => a.alias).filter(Boolean)
     : [];
   const colOrder = reportSpec.outputColumns;
-  const orderedAliases = colOrder && colOrder.length > 0
+  const orderedAliases = colOrder.length > 0
     ? colOrder.filter(a => colMap.has(a) || aggAliases.includes(a))
     : [...colMap.keys(), ...aggAliases];
   const selectedColumns = orderedAliases;

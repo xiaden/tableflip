@@ -42,20 +42,20 @@ State flows through distinct phases: **creation** (defaults) → **loading** (fi
   1. **`loadState(file, store)`** — FileReader → JSON.parse → `isRecognizableConfig(payload)` check → version check → loads current `tables` from store → calls `hydrateState()` → calls `applyState()`.
   2. **`hydrateState(payload, loadedTables)`** — Pure function. Builds a `sourceCatalog`, then validates every reference (base, stacks, lookups, calc stages, filters, sorts, group-by, aggregates, totals, subtotals, detail bands) against loaded tables, producing `{ next, brokenRefs, nextExcludedRows }`. Broken refs are **reported but not blocking** — the user can see/fix them.
   3. **`applyState(next, nextExcludedRows)`** — Writes to the store via `store.update()`, then calls `invalidateValidation()` and `resetLayoutSelection()`.
-- **Why it matters:** The loader never directly mutates the store — it builds a `next` object and applies atomically. `brokenRefs` are string warnings, not thrown errors. The version check in `loadState` is best-effort (not blocking).
+- **Why it matters:** The loader never directly mutates the store — it builds a `next` object and applies atomically. `brokenRefs` are string warnings, not thrown errors. The version check in `loadState` rejects mismatched versions.
 
 ### 4. Serializer: Store → .rcjson Payload
 
 - **Location:** `SRC/preact/core/state-serializer.ts`
 - **What:** `buildPayload(state)` converts the entire `AppState` to a plain JSON-serializable object. `Set→array` conversions for `selCols` and `excludedRows`. `saveState()` is the UI entry point — reads state, syncs agg mode state, prompts user, triggers download.
 - **Why it matters:** `saveActiveAggModeState()` and `ensureAggModeState()` are called **before** serialization to persist the current aggregation mode's UI state into `aggModeState`. Deep clones on nested objects prevent reference sharing.
-- **Invariant:** Payload includes `v: STATE_VERSION` (currently `2`). If version changes during format migration, `STATE_VERSION` in `state-schema.ts` is incremented.
+- **Invariant:** Payload includes `v: STATE_VERSION` (currently `2`).
 
 ### 5. State Schema Versioning
 
 - **Location:** `SRC/preact/core/state-schema.ts`
 - **What:** `STATE_VERSION = 2`. `RECOGNIZABLE_KEYS` list. `isRecognizableConfig(payload)` checks the payload is an object with >= 2 of the recognizable keys.
-- **Why it matters:** This is a heuristic guard, not a rigorous schema validator. It distinguishes .rcjson files from arbitrary JSON. The version check in `loadState` is a warning, not a rejection — stale files are loaded best-effort.
+- **Why it matters:** This is a heuristic guard, not a rigorous schema validator. It distinguishes .rcjson files from arbitrary JSON. The version check in `loadState` rejects mismatched versions with an error.
 
 ### 6. Validation Cache and Invalidation Protocol
 
@@ -123,7 +123,6 @@ State flows through distinct phases: **creation** (defaults) → **loading** (fi
 7. **Agg mode state is opaque JSON** — `aggModeState` has no schema enforcement. Only `ui/aggregation.ts` knows how to read/write its shape.
 8. **SQL identifiers always quoted** — use `quoteId()` from `sqldb.ts`, never concatenate identifiers directly.
 9. **State and SQLite DB are separate concerns** — state holds metadata/config, SQLite holds data rows. `ingestSheet()` is the bridge that keeps them consistent.
-10. **`STATE_VERSION` increments only on format migration** — the version check in `loadState` is a warning, not a rejection.
 
 ## Investigation Entrypoints
 
@@ -156,9 +155,8 @@ State flows through distinct phases: **creation** (defaults) → **loading** (fi
 ## Proven Pitfalls
 
 - **SSR / test environments:** `saveState()` accesses `window.prompt` and `document.createElement` — guard with `typeof window !== 'undefined'` (done). `toast()` accesses the DOM — must not be called in non-browser contexts.
-- **Dynamic imports in `utils.ts`:** `loadColSourceMap()` and `loadRenameProjectedAliasRefs()` use dynamic `import()` for phase-2 modules (catalog/query layers) to avoid circular dependencies at compile time. If these modules are not loadable (e.g., build config issue), column renaming will silently fail.
 - **`_seenCols` global set:** Accumulates across config loads — `resetLayoutSelection()` clears it, but if a code path skips this call, columns from previous configs remain "seen" and affect auto-selection behavior.
-- **No strict validation:** Hydration does not enforce that every required field exists — missing fields get defaults. `isRecognizableConfig` is a heuristic (>=2 keys), not a JSON Schema. Corrupted .rcjson files load best-effort.
+- **No strict validation:** Hydration does not enforce that every required field exists — missing fields get defaults. `isRecognizableConfig` is a heuristic (>=2 keys), not a JSON Schema.
 
 ## Sources
 

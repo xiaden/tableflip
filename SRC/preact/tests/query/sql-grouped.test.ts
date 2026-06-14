@@ -80,7 +80,7 @@ describe('sql-grouped', () => {
 
     it('should throw if no base table', () => {
       const spec = makeReportSpec({
-        pipeline: { base: '', baseCols: null, stacks: [], lookups: [], calculatedColumns: [] },
+        pipeline: { base: '', baseCols: [], stacks: [], lookups: [], calculatedColumns: [] },
       });
       expect(() => buildGroupedQuery(spec, colMap, sourceCatalog)).toThrow('No base table');
     });

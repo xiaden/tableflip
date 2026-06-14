@@ -622,7 +622,7 @@ export function deriveValidation(
       `Output column "${col}" is no longer available`,
       { missingColumn: col },
     )];
-    const inSelCols = state.selCols instanceof Set ? state.selCols.has(col) : true;
+    const inSelCols = state.selCols.size > 0 ? state.selCols.has(col) : true;
     mkItem(`colorder_${col}`, inSelCols, false, issues);
   }
 

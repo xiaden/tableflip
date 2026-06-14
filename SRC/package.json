@@ -11,7 +11,9 @@
     "lint": "eslint preact/",
     "test": "vitest run",
     "test:watch": "vitest",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "docs": "typedoc",
+    "docs:watch": "typedoc --watch"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",
@@ -21,6 +23,7 @@
     "eslint": "^10.5.0",
     "jsdom": "^29.1.1",
     "tsx": "^4.19.0",
+    "typedoc": "^0.28.19",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.61.0",
     "vitest": "^4.1.8"

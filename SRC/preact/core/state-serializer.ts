@@ -31,7 +31,7 @@ export function buildPayload(state: AppState): Record<string, unknown> {
   return {
     v:            STATE_VERSION,
     base:         state.base,
-    baseCols:     state.baseCols ? [...state.baseCols] : null,
+    baseCols:     [...state.baseCols],
     stacks:       [...(state.stacks || [])],
     lookups:      (state.lookups || []).map(l => ({
       rightId:  l.rightId,
@@ -50,8 +50,8 @@ export function buildPayload(state: AppState): Record<string, unknown> {
       ...(c.text ? { text: JSON.parse(JSON.stringify(c.text)) } : {}),
       ...(c.date ? { date: JSON.parse(JSON.stringify(c.date)) } : {}),
     })),
-    selCols:      state.selCols ? [...state.selCols] : null,
-    colOrder:     state.colOrder ? [...state.colOrder] : null,
+    selCols:      [...state.selCols],
+    colOrder:     [...state.colOrder],
     filters:      state.filters.map(f => ({
       col:     f.col  || '',
       op:      f.op   || 'contains',
@@ -80,12 +80,13 @@ export function buildPayload(state: AppState): Record<string, unknown> {
       id:        b.id || '',
       rightId:   b.rightId || '',
       keyPairs:  (b.keyPairs || []).map(p => ({ left: p.left || '', right: p.right || '' })),
-      cols:      [...(b.cols || [])],
+      cols:      [...b.cols],
       enabled:   b.enabled !== false,
       sorts:     (b.sorts || []).map(s => ({ col: s.col || '', dir: s.dir === 'DESC' ? 'DESC' : 'ASC', enabled: s.enabled !== false })),
       label:     typeof b.label === 'string' ? b.label : '',
     })),
     detailBandMode: state.detailBandMode || 'separate',
+    columnTypeOverrides: JSON.parse(JSON.stringify(state.columnTypeOverrides || {})),
   };
 }
 

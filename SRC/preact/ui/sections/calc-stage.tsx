@@ -14,13 +14,13 @@ import { buildReportSpecFromState } from '../../core/state';
 import { colUserLabel } from '../../core/utils';
 import { buildColSourceMap, projectedCols } from '../../catalog/column-catalog';
 import { buildSourceCatalog } from '../../catalog/source-catalog';
-import { _renameProjectedAliasRefs } from '../../query/alias-ref-updater';
 import {
   _isAliasVisibleInLayout,
   _afterCombineChange,
   _disabledCardCols,
 } from '../../query/layout-selection';
 import { getValidation } from '../../report/validation';
+import { renameCalcAlias } from '../../core/alias-rename';
 import { Chip } from '../components/chip';
 import { Tip } from '../components/tip';
 import { ContextMenu, type CtxMenuItem } from '../components/context-menu';
@@ -98,11 +98,8 @@ export function CalcStageSection({ i }: CalcStageProps) {
   }, [i, calc.enabled, updateCalc]);
 
   const handleAliasChange = useCallback((val: string) => {
-    const oldAlias = (calc.alias || '').trim();
-    updateCalc(calcDraft => { calcDraft.alias = val; });
-    const newAlias = val.trim();
-    if (oldAlias && newAlias && oldAlias !== newAlias) _renameProjectedAliasRefs(oldAlias, newAlias);
-  }, [i, calc.alias, updateCalc]);
+    renameCalcAlias(i, val);
+  }, [i]);
 
   const handleModeChange = useCallback((newMode: CalcMode) => {
     updateCalc(calcDraft => {

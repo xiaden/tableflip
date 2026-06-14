@@ -13,12 +13,12 @@ export function createAppState(overrides?: Partial<AppState>): AppState {
     tableColors: {},
     columnLabels: {},
     base: '',
-    baseCols: null,
+    baseCols: [],
     stacks: [],
     lookups: [],
     calcStages: [],
-    selCols: null,
-    colOrder: null,
+    selCols: new Set(),
+    colOrder: [],
     filters: [],
     groupBy: [],
     aggregates: [],
@@ -40,6 +40,7 @@ export function createAppState(overrides?: Partial<AppState>): AppState {
     previewTableId: null,
     detailBands: [],
     detailBandMode: 'separate',
+    columnTypeOverrides: {},
   }, overrides || {});
 }
 
@@ -75,13 +76,13 @@ export function createReportSpec(overrides?: Partial<ReportSpec>): ReportSpec {
     enabled: true,
     pipeline: {
       base: '',
-      baseCols: null,
+      baseCols: [],
       stacks: [],
       lookups: [],
       calculatedColumns: [],
       detailBands: [],
     },
-    outputColumns: null,
+    outputColumns: [],
     filters: [],
     sorts: [],
     aggregation: {

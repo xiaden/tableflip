@@ -452,6 +452,9 @@ export function runDetailBandsMode(
       }
     }
 
+    // Skip bands with no columns selected — nothing to display
+    if (bandColMap.size === 0) continue;
+
     // Extract deduplicated parent key values
     const pairs = (band.keyPairs || []).filter(p => p.left && p.right);
     if (pairs.length === 0) continue;
@@ -521,6 +524,21 @@ export function runDetailBandsMode(
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
+
+/**
+ * Execute a preview query and return raw result rows.
+ *
+ * Thin wrapper around {@link execQuery} that keeps SQL execution inside
+ * the engine module. Used by {@link buildPreview} for lightweight preview
+ * queries that don't need full {@link ResultSet} construction.
+ *
+ * @param sql    - The SQL query string.
+ * @param params - Optional positional parameters for the query.
+ * @returns Array of row objects with column names as keys.
+ */
+export function runPreviewQuery(sql: string, params?: unknown[]): Record<string, unknown>[] {
+  return execQuery(sql, params);
+}
 
 /**
  * Run a report — the main entry point for report execution.

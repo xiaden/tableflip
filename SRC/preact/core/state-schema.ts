@@ -1,6 +1,5 @@
 /**
  * State schema version — increment when the saved config format changes.
- * Used by the state loader to detect stale or incompatible .rcjson files.
  */
 export const STATE_VERSION = 2;
 

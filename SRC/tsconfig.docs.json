@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.json",
+  "exclude": ["node_modules", "../preact-dev", "../pkg", "preact/tests", "**/*.test.ts", "**/*.test.tsx", "**/vitest.config.ts"]
+}

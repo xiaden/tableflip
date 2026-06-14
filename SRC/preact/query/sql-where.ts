@@ -5,11 +5,11 @@
  * - Filters in the array are ANDed together
  * - Multiple values within a single filter (vals) are ORed
  * - Column aliases are resolved via colMap
- * - Numeric hint derived from colMap entry kind/mode
+ * - Column-type-aware filter SQL generation via getColumnType()
  */
 
-import type { FilterSpec } from '../types';
-import type { ColMapEntry } from '../catalog/column-catalog';
+import type { FilterSpec, ColumnType } from '../types';
+import type { ColMapEntry, PhysicalColEntry } from '../catalog/column-catalog';
 import { resolveRef } from './resolve-ref';
 
 // ── Types ───────────────────────────────────────────────────────────────────────
@@ -20,13 +20,6 @@ export interface WhereResult {
   where: string;
   /** Parameterized values in order of appearance. */
   params: unknown[];
-}
-
-/** Grid column metadata entry used for quoting hints. */
-export interface ColStateEntry {
-  type?: string;
-  numericHint?: boolean;
-  [key: string]: unknown;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────────
@@ -49,17 +42,45 @@ function isDisabled(f: FilterSpec): boolean {
   return f.enabled === false;
 }
 
-/** Check if the column is a numeric calc column (math mode). */
-function isNumericCalc(alias: string, colMap: Map<string, ColMapEntry>): boolean {
+/**
+ * Derive ColumnType for a column alias from the colMap.
+ *
+ * Resolution priority:
+ * 1. `_rowno` / `_ROWNO` → `'number'` (synthetic internal column)
+ * 2. Alias not found in colMap → `'string'` (safe default)
+ * 3. Calc entry (kind === 'calc') → derived from mode:
+ *    - `'math'` → `'number'`
+ *    - `'date'` → `'date'`
+ *    - `'text'` / `'compare'` → `'string'`
+ * 4. Physical or band entry → returns `entry.colType` if present, else `'string'`
+ */
+function getColumnType(alias: string, colMap: Map<string, ColMapEntry>): ColumnType {
+  if (alias === '_rowno' || alias === '_ROWNO') return 'number';
   const entry = colMap.get(alias);
-  return entry?.kind === 'calc' && entry.mode === 'math';
+  if (!entry) return 'string';
+  if (entry.kind === 'calc') {
+    if (entry.mode === 'math') return 'number';
+    if (entry.mode === 'date') return 'date';
+    return 'string';
+  }
+  // Physical or band entry — use colType metadata if present
+  const colType = (entry as PhysicalColEntry).colType;
+  return colType ?? 'string';
 }
 
 // ── Single-clause rendering ─────────────────────────────────────────────────────
 
 /**
  * Render a single filter operator clause.
- * Handles the operator-specific SQL generation logic.
+ *
+ * Uses `colType` (replaces the old `numericHint`) to select the correct
+ * CAST expression for each operator:
+ * - `'number'` / `'boolean'` → CAST(ref AS REAL) with numeric params
+ * - `'date'` → CAST(ref AS TEXT) with string params
+ * - `'string'` → CAST(ref AS TEXT) for comparisons, raw ref for IN/NOT IN
+ *
+ * @param colType - Column type driving CAST expression selection.
+ *   Replaces the pre-feature `numericHint: boolean` parameter.
  */
 function renderClause(
   op: string,
@@ -67,7 +88,7 @@ function renderClause(
   num: string,
   val: string,
   params: unknown[],
-  numericHint: boolean,
+  colType: ColumnType,
   alias: string,
   colMap: Map<string, ColMapEntry>,
 ): string | null {
@@ -75,7 +96,7 @@ function renderClause(
   const numVal = Number(normVal.replace(/,/g, ''));
   const hasNumericVal = normVal !== '' && Number.isFinite(numVal);
 
-  // Normalize legacy operator names to canonical forms
+  // Translate operator names to SQL forms
   const normalizedOp = op === 'equals' ? '='
     : op === 'not equals' ? '!='
     : op === 'starts with' ? 'starts_with'
@@ -86,15 +107,39 @@ function renderClause(
 
   switch (normalizedOp) {
     case '=':
-      if (numericHint && hasNumericVal) { params.push(numVal); return `${num} = ?`; }
+      if ((colType === 'number' || colType === 'boolean') && hasNumericVal) { params.push(numVal); return `${num} = ?`; }
       params.push(val); return `${txt} = ?`;
     case '!=':
-      if (numericHint && hasNumericVal) { params.push(numVal); return `${num} != ?`; }
+      if ((colType === 'number' || colType === 'boolean') && hasNumericVal) { params.push(numVal); return `${num} != ?`; }
       params.push(val); return `${txt} != ?`;
-    case '>':   params.push(+val || 0); return `${num} > ?`;
-    case '<':   params.push(+val || 0); return `${num} < ?`;
-    case '>=':  params.push(+val || 0); return `${num} >= ?`;
-    case '<=':  params.push(+val || 0); return `${num} <= ?`;
+    case '>':
+      if (colType === 'number' || colType === 'boolean') {
+        params.push(+normVal || 0);
+        return `${num} > ?`;
+      }
+      params.push(normVal);
+      return `${txt} > ?`;
+    case '<':
+      if (colType === 'number' || colType === 'boolean') {
+        params.push(+normVal || 0);
+        return `${num} < ?`;
+      }
+      params.push(normVal);
+      return `${txt} < ?`;
+    case '>=':
+      if (colType === 'number' || colType === 'boolean') {
+        params.push(+normVal || 0);
+        return `${num} >= ?`;
+      }
+      params.push(normVal);
+      return `${txt} >= ?`;
+    case '<=':
+      if (colType === 'number' || colType === 'boolean') {
+        params.push(+normVal || 0);
+        return `${num} <= ?`;
+      }
+      params.push(normVal);
+      return `${txt} <= ?`;
     case 'contains':
       params.push('%' + likeEsc(val) + '%');
       return `${txt} LIKE ? ESCAPE '\\'`;
@@ -108,17 +153,28 @@ function renderClause(
       if (!normVal) return null;
       const vals = normVal.split(',').map(v => v.trim()).filter(Boolean);
       if (!vals.length) return null;
-      const allNumeric = numericHint && vals.every(v => {
-        const n = Number(v.replace(/,/g, ''));
-        return v !== '' && Number.isFinite(n);
-      });
       const ref = resolveRef(alias, colMap);
-      if (allNumeric) {
-        const numVals = vals.map(v => Number(v.replace(/,/g, '')));
-        params.push(...numVals);
-        const placeholders = numVals.map(() => '?').join(', ');
-        return `CAST(${ref} AS REAL) IN (${placeholders})`;
+      if (colType === 'number' || colType === 'boolean') {
+        const allNumeric = vals.every(v => {
+          const n = Number(v.replace(/,/g, ''));
+          return v !== '' && Number.isFinite(n);
+        });
+        if (allNumeric) {
+          const numVals = vals.map(v => Number(v.replace(/,/g, '')));
+          params.push(...numVals);
+          const placeholders = numVals.map(() => '?').join(', ');
+          return `CAST(${ref} AS REAL) IN (${placeholders})`;
+        }
+        params.push(...vals);
+        const placeholders = vals.map(() => '?').join(', ');
+        return `${ref} IN (${placeholders})`;
       }
+      if (colType === 'date') {
+        params.push(...vals);
+        const placeholders = vals.map(() => '?').join(', ');
+        return `CAST(${ref} AS TEXT) IN (${placeholders})`;
+      }
+      // string (default)
       params.push(...vals);
       const placeholders = vals.map(() => '?').join(', ');
       return `${ref} IN (${placeholders})`;
@@ -127,17 +183,28 @@ function renderClause(
       if (!normVal) return null;
       const vals = normVal.split(',').map(v => v.trim()).filter(Boolean);
       if (!vals.length) return null;
-      const allNumeric = numericHint && vals.every(v => {
-        const n = Number(v.replace(/,/g, ''));
-        return v !== '' && Number.isFinite(n);
-      });
       const ref = resolveRef(alias, colMap);
-      if (allNumeric) {
-        const numVals = vals.map(v => Number(v.replace(/,/g, '')));
-        params.push(...numVals);
-        const placeholders = numVals.map(() => '?').join(', ');
-        return `CAST(${ref} AS REAL) NOT IN (${placeholders})`;
+      if (colType === 'number' || colType === 'boolean') {
+        const allNumeric = vals.every(v => {
+          const n = Number(v.replace(/,/g, ''));
+          return v !== '' && Number.isFinite(n);
+        });
+        if (allNumeric) {
+          const numVals = vals.map(v => Number(v.replace(/,/g, '')));
+          params.push(...numVals);
+          const placeholders = numVals.map(() => '?').join(', ');
+          return `CAST(${ref} AS REAL) NOT IN (${placeholders})`;
+        }
+        params.push(...vals);
+        const placeholders = vals.map(() => '?').join(', ');
+        return `${ref} NOT IN (${placeholders})`;
       }
+      if (colType === 'date') {
+        params.push(...vals);
+        const placeholders = vals.map(() => '?').join(', ');
+        return `CAST(${ref} AS TEXT) NOT IN (${placeholders})`;
+      }
+      // string (default)
       params.push(...vals);
       const placeholders = vals.map(() => '?').join(', ');
       return `${ref} NOT IN (${placeholders})`;
@@ -165,13 +232,13 @@ function renderFilter(
 ): string | null {
   if (!f.col) return null;
 
-  const numericHint = isNumericCalc(f.col, colMap);
+  const colType = getColumnType(f.col, colMap);
   const { txt, num } = columnRefs(f.col, colMap);
   const filterVals = Array.isArray(f.vals) && f.vals.length > 0 ? f.vals : [''];
 
   const orParts: string[] = [];
   for (const v of filterVals) {
-    const clause = renderClause(f.op, txt, num, String(v ?? ''), params, numericHint, f.col, colMap);
+    const clause = renderClause(f.op, txt, num, String(v ?? ''), params, colType, f.col, colMap);
     if (clause) orParts.push(clause);
   }
 
@@ -187,15 +254,12 @@ function renderFilter(
  * @param filters - Array of FilterSpec objects. All enabled filters are ANDed together.
  *   Within each filter, multiple values in `vals` are ORed.
  * @param colMap  - Column alias → source mapping (from buildColumnCatalog or buildColSourceMap).
- * @param colState - Optional grid column metadata for type hints (currently unused but
- *   reserved for future column-type-aware SQL generation).
  * @returns `{ where, params }` — the WHERE clause body (without the WHERE keyword) and
  *   parameterized values.
  */
 export function buildWhere(
   filters: FilterSpec[],
   colMap: Map<string, ColMapEntry>,
-  _colState?: Record<string, ColStateEntry> | null,
 ): WhereResult {
   if (!filters || filters.length === 0) return { where: '', params: [] };
 

@@ -18,10 +18,10 @@ import type { AggMode, AggregateSpec } from '../types';
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
-function _selColsToArray(selCols: unknown): string[] | null {
+function _selColsToArray(selCols: unknown): string[] {
   if (selCols instanceof Set) return [...selCols];
   if (Array.isArray(selCols)) return [...selCols];
-  return null;
+  return [];
 }
 
 export function _readAggModeState(mode: string): Record<string, unknown> {
@@ -121,7 +121,7 @@ export function loadAggModeState(mode: string): void {
 
     if (mode === 'group') {
       if ('selCols' in savedState) {
-        draft.selCols = Array.isArray(savedState.selCols) ? new Set(savedState.selCols as string[]) : null;
+        draft.selCols = Array.isArray(savedState.selCols) ? new Set(savedState.selCols as string[]) : new Set();
       }
       draft.groupBy = Array.isArray(savedState.groupBy) ? [...savedState.groupBy as string[]] : [];
       draft.aggregates = Array.isArray(savedState.aggregates) ? (savedState.aggregates as AggregateSpec[]).map(a => ({ ...a })) : [];
@@ -129,14 +129,14 @@ export function loadAggModeState(mode: string): void {
     }
     if (mode === 'totals') {
       if ('selCols' in savedState) {
-        draft.selCols = Array.isArray(savedState.selCols) ? new Set(savedState.selCols as string[]) : null;
+        draft.selCols = Array.isArray(savedState.selCols) ? new Set(savedState.selCols as string[]) : new Set();
       }
       draft.colTotals = savedState.colTotals && typeof savedState.colTotals === 'object' ? { ...savedState.colTotals as Record<string, string> } : {};
       return;
     }
     if (mode === 'subtotals') {
       if ('selCols' in savedState) {
-        draft.selCols = Array.isArray(savedState.selCols) ? new Set(savedState.selCols as string[]) : null;
+        draft.selCols = Array.isArray(savedState.selCols) ? new Set(savedState.selCols as string[]) : new Set();
       }
       draft.subtotalBy = Array.isArray(savedState.subtotalBy) ? [...savedState.subtotalBy as string[]] : [];
       draft.subtotalFns = savedState.subtotalFns && typeof savedState.subtotalFns === 'object' ? { ...savedState.subtotalFns as Record<string, string> } : {};
@@ -148,7 +148,7 @@ export function loadAggModeState(mode: string): void {
     }
     // 'none' mode
     if ('selCols' in savedState) {
-      draft.selCols = Array.isArray(savedState.selCols) ? new Set(savedState.selCols as string[]) : null;
+      draft.selCols = Array.isArray(savedState.selCols) ? new Set(savedState.selCols as string[]) : new Set();
     }
   });
 }

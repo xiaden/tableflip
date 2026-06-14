@@ -22,7 +22,7 @@ UI components may import from any other layer, but the flow must be unidirection
 
 - **Core layer** (`../core/`) — `getStore`, utilities (`colUserLabel`, `tableShortName`, `toast`, `dl`, etc.), state helpers (`buildReportSpecFromState`, `setColLabel`), SQLite (`dropTable`, `quoteId`, `execQuery`)
 - **Catalog layer** (`../catalog/`) — `buildColSourceMap`, `projectedCols`, `buildSourceCatalog` (display-only — column metadata for rendering)
-- **Query layer** (`../query/`) — `_afterCombineChange`, `_previewOpen`, `_showLayoutAliasesForSource`, `_hideLayoutAliasesForSource`, `_renameProjectedAliasRefs`
+- **Query layer** (`../query/`) — `_afterCombineChange`, `_previewOpen`, `_showLayoutAliasesForSource`, `_hideLayoutAliasesForSource`
 - **Report layer** (`../report/`) — `getValidation`, `invalidateValidation`, `runReport`, aggregation constants
 
 **Never import** from `ui/` into any other layer — UI is the top of the dependency chain.

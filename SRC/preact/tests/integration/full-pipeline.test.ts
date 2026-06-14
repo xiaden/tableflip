@@ -36,13 +36,13 @@ function spec(overrides: Partial<ReportSpec> = {}): ReportSpec {
     enabled: true,
     pipeline: {
       base: 'Orders',
-      baseCols: null,
+      baseCols: [],
       stacks: [],
       lookups: [],
       calculatedColumns: [],
       detailBands: [],
     },
-    outputColumns: null,
+    outputColumns: [],
     filters: [],
     sorts: [],
     aggregation: {
@@ -192,7 +192,7 @@ describe('Integration: Full Pipeline', () => {
       const s = spec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [{
             rightId: 'ContactsPivot',
@@ -241,7 +241,7 @@ describe('Integration: Full Pipeline', () => {
       const s = spec({
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: [{

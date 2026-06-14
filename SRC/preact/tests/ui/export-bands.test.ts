@@ -735,7 +735,7 @@ describe('styleExportSheet — band data row tint styling', () => {
     expect(fgColor.rgb).toBe('FFE2E8F0');
   });
 
-  it('works without bandIds parameter (backward compatibility)', () => {
+  it('works without bandIds parameter', () => {
     const ws = makeSheet([
       ['Col1'],
       ['Data'],

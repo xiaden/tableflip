@@ -30,7 +30,7 @@ export type { PhysicalColEntry, CalcColEntry, ColMapEntry } from './catalog/colu
 // ── Query Layer ───────────────────────────────────────────────────────────────
 
 export { buildWhere } from './query/sql-where';
-export type { WhereResult, ColStateEntry } from './query/sql-where';
+export type { WhereResult } from './query/sql-where';
 export { buildJoins } from './query/sql-joins';
 export type { JoinResult } from './query/sql-joins';
 export { renderAggregateExpr, buildAggregates } from './query/sql-aggregates';
@@ -51,7 +51,6 @@ export type { ResolvedLookup, DuplicateResult, ValidationIssue as LookupValidati
 export { buildQueryPlan } from './query/query-plan';
 export type { SourcePlan, JoinPlan, BuiltQueryPlan } from './query/query-plan';
 export { resolveRef } from './query/resolve-ref';
-export { _renameProjectedAliasRefs } from './query/alias-ref-updater';
 export { _seenCols, _previewOpen, _disabledCardCols, _sampleTipFor, _isSourceVisibleInLayout, _showLayoutAliasesForSource, _hideLayoutAliasesForSource, _hideLookupLayoutAliasesSafely, _isAliasVisibleInLayout, _syncSubtotalByToLayout, _afterCombineChange } from './query/layout-selection';
 
 // ── Report Layer ──────────────────────────────────────────────────────────────
@@ -68,8 +67,10 @@ export type { ReportNode, ReportGraph } from './report/report-graph';
 export { checkCalcError } from './report/calc-validator';
 export { invalidateValidation, getValidation, deriveValidation } from './report/validation';
 export type { ValidationIssue, ValidationItem, ValidationCard, ValidationResult } from './report/validation';
-export { runReport, RowExplosionError, STACK_ROW_LIMIT, buildBandChildIndex } from './report/engine';
+export { runReport, RowExplosionError, STACK_ROW_LIMIT, buildBandChildIndex, runPreviewQuery } from './report/engine';
 export type { BandChildIndex } from './report/engine';
+export { buildPreview } from './report/preview-builder';
+export type { PreviewResult } from './report/preview-builder';
 
 // ── UI Layer ──────────────────────────────────────────────────────────────────
 
@@ -121,6 +122,7 @@ export {
 
 export type {
   CalcMode,
+  ColumnType,
   AggMode,
   DbTable,
   LookupSpec,

@@ -62,7 +62,7 @@ describe('engine calc column execution', () => {
         sorts: [{ col: 'OrderId', dir: 'ASC', enabled: true }],
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: doubledAmountCalc(),
@@ -94,7 +94,7 @@ describe('engine calc column execution', () => {
         sorts: [{ col: 'OrderId', dir: 'ASC', enabled: true }],
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: compareCalc(),
@@ -135,7 +135,7 @@ describe('engine calc column execution', () => {
         },
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: doubledAmountCalc(),
@@ -182,7 +182,7 @@ describe('engine calc column execution', () => {
         },
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: doubledAmountCalc(),
@@ -237,7 +237,7 @@ describe('engine calc column execution', () => {
         },
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: compareCalc(),
@@ -279,7 +279,7 @@ describe('engine calc column execution', () => {
         },
         pipeline: {
           base: 'Orders',
-          baseCols: null,
+          baseCols: [],
           stacks: [],
           lookups: [],
           calculatedColumns: doubledAmountCalc(),

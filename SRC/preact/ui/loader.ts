@@ -9,6 +9,7 @@
  */
 
 import type { Store } from '../core/store';
+import type { ColumnType } from '../types';
 import { toast, stickyToast, stripExt, getTableColor } from '../core/utils';
 import { loadState } from '../core/state-loader';
 import { dropTable, createTable, insertRows, tableRowCount } from '../core/sqldb';
@@ -59,11 +60,154 @@ function expandMerges(ws: XLSXSheet): void {
 }
 
 /**
+ * Returns true if the given Excel format string contains date/time patterns.
+ * Checks for yyyy, yy, mm, dd, hh, ss (case-insensitive).
+ *
+ * @param z - The Excel format string to check
+ * @returns True if the string contains date/time patterns
+ */
+function isDateFormat(z: string): boolean {
+  return /yyyy|yy|mm|dd|hh|ss/i.test(z);
+}
+
+/**
+ * Maps a SheetJS cell type code to the application's ColumnType.
+ *
+ * @param t - The SheetJS cell type code ('n', 's', 'd', 'b', or other)
+ * @returns The corresponding ColumnType
+ */
+function sheetTypeToColumnType(t: string): ColumnType {
+  switch (t) {
+    case 'n': return 'number';
+    case 's': return 'string';
+    case 'd': return 'date';
+    case 'b': return 'boolean';
+    default:  return 'string';
+  }
+}
+
+/**
+ * Scans a dense XLSX worksheet to determine the majority cell type per column.
+ *
+ * Reads the header row (row 0) for column names, then iterates data rows (r >= 1)
+ * counting cell.t values per column. The type with the highest count wins; ties
+ * are broken by first-encountered type (insertion order). For majority-'n' columns,
+ * a date-format override reclassifies as 'date' if >50% of numeric cells carry
+ * date-like format strings (cell.z).
+ *
+ * Skips: _rowno column, cells with t === 'z' (stub), v == null (empty), t === 'e' (error).
+ *
+ * @param ws - The XLSX worksheet to scan
+ * @returns A record mapping column names to their detected ColumnType
+ */
+export function scanCellTypes(ws: XLSXSheet): Record<string, ColumnType> {
+  const dense: unknown[][] | null = Array.isArray(ws['!data'])
+    ? ws['!data'] as unknown[][]
+    : (Array.isArray(ws) ? ws : null);
+  if (!dense) return {};
+
+  // Row 0 = headers
+  const headerRow = dense[0] as Record<string, unknown>[] | undefined;
+  if (!headerRow || !headerRow.length) return {};
+
+  // Build column-index → column-name map
+  const colNames: string[] = [];
+  for (let c = 0; c < headerRow.length; c++) {
+    const cell = headerRow[c] as Record<string, unknown> | undefined;
+    if (cell && cell.v != null) {
+      colNames[c] = String(cell.v);
+    }
+  }
+
+  // Per-column type counters (Map preserves insertion order for tie-breaking)
+  const typeCounts: Map<number, Map<string, number>> = new Map();
+  // Per-column format counters for numeric cells
+  const fmtCounts: Map<number, Map<string, number>> = new Map();
+  // Per-column total numeric cell count (for date-format override denominator)
+  const numTotals: Map<number, number> = new Map();
+
+  const VALID_TYPES = new Set(['n', 's', 'd', 'b']);
+
+  for (let r = 1; r < dense.length; r++) {
+    const row = dense[r] as Record<string, unknown>[] | undefined;
+    if (!row) continue;
+    for (let c = 0; c < row.length; c++) {
+      const cell = row[c] as Record<string, unknown> | undefined;
+      if (!cell) continue;
+      if (cell.v == null) continue;
+      const t = cell.t as string | undefined;
+      if (!t || t === 'z' || t === 'e') continue;
+      if (!VALID_TYPES.has(t)) continue;
+
+      const colName = colNames[c];
+      if (!colName || colName === '_rowno') continue;
+
+      // Increment type counter
+      if (!typeCounts.has(c)) typeCounts.set(c, new Map());
+      const tc = typeCounts.get(c)!;
+      tc.set(t, (tc.get(t) ?? 0) + 1);
+
+      // Track format strings for numeric cells
+      if (t === 'n') {
+        numTotals.set(c, (numTotals.get(c) ?? 0) + 1);
+        const z = cell.z as string | undefined;
+        if (z) {
+          if (!fmtCounts.has(c)) fmtCounts.set(c, new Map());
+          const fc = fmtCounts.get(c)!;
+          fc.set(z, (fc.get(z) ?? 0) + 1);
+        }
+      }
+    }
+  }
+
+  // Determine majority type per column
+  const result: Record<string, ColumnType> = {};
+  for (const [c, tc] of typeCounts) {
+    const colName = colNames[c];
+    if (!colName || colName === '_rowno') continue;
+
+    // Majority vote — first-encountered type wins ties (Map iteration = insertion order)
+    let majorityType = '';
+    let majorityCount = 0;
+    for (const [t, count] of tc) {
+      if (count > majorityCount) {
+        majorityType = t;
+        majorityCount = count;
+      }
+    }
+
+    // Date-format override: if majority is 'n' and >50% of numeric cells have date-like formats
+    if (majorityType === 'n') {
+      const totalNum = numTotals.get(c) ?? 0;
+      if (totalNum > 0) {
+        let dateFmtCount = 0;
+        const fc = fmtCounts.get(c);
+        if (fc) {
+          for (const [fmt, count] of fc) {
+            if (isDateFormat(fmt)) {
+              dateFmtCount += count;
+            }
+          }
+        }
+        if (dateFmtCount > totalNum / 2) {
+          majorityType = 'd';
+        }
+      }
+    }
+
+    result[colName] = sheetTypeToColumnType(majorityType);
+  }
+
+  return result;
+}
+
+/**
  * Ingests a single worksheet from an XLSX workbook into SQLite and updates the store.
  *
- * Expands merged cells, converts to JSON, adds a `_rowno` column, creates the
- * SQLite table, inserts all rows, detects potential total/subtotal rows, collects
- * column value samples, and updates the reactive store with the new table metadata.
+ * Expands merged cells, scans cell types for column metadata, converts to JSON,
+ * adds a `_rowno` column, creates the SQLite table, inserts all rows, detects
+ * potential total/subtotal rows, collects column value samples, and updates the
+ * reactive store with the new table metadata.
  *
  * @param wb - The XLSX workbook containing the sheet
  * @param sheetName - Name of the sheet to ingest
@@ -75,6 +219,7 @@ export function ingestSheet(wb: XLSXWorkbook, sheetName: string, label: string, 
   if (!ws || !ws['!ref']) { toast('Empty sheet: ' + sheetName, 'err'); return; }
 
   expandMerges(ws);
+  const colTypes = scanCellTypes(ws);
 
   let rawData: Record<string, unknown>[];
   try {
@@ -149,7 +294,7 @@ export function ingestSheet(wb: XLSXWorkbook, sheetName: string, label: string, 
 
   store.update(draft => {
     draft.excludedRows[id] = new Set<number>();
-    draft.tables[id] = { id, name: label, cols, rowCount, samples };
+    draft.tables[id] = { id, name: label, cols, rowCount, samples, ...(Object.keys(colTypes).length ? { colTypes } : {}) };
     draft.tableColors[id] = color;
     if (!draft.base) draft.base = id;
   });

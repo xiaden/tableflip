@@ -132,7 +132,7 @@ describe('sql-where', () => {
       expect(result.params).toEqual([]);
     });
 
-    it('should handle legacy operator name "equals"', () => {
+    it('should handle operator "equals"', () => {
       const filters: FilterSpec[] = [
         { col: 'OrderId', op: 'equals', val: 'X', vals: ['X'] },
       ];
@@ -141,7 +141,7 @@ describe('sql-where', () => {
       expect(result.params).toEqual(['X']);
     });
 
-    it('should handle legacy operator name "not equals"', () => {
+    it('should handle operator "not equals"', () => {
       const filters: FilterSpec[] = [
         { col: 'OrderId', op: 'not equals', val: 'X', vals: ['X'] },
       ];
@@ -150,7 +150,7 @@ describe('sql-where', () => {
       expect(result.params).toEqual(['X']);
     });
 
-    it('should handle legacy operator name "starts with"', () => {
+    it('should handle operator "starts with"', () => {
       const filters: FilterSpec[] = [
         { col: 'Company', op: 'starts with', val: 'A', vals: ['A'] },
       ];
@@ -159,7 +159,7 @@ describe('sql-where', () => {
       expect(result.params).toEqual(['A%']);
     });
 
-    it('should handle legacy operator name "ends with"', () => {
+    it('should handle operator "ends with"', () => {
       const filters: FilterSpec[] = [
         { col: 'Company', op: 'ends with', val: 'c', vals: ['c'] },
       ];
@@ -168,7 +168,7 @@ describe('sql-where', () => {
       expect(result.params).toEqual(['%c']);
     });
 
-    it('should handle legacy operator name "is empty"', () => {
+    it('should handle operator "is empty"', () => {
       const filters: FilterSpec[] = [
         { col: 'Contact', op: 'is empty', val: '', vals: [''] },
       ];
@@ -177,7 +177,7 @@ describe('sql-where', () => {
       expect(result.params).toEqual([]);
     });
 
-    it('should handle legacy operator name "not empty"', () => {
+    it('should handle operator "not empty"', () => {
       const filters: FilterSpec[] = [
         { col: 'Contact', op: 'not empty', val: '', vals: [''] },
       ];
@@ -217,7 +217,7 @@ describe('sql-where', () => {
       expect(result.params).toEqual(['North']);
     });
 
-    it('should use numeric hint for calc columns with math mode', () => {
+    it('should use REAL cast for calc columns with math mode', () => {
       const calcColMap = new Map<string, ColMapEntry>([
         ['Total', { kind: 'calc', idx: 0, mode: 'math' }],
         ['OrderId', { tid: 'Orders', col: 'OrderId' }],
@@ -231,7 +231,7 @@ describe('sql-where', () => {
       expect(result.params).toEqual([42]);
     });
 
-    it('should handle in operator with numeric hint', () => {
+    it('should handle IN with REAL cast for calc math columns', () => {
       const calcColMap = new Map<string, ColMapEntry>([
         ['Total', { kind: 'calc', idx: 0, mode: 'math' }],
       ]);
@@ -242,6 +242,269 @@ describe('sql-where', () => {
       expect(result.where).toContain('IN');
       expect(result.where).toContain('REAL');
       expect(result.params).toEqual([1, 2, 3]);
+    });
+
+    // ── Numeric column type tests ──────────────────────────────────────────────
+
+    it('should use REAL cast for equals on number column', () => {
+      const numColMap = new Map<string, ColMapEntry>([
+        ['Amount', { tid: 'Orders', col: 'Amount', colType: 'number' }],
+      ]);
+      const filters: FilterSpec[] = [
+        { col: 'Amount', op: '=', val: '42', vals: ['42'] },
+      ];
+      const result = buildWhere(filters, numColMap);
+      expect(result.where).toContain('CAST');
+      expect(result.where).toContain('REAL');
+      expect(result.params).toEqual([42]);
+    });
+
+    it('should use REAL cast for not-equals on number column', () => {
+      const numColMap = new Map<string, ColMapEntry>([
+        ['Amount', { tid: 'Orders', col: 'Amount', colType: 'number' }],
+      ]);
+      const filters: FilterSpec[] = [
+        { col: 'Amount', op: '!=', val: '99', vals: ['99'] },
+      ];
+      const result = buildWhere(filters, numColMap);
+      expect(result.where).toContain('CAST');
+      expect(result.where).toContain('REAL');
+      expect(result.where).toContain('!=');
+      expect(result.params).toEqual([99]);
+    });
+
+    it('should use REAL cast for greater-than on number column', () => {
+      const numColMap = new Map<string, ColMapEntry>([
+        ['Amount', { tid: 'Orders', col: 'Amount', colType: 'number' }],
+      ]);
+      const filters: FilterSpec[] = [
+        { col: 'Amount', op: '>', val: '100', vals: ['100'] },
+      ];
+      const result = buildWhere(filters, numColMap);
+      expect(result.where).toContain('CAST');
+      expect(result.where).toContain('REAL');
+      expect(result.where).toContain('>');
+      expect(result.params).toEqual([100]);
+    });
+
+    it('should use REAL cast for IN on number column', () => {
+      const numColMap = new Map<string, ColMapEntry>([
+        ['Amount', { tid: 'Orders', col: 'Amount', colType: 'number' }],
+      ]);
+      const filters: FilterSpec[] = [
+        { col: 'Amount', op: 'in', val: '1,2,3', vals: ['1,2,3'] },
+      ];
+      const result = buildWhere(filters, numColMap);
+      expect(result.where).toContain('CAST');
+      expect(result.where).toContain('REAL');
+      expect(result.where).toContain('IN');
+      expect(result.params).toEqual([1, 2, 3]);
+    });
+
+    it('should use REAL cast for NOT IN on number column', () => {
+      const numColMap = new Map<string, ColMapEntry>([
+        ['Amount', { tid: 'Orders', col: 'Amount', colType: 'number' }],
+      ]);
+      const filters: FilterSpec[] = [
+        { col: 'Amount', op: 'not_in', val: '10,20', vals: ['10,20'] },
+      ];
+      const result = buildWhere(filters, numColMap);
+      expect(result.where).toContain('CAST');
+      expect(result.where).toContain('REAL');
+      expect(result.where).toContain('NOT IN');
+      expect(result.params).toEqual([10, 20]);
+    });
+
+    it('should use raw ref for IN on number column with mixed non-numeric values', () => {
+      const numColMap = new Map<string, ColMapEntry>([
+        ['Amount', { tid: 'Orders', col: 'Amount', colType: 'number' }],
+      ]);
+      const filters: FilterSpec[] = [
+        { col: 'Amount', op: 'in', val: '1,abc,3', vals: ['1,abc,3'] },
+      ];
+      const result = buildWhere(filters, numColMap);
+      expect(result.where).not.toContain('CAST');
+      expect(result.where).toContain('IN');
+      expect(result.params).toEqual(['1', 'abc', '3']);
+    });
+
+    it('should use raw ref for NOT IN on number column with mixed non-numeric values', () => {
+      const numColMap = new Map<string, ColMapEntry>([
+        ['Amount', { tid: 'Orders', col: 'Amount', colType: 'number' }],
+      ]);
+      const filters: FilterSpec[] = [
+        { col: 'Amount', op: 'not_in', val: '10,xyz', vals: ['10,xyz'] },
+      ];
+      const result = buildWhere(filters, numColMap);
+      expect(result.where).not.toContain('CAST');
+      expect(result.where).toContain('NOT IN');
+      expect(result.params).toEqual(['10', 'xyz']);
+    });
+
+    // ── String and date column type tests ──────────────────────────────────────
+
+    it('should use TEXT cast for equals on string column', () => {
+      const strColMap = new Map<string, ColMapEntry>([
+        ['Company', { tid: 'Orders', col: 'Company' }], // no colType → defaults to 'string'
+      ]);
+      const filters: FilterSpec[] = [
+        { col: 'Company', op: '=', val: 'Acme', vals: ['Acme'] },
+      ];
+      const result = buildWhere(filters, strColMap);
+      expect(result.where).toContain('CAST');
+      expect(result.where).toContain('TEXT');
+      expect(result.params).toEqual(['Acme']);
+    });
+
+    it('should use TEXT cast for greater-than on string column (bug fix)', () => {
+      const strColMap = new Map<string, ColMapEntry>([
+        ['ZipCode', { tid: 'Orders', col: 'ZipCode' }], // no colType → defaults to 'string'
+      ]);
+      const filters: FilterSpec[] = [
+        { col: 'ZipCode', op: '>', val: '02134', vals: ['02134'] },
+      ];
+      const result = buildWhere(filters, strColMap);
+      expect(result.where).toContain('CAST');
+      expect(result.where).toContain('TEXT');
+      expect(result.where).not.toContain('REAL');
+      expect(result.params).toEqual(['02134']);
+    });
+
+    it('should use raw ref for IN on string column', () => {
+      const strColMap = new Map<string, ColMapEntry>([
+        ['Status', { tid: 'Orders', col: 'Status' }], // no colType → defaults to 'string'
+      ]);
+      const filters: FilterSpec[] = [
+        { col: 'Status', op: 'in', val: 'Open,Closed', vals: ['Open,Closed'] },
+      ];
+      const result = buildWhere(filters, strColMap);
+      expect(result.where).not.toContain('CAST');
+      expect(result.where).toContain('IN');
+      expect(result.params).toEqual(['Open', 'Closed']);
+    });
+
+    it('should use TEXT cast for equals on date column', () => {
+      const dateColMap = new Map<string, ColMapEntry>([
+        ['OrderDate', { tid: 'Orders', col: 'OrderDate', colType: 'date' }],
+      ]);
+      const filters: FilterSpec[] = [
+        { col: 'OrderDate', op: '=', val: '2024-01-15', vals: ['2024-01-15'] },
+      ];
+      const result = buildWhere(filters, dateColMap);
+      expect(result.where).toContain('CAST');
+      expect(result.where).toContain('TEXT');
+      expect(result.where).toContain('=');
+      expect(result.params).toEqual(['2024-01-15']);
+    });
+
+    it('should use TEXT cast for greater-than on date column', () => {
+      const dateColMap = new Map<string, ColMapEntry>([
+        ['OrderDate', { tid: 'Orders', col: 'OrderDate', colType: 'date' }],
+      ]);
+      const filters: FilterSpec[] = [
+        { col: 'OrderDate', op: '>', val: '2024-01-01', vals: ['2024-01-01'] },
+      ];
+      const result = buildWhere(filters, dateColMap);
+      expect(result.where).toContain('CAST');
+      expect(result.where).toContain('TEXT');
+      expect(result.where).toContain('>');
+      expect(result.where).not.toContain('REAL');
+      expect(result.params).toEqual(['2024-01-01']);
+    });
+
+    it('should use TEXT cast for IN on date column', () => {
+      const dateColMap = new Map<string, ColMapEntry>([
+        ['OrderDate', { tid: 'Orders', col: 'OrderDate', colType: 'date' }],
+      ]);
+      const filters: FilterSpec[] = [
+        { col: 'OrderDate', op: 'in', val: '2024-01-01,2024-06-15', vals: ['2024-01-01,2024-06-15'] },
+      ];
+      const result = buildWhere(filters, dateColMap);
+      expect(result.where).toContain('CAST');
+      expect(result.where).toContain('TEXT');
+      expect(result.where).not.toContain('REAL');
+      expect(result.where).toContain('IN');
+      expect(result.params).toEqual(['2024-01-01', '2024-06-15']);
+    });
+
+    it('should use TEXT cast for NOT IN on date column', () => {
+      const dateColMap = new Map<string, ColMapEntry>([
+        ['OrderDate', { tid: 'Orders', col: 'OrderDate', colType: 'date' }],
+      ]);
+      const filters: FilterSpec[] = [
+        { col: 'OrderDate', op: 'not_in', val: '2024-01-01,2024-12-31', vals: ['2024-01-01,2024-12-31'] },
+      ];
+      const result = buildWhere(filters, dateColMap);
+      expect(result.where).toContain('CAST');
+      expect(result.where).toContain('TEXT');
+      expect(result.where).not.toContain('REAL');
+      expect(result.where).toContain('NOT IN');
+      expect(result.params).toEqual(['2024-01-01', '2024-12-31']);
+    });
+
+    // ── Type derivation and edge case tests ────────────────────────────────────
+
+    it('should derive date type from calc column with date mode', () => {
+      const calcColMap = new Map<string, ColMapEntry>([
+        ['OrderYear', { kind: 'calc', idx: 0, mode: 'date' }],
+      ]);
+      const filters: FilterSpec[] = [
+        { col: 'OrderYear', op: '=', val: '2024', vals: ['2024'] },
+      ];
+      const result = buildWhere(filters, calcColMap);
+      expect(result.where).toContain('CAST');
+      expect(result.where).toContain('TEXT');
+      expect(result.params).toEqual(['2024']);
+    });
+
+    it('should derive string type from calc column with text mode', () => {
+      const calcColMap = new Map<string, ColMapEntry>([
+        ['FullName', { kind: 'calc', idx: 0, mode: 'text' }],
+      ]);
+      const filters: FilterSpec[] = [
+        { col: 'FullName', op: '=', val: 'John Doe', vals: ['John Doe'] },
+      ];
+      const result = buildWhere(filters, calcColMap);
+      expect(result.where).toContain('CAST');
+      expect(result.where).toContain('TEXT');
+      expect(result.params).toEqual(['John Doe']);
+    });
+
+    it('should derive string type from calc column with compare mode', () => {
+      const calcColMap = new Map<string, ColMapEntry>([
+        ['StatusLabel', { kind: 'calc', idx: 0, mode: 'compare' }],
+      ]);
+      const filters: FilterSpec[] = [
+        { col: 'StatusLabel', op: '=', val: 'Active', vals: ['Active'] },
+      ];
+      const result = buildWhere(filters, calcColMap);
+      expect(result.where).toContain('CAST');
+      expect(result.where).toContain('TEXT');
+      expect(result.params).toEqual(['Active']);
+    });
+
+    it('should use REAL cast for _rowno column', () => {
+      const colMap = new Map<string, ColMapEntry>([
+        ['_rowno', { tid: 'Orders', col: '_rowno' }],
+      ]);
+      const filters: FilterSpec[] = [
+        { col: '_rowno', op: '>', val: '10', vals: ['10'] },
+      ];
+      const result = buildWhere(filters, colMap);
+      expect(result.where).toContain('CAST');
+      expect(result.where).toContain('REAL');
+      expect(result.params).toEqual([10]);
+    });
+
+    it('should default to TEXT for unknown alias not in colMap', () => {
+      const emptyColMap = new Map<string, ColMapEntry>();
+      const filters: FilterSpec[] = [
+        { col: 'UnknownCol', op: '=', val: 'test', vals: ['test'] },
+      ];
+      const result = buildWhere(filters, emptyColMap);
+      expect(result.where).toContain('CAST');
+      expect(result.where).toContain('TEXT');
+      expect(result.params).toEqual(['test']);
     });
 
     it('should return empty where if all filters are disabled', () => {

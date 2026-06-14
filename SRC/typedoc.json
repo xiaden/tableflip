@@ -1,0 +1,27 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "TableFlip",
+  "entryPoints": ["preact/"],
+  "entryPointStrategy": "expand",
+  "out": "docs/",
+  "tsconfig": "tsconfig.docs.json",
+  "exclude": [
+    "**/tests/**",
+    "**/node_modules/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/vitest.config.ts"
+  ],
+  "includeVersion": true,
+  "excludePrivate": true,
+  "excludeExternals": true,
+  "excludeInternal": true,
+  "navigation": {
+    "includeCategories": true,
+    "includeGroups": true
+  },
+  "categorizeByGroup": true,
+  "sort": ["source-order"],
+  "cleanOutputDir": true,
+  "githubPages": false
+}

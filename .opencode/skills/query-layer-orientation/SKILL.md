@@ -38,8 +38,6 @@ All files referenced here are in `SRC/preact/query/`.
 | `sql-calcs.ts` | Builds SQL expressions for calculated columns (math/compare/text/date modes) | Leaf helper |
 | `sql-aggregates.ts` | Renders aggregate function SQL (SUM, COUNT, AVG, etc.) | Leaf helper |
 | `resolve-ref.ts` | Shared alias→SQL reference resolution (`"tid"."col"` for physical, `"alias"` for calc/band) | Shared helper |
-| `alias-ref-updater.ts` | Post-rename alias fixup in global `db` object (legacy bridge, not part of pure pipeline) | Bridge helper |
-| `lookup-resolver.ts` | Lookup validation, expansion, duplicate detection, combine policy application | Leaf helper |
 | `layout-selection.ts` | Column visibility management, post-combine layout sync, calls store directly | Store-aware |
 
 ## Key Findings
@@ -124,7 +122,7 @@ Band-specific queries are built separately by `sql-detail-bands.ts` and executed
 `sql-where.ts` has a specific AND/OR nesting pattern:
 - **Filters are ANDed:** each enabled filter in the array becomes a conjunct
 - **Values are ORed:** multiple values in a single filter's `vals` array produce OR-connected sub-expressions
-- **Operator normalization:** legacy string operators ("equals", "not equals", "starts with", "ends with", "is empty", "not empty") are normalized to canonical forms
+- **Operator normalization:** user-facing operator names ("equals", "not equals", "starts with", "ends with", "is empty", "not empty") are translated to SQL forms
 - **Numeric hint:** calc columns in `math` mode use `CAST(... AS REAL)` for comparison operators; text columns are cast for `=` / `!=` / `IN`
 - **LIKE escaping:** `%` and `_` in user values are escaped for LIKE patterns
 - **Division safety:** `IN` with no values returns null (skipped)
@@ -140,10 +138,6 @@ This module is a **validation and enrichment** layer, not part of the SQL genera
 - Applies combine policy to merge duplicate rows into one
 
 `expandLookups()` is called separately by the report engine for validation purposes. `buildQueryPlan()` builds join plans directly from `reportSpec.pipeline.lookups`, not from the resolved lookups.
-
-### alias-ref-updater.ts — Legacy Bridge
-
-This module is **not** part of the pure query pipeline. It accesses `window.__db` directly to update filter/sort/group/aggregate/band column references after a column rename. It's a mutation-based bridge for the legacy global state that coexists with the reactive store. New code should not add dependencies on this module.
 
 ### layout-selection.ts — Store-Aware Mutations
 

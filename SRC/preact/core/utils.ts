@@ -1,17 +1,7 @@
 import type { ColSourceEntry } from '../types';
 import { getStore } from './store';
-
-// Dynamic imports for Phase 2 modules — deferred to avoid hard dependency from Phase A.
-// TODO: resolve in Phase 2 — these will become direct imports once the catalog/query
-// layers are stable and Phase A no longer needs to compile independently.
-async function loadColSourceMap() {
-  const mod = await import('../catalog/column-catalog.js');
-  return mod.buildColSourceMap;
-}
-async function loadRenameProjectedAliasRefs() {
-  const mod = await import('../query/alias-ref-updater.js');
-  return mod._renameProjectedAliasRefs;
-}
+import { buildColSourceMap } from '../catalog/column-catalog';
+import { renameCalcAlias } from './alias-rename';
 
 /**
  * Escapes HTML special characters to prevent XSS in innerHTML usage.
@@ -232,7 +222,6 @@ export function setColLabel(tid: string, physCol: string, label: string): void {
  * @returns true if the rename was applied, false if cancelled or not found
  */
 export async function renameProjectedColumn(alias: string): Promise<boolean> {
-  const buildColSourceMap = await loadColSourceMap();
   const colMap = buildColSourceMap();
   const src = colMap.get(alias);
   if (!src) return false;
@@ -245,11 +234,7 @@ export async function renameProjectedColumn(alias: string): Promise<boolean> {
     if (next === null) return false;
     const renamed = next.trim();
     if (!renamed || renamed === current) return false;
-    getStore().update(draft => {
-      if (draft.calcStages[src.idx]) draft.calcStages[src.idx].alias = renamed;
-    });
-    const _renameProjectedAliasRefs = await loadRenameProjectedAliasRefs();
-    if (typeof _renameProjectedAliasRefs === 'function') _renameProjectedAliasRefs(current, renamed);
+    renameCalcAlias(src.idx, renamed);
     return true;
   }
 
@@ -269,7 +254,7 @@ export async function renameProjectedColumn(alias: string): Promise<boolean> {
  * @returns Display label string
  */
 export async function colDisplayLabel(alias: string, map?: Map<string, ColSourceEntry>): Promise<string> {
-  const src = (map || (await loadColSourceMap())()).get(alias);
+  const src = (map || buildColSourceMap()).get(alias);
   if (!src) return alias;
   if (src.kind === 'calc') {
     const calc = getStore().getState().calcStages?.[src.idx];
@@ -287,7 +272,7 @@ export async function colDisplayLabel(alias: string, map?: Map<string, ColSource
  * @returns Export-safe label string
  */
 export async function colExportLabel(alias: string, map?: Map<string, ColSourceEntry>): Promise<string> {
-  const src = (map || (await loadColSourceMap())()).get(alias);
+  const src = (map || buildColSourceMap()).get(alias);
   if (!src) return alias;
   if (src.kind === 'calc') {
     const calc = getStore().getState().calcStages?.[src.idx];
@@ -304,7 +289,7 @@ export async function colExportLabel(alias: string, map?: Map<string, ColSourceE
  * @returns Record mapping alias → unique header string
  */
 export async function buildExportHeaderMap(cols: string[], map?: Map<string, ColSourceEntry>): Promise<Record<string, string>> {
-  map = map || (await loadColSourceMap())();
+  map = map || buildColSourceMap();
   const seen = new Map<string, number>();
   const result: Record<string, string> = {};
   for (const alias of cols) {

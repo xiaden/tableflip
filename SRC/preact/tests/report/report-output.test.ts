@@ -20,7 +20,7 @@ function makeResultSet(overrides: Partial<ResultSet> = {}): ResultSet {
       rowCount: 2,
       generatedAt: Date.now(),
       aggMode: 'none',
-      displayCols: null,
+      displayCols: [],
     },
     ...overrides,
   };
@@ -70,7 +70,7 @@ describe('report-output', () => {
           rowCount: 1,
           generatedAt: Date.now(),
           aggMode: 'none',
-          displayCols: null,
+          displayCols: [],
         },
       });
       const output = publishReportOutput(spec, resultSet);
@@ -204,7 +204,7 @@ describe('report-output', () => {
           rowCount: 1,
           generatedAt: Date.now(),
           aggMode: 'none',
-          displayCols: null,  // falls back to columns
+          displayCols: [],  // falls back to columns
         },
       });
       const output = publishReportOutput(spec, resultSet);
