@@ -43,8 +43,9 @@ describe('Column Catalog', () => {
       expect(map.size).toBe(0);
     });
 
-    it('should map physical columns from tables', () => {
+    it('should map physical columns from base table', () => {
       initStore({
+        base: 'Orders',
         tables: {
           Orders: { id: 'Orders', name: 'Orders', cols: ['OrderId', 'Company'], rowCount: 2 },
         },
@@ -54,7 +55,7 @@ describe('Column Catalog', () => {
       expect(map.get('Company')).toEqual({ tid: 'Orders', col: 'Company' });
     });
 
-    it('should map columns from multiple tables', () => {
+    it('should return empty map when no base table is set', () => {
       initStore({
         tables: {
           Orders: { id: 'Orders', name: 'Orders', cols: ['OrderId'], rowCount: 1 },
@@ -62,25 +63,67 @@ describe('Column Catalog', () => {
         },
       });
       const map = buildColSourceMap();
+      expect(map.size).toBe(0);
+    });
+
+    it('should only include base table columns', () => {
+      initStore({
+        base: 'Orders',
+        tables: {
+          Orders: { id: 'Orders', name: 'Orders', cols: ['OrderId'], rowCount: 1 },
+          Contacts: { id: 'Contacts', name: 'Contacts', cols: ['Name'], rowCount: 1 },
+        },
+      });
+      const map = buildColSourceMap();
       expect(map.get('OrderId')).toEqual({ tid: 'Orders', col: 'OrderId' });
-      expect(map.get('Name')).toEqual({ tid: 'Contacts', col: 'Name' });
+      expect(map.has('Name')).toBe(false);
+    });
+
+    it('should prefix lookup columns on name collision', () => {
+      initStore({
+        base: 'Orders',
+        tables: {
+          Orders: { id: 'Orders', name: 'Orders', cols: ['OrderId', 'Company'], rowCount: 1 },
+          Contacts: { id: 'Contacts', name: 'Contacts', cols: ['ContactId', 'Company'], rowCount: 1 },
+        },
+        lookups: [{ rightId: 'Contacts', keyPairs: [{ left: 'OrderId', right: 'ContactId' }], cols: [], required: false, enabled: true, duplicatePolicy: { mode: 'block' } }],
+      });
+      const map = buildColSourceMap();
+      expect(map.get('OrderId')).toEqual({ tid: 'Orders', col: 'OrderId' });
+      expect(map.get('Company')).toEqual({ tid: 'Orders', col: 'Company' });
+      expect(map.get('ContactId')).toEqual({ tid: 'Contacts', col: 'ContactId' });
+      expect(map.get('Contacts__Company')).toEqual({ tid: 'Contacts', col: 'Company' });
+    });
+
+    it('should not collide same-named columns from unrelated tables', () => {
+      initStore({
+        base: 'Orders',
+        tables: {
+          Orders: { id: 'Orders', name: 'Orders', cols: ['Amount'], rowCount: 1 },
+          Budget: { id: 'Budget', name: 'Budget', cols: ['Amount'], rowCount: 1 },
+        },
+      });
+      const map = buildColSourceMap();
+      expect(map.get('Amount')).toEqual({ tid: 'Orders', col: 'Amount' });
     });
 
     it('should map calc stage aliases', () => {
       initStore({
+        base: 'Orders',
         tables: {
           Orders: { id: 'Orders', name: 'Orders', cols: ['Amount'], rowCount: 1 },
         },
         calcStages: [
-          { alias: 'DoubleAmt', mode: 'math' },
+          { alias: 'DoubleAmt', mode: 'math', math: { strategy: 'stepChain', steps: [{ type: 'column', value: 'Amount' }, { op: '+', type: 'column', value: 'Amount' }] } },
         ],
       });
       const map = buildColSourceMap();
-      expect(map.get('DoubleAmt')).toEqual({ kind: 'calc', idx: 0, alias: 'DoubleAmt' });
+      expect(map.get('DoubleAmt')).toEqual({ kind: 'calc', idx: 0, mode: 'math', calc: expect.any(Object) });
     });
 
     it('should skip calc stages without alias', () => {
       initStore({
+        base: 'Orders',
         tables: {
           Orders: { id: 'Orders', name: 'Orders', cols: ['Amount'], rowCount: 1 },
         },

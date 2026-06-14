@@ -79,7 +79,9 @@ export function RunBar({ onResult }: RunBarProps) {
             calculatedColumns: currentState.calcStages,
             detailBands: currentState.detailBands || [],
           },
-          outputColumns: currentState.colOrder,
+          outputColumns: currentState.selCols instanceof Set
+            ? (currentState.colOrder || []).filter(c => currentState.selCols instanceof Set && currentState.selCols.has(c))
+            : currentState.colOrder,
           filters: currentState.filters,
           sorts: currentState.sorts,
           aggregation: {
