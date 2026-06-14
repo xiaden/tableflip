@@ -80,18 +80,82 @@ export function buildColSourceMap(): Map<string, ColMapEntry> {
   const state = getStore().getState();
   const map = new Map<string, ColMapEntry>();
 
-  for (const tid of Object.keys(state.tables)) {
-    const cols = state.tables[tid]?.cols || [];
-    for (const col of cols) {
-      map.set(col, { tid, col });
-    }
+  const base = state.base;
+  if (!base || !state.tables[base]) return map;
+
+  const lookups    = state.lookups || [];
+  const calcStages = state.calcStages || [];
+
+  state.tables[base].cols.forEach(c => map.set(c, { tid: base, col: c }));
+
+  for (const lk of lookups) {
+    if (lk.enabled === false) continue;
+    if (!lk.rightId || !state.tables[lk.rightId]) continue;
+    const pairs = Array.isArray(lk.keyPairs) ? lk.keyPairs.filter(p => p.left && p.right) : [];
+    if (!pairs.length) continue;
+    const rt     = state.tables[lk.rightId];
+    const prefix = tablePrefix(rt.name);
+    rt.cols.forEach(c => {
+      const alias = map.has(c) ? prefix + c : c;
+      if (!map.has(alias)) map.set(alias, { tid: lk.rightId, col: c });
+    });
   }
 
-  for (let i = 0; i < (state.calcStages || []).length; i++) {
-    const calc = state.calcStages[i];
-    if (calc?.alias) {
-      map.set(calc.alias, { kind: 'calc', idx: i, alias: calc.alias });
+  for (let i = 0; i < calcStages.length; i++) {
+    const calc = calcStages[i];
+    if (calc?.enabled === false) continue;
+    const alias = (calc?.alias || '').trim();
+    if (!alias) continue;
+    if (!calc.mode || !['math', 'compare', 'text', 'date'].includes(calc.mode as string)) continue;
+
+    let valid = false;
+    if (calc.mode === 'math') {
+      const m = calc.math as Record<string, unknown> | undefined;
+      const steps = (m && Array.isArray(m.steps) ? m.steps : []) as { op?: string; type?: string; value?: string }[];
+      const structValid = !!(m && m.strategy === 'stepChain' && steps.length > 0 &&
+              !steps[0].op && steps.every(s => s && ['column', 'number', 'text'].includes(s.type!)) &&
+              steps.slice(1).every(s => s.op && ['+', '-', '*', '/', '%'].includes(s.op)));
+      const colsExist = structValid && steps
+        .filter(s => s.type === 'column' && s.value)
+        .every(s => map.has(s.value!));
+      valid = structValid && colsExist;
+    } else if (calc.mode === 'compare') {
+      const c = calc.compare as Record<string, unknown> | undefined;
+      const conds = (Array.isArray(c?.conditions) ? c.conditions : []) as { col?: string; op?: string }[];
+      valid = !!(c && conds.length > 0 && c.trueValue && c.falseValue &&
+              conds.every(cond => cond.col && ['=', '!=', '>', '>=', '<', '<='].includes(cond.op!)) &&
+              conds.some(cond => map.has(cond.col!)) &&
+              ['column', 'number', 'text'].includes((c.trueValue as Record<string, unknown>).type as string) &&
+              ['column', 'number', 'text'].includes((c.falseValue as Record<string, unknown>).type as string));
+    } else if (calc.mode === 'text') {
+      const t = calc.text as Record<string, unknown> | undefined;
+      if (t && ['combine', 'left', 'right', 'substring'].includes(t.operation as string)) {
+        if (t.operation === 'combine') {
+          const parts = (Array.isArray(t.parts) ? t.parts : []) as { type?: string; value?: string }[];
+          const structValid = parts.length > 0 && parts.every(p => p && ['column', 'number', 'text'].includes(p.type!));
+          const colsExist = structValid && parts
+            .filter(p => p.type === 'column' && p.value)
+            .every(p => map.has(p.value!));
+          valid = structValid && colsExist;
+        } else {
+          const src = t.source as Record<string, unknown> | undefined;
+          const structValid = !!(src && ['column', 'text'].includes(src.type as string));
+          const colExists = structValid && src!.type !== 'column' ? true : map.has(src!.value as string);
+          valid = structValid && colExists;
+        }
+      }
+    } else if (calc.mode === 'date') {
+      const d = calc.date as Record<string, unknown> | undefined;
+      if (d && d.operation === 'extract') {
+        const src = d.source as Record<string, unknown> | undefined;
+        const structValid = !!(src && src.type === 'column');
+        const colExists = structValid && map.has(src!.value as string);
+        valid = colExists && ['year', 'month', 'day', 'dow', 'week', 'quarter', 'julian'].includes(d.part as string);
+      }
     }
+    if (!valid) continue;
+    if (map.has(alias)) continue;
+    map.set(alias, { kind: 'calc', mode: calc.mode as string, idx: i, calc: calc });
   }
 
   return map;
