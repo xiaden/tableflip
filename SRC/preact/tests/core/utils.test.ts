@@ -200,7 +200,7 @@ describe('Utils', () => {
 
   describe('tableShortName()', () => {
     it('should return full name for short names', () => {
-      const store = initStore({
+      initStore({
         tables: { Short: { id: 'Short', name: 'Short', cols: [], rowCount: 0 } },
       });
       expect(tableShortName('Short')).toBe('Short');

@@ -14,7 +14,6 @@ import { getStore } from '../core/store';
 import { toast, stripExt } from '../core/utils';
 import { loadSpreadsheet, loadSheets, ingestSheet } from './loader';
 import { Modal } from './components/modal';
-import type { AppState } from '../types';
 
 /**
  * Programmatically opens the file picker dialog.

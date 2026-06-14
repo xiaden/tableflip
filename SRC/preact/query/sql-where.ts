@@ -195,7 +195,7 @@ function renderFilter(
 export function buildWhere(
   filters: FilterSpec[],
   colMap: Map<string, ColMapEntry>,
-  colState?: Record<string, ColStateEntry> | null,
+  _colState?: Record<string, ColStateEntry> | null,
 ): WhereResult {
   if (!filters || filters.length === 0) return { where: '', params: [] };
 

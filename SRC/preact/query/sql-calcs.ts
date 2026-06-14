@@ -309,7 +309,7 @@ function renderModeDate(
 function renderDateSource(
   source: { type: string; value: string },
   colMap: Map<string, ColMapEntry>,
-  trail: Set<string>,
+  _trail: Set<string>,
   format?: DateInputFormat | null,
 ): string {
   if (source.type === 'column') {
@@ -322,7 +322,7 @@ function renderDateSource(
 function renderTypedValue(
   tv: { type: string; value: string },
   colMap: Map<string, ColMapEntry>,
-  trail: Set<string>,
+  _trail: Set<string>,
 ): string {
   if (tv.type === 'text') return `'${String(tv.value).replace(/'/g, "''")}'`;
   if (tv.type === 'number') return String(Number(tv.value));

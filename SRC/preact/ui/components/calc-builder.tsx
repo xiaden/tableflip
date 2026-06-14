@@ -50,7 +50,7 @@ function ColSelect({ value, style, onChange, colOpts }: {
 
 // ── Math Builder ───────────────────────────────────────────────────────────────
 
-export function MathBuilder({ calc, i, cols, colOptsFor, onPropChange }: CalcBuilderProps) {
+export function MathBuilder({ calc, colOptsFor, onPropChange }: CalcBuilderProps) {
   const math = calc.math as { strategy?: string; steps?: Array<{ type?: string; value?: string; op?: string }> } | undefined;
   const steps = math?.steps || [];
   const firstStep = steps[0] || {};
@@ -110,7 +110,7 @@ export function MathBuilder({ calc, i, cols, colOptsFor, onPropChange }: CalcBui
 
 // ── Text Edit Builder ──────────────────────────────────────────────────────────
 
-export function TextEditBuilder({ calc, i, cols, colOptsFor, onPropChange }: CalcBuilderProps) {
+export function TextEditBuilder({ calc, colOptsFor, onPropChange }: CalcBuilderProps) {
   const text = calc.text as { operation?: string; parts?: Array<{ type?: string; value?: string }>; source?: { type?: string; value?: string }; count?: number; start?: number; length?: number } | undefined;
   const op = text?.operation || 'combine';
 
@@ -169,7 +169,7 @@ export function TextEditBuilder({ calc, i, cols, colOptsFor, onPropChange }: Cal
 
 const COND_OPS = ['=', '!=', '>', '>=', '<', '<='];
 
-export function CompareBuilder({ calc, i, cols, colOptsFor, onPropChange, onCondChange }: CalcBuilderProps) {
+export function CompareBuilder({ calc, colOptsFor, onPropChange, onCondChange }: CalcBuilderProps) {
   const compare = calc.compare as { compareMode?: string; conditions?: Array<{ col?: string; op?: string; val?: string }>; trueValue?: { type?: string; value?: string }; falseValue?: { type?: string; value?: string } } | undefined;
   const glue = compare?.compareMode || 'AND';
   const conditions = compare?.conditions || [];
@@ -214,7 +214,7 @@ export function CompareBuilder({ calc, i, cols, colOptsFor, onPropChange, onCond
 
 const FMT_OPTS: Array<[string, string]> = [['D','D'],['DD','DD'],['M','M'],['MM','MM'],['MMM','MMM'],['YY','YY'],['YYYY','YYYY']];
 
-export function DateBuilder({ calc, i, cols, colOptsFor, onPropChange }: CalcBuilderProps) {
+export function DateBuilder({ calc, i, colOptsFor, onPropChange }: CalcBuilderProps) {
   const date = calc.date as { operation?: string; source?: { type?: string; value?: string }; part?: string; output?: string; inputFormat?: { first?: string; second?: string; third?: string } } | undefined;
   const src = date?.source;
   const srcCol = src?.type === 'column' ? (src.value || '') : '';

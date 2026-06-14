@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildCalcExpressions } from '../../query/sql-calcs';
 import type { CalcStage } from '../../types';
 import type { ColMapEntry } from '../../catalog/column-catalog';
-import { ordersColMap, normalizeSql } from './helpers';
+import { ordersColMap } from './helpers';
 
 describe('sql-calcs', () => {
   const colMap = ordersColMap();

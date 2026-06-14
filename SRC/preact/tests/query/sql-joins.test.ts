@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildJoins } from '../../query/sql-joins';
 import type { LookupSpec } from '../../types';
-import type { ColMapEntry } from '../../catalog/column-catalog';
-import type { SourceTableEntry } from '../../catalog/source-catalog';
 import { ordersColMap, standardSourceCatalog, normalizeSql } from './helpers';
 
 describe('sql-joins', () => {

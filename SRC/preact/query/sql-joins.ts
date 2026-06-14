@@ -25,14 +25,6 @@ export interface JoinResult {
 
 
 
-/**
- * Get the table name for a given table ID from the source catalog.
- */
-function getTableName(tid: string, sourceCatalog: Map<string, SourceTableEntry>): string {
-  const entry = sourceCatalog.get(tid);
-  return entry ? (entry.name ?? tid) : tid;
-}
-
 // ── Public API ──────────────────────────────────────────────────────────────────
 
 /**
@@ -51,7 +43,7 @@ function getTableName(tid: string, sourceCatalog: Map<string, SourceTableEntry>)
 export function buildJoins(
   lookups: LookupSpec[],
   colMap: Map<string, ColMapEntry>,
-  sourceCatalog: Map<string, SourceTableEntry>,
+  _sourceCatalog: Map<string, SourceTableEntry>,
 ): JoinResult {
   if (!lookups || lookups.length === 0) return { joins: '', params: [] };
 
@@ -72,7 +64,6 @@ export function buildJoins(
     const jType = lk.required ? 'INNER' : 'LEFT';
 
     // Build the right table reference
-    const rightTableName = getTableName(lk.rightId, sourceCatalog);
     const rightTableRef = quoteId(lk.rightId);
 
     // Build ON conditions from key pairs

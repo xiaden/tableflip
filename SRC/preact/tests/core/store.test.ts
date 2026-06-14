@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createStore, initStore, getStore } from '../../core/store';
-import { createAppState } from '../../core/state';
 
 describe('Store', () => {
   describe('createStore()', () => {

@@ -6,7 +6,6 @@ import {
   applyDuplicatePolicy,
 } from '../../query/lookup-resolver';
 import type { LookupSpec } from '../../types';
-import type { SourceTableEntry } from '../../catalog/source-catalog';
 import { standardSourceCatalog } from './helpers';
 
 describe('lookup-resolver', () => {

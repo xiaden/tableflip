@@ -10,7 +10,7 @@
  * - No window assignments for addFilter/addSort
  */
 
-import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { getStore } from '../../core/store';
 import { FilterList, addFilter } from '../sections/filter-list';
 import { SortList, addSort } from '../sections/sort-list';

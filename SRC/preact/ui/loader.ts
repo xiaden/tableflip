@@ -9,7 +9,6 @@
  */
 
 import type { Store } from '../core/store';
-import type { DbTable } from '../types';
 import { toast, stickyToast, stripExt, getTableColor } from '../core/utils';
 import { loadState } from '../core/state-loader';
 import { dropTable, createTable, insertRows, tableRowCount } from '../core/sqldb';

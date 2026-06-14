@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { buildQueryPlan } from '../../query/query-plan';
-import type { DbTable } from '../../types';
 import { makeReportSpec, standardTables, normalizeSql } from './helpers';
 
 describe('query-plan', () => {

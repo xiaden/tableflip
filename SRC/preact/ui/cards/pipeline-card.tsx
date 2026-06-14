@@ -14,9 +14,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { getStore } from '../../core/store';
-import { buildColSourceMap } from '../../catalog/column-catalog';
-import { buildSourceCatalog } from '../../catalog/source-catalog';
-import { _afterCombineChange, _previewOpen, _disabledCardCols } from '../../query/layout-selection';
+import { _afterCombineChange } from '../../query/layout-selection';
 import { BaseStage } from '../sections/base-stage';
 import { StackSheets } from '../sections/stack-sheets';
 import { PipelineArrow } from '../sections/pipeline-arrow';

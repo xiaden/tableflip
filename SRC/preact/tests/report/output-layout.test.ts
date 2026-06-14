@@ -6,20 +6,7 @@ import {
   updateBlock,
   getBlock,
 } from '../../report/output-layout';
-import type { OutputLayout, LayoutBlock } from '../../report/output-layout';
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function makeBlock(overrides: Partial<LayoutBlock> = {}): LayoutBlock {
-  return {
-    id: 'block-1',
-    type: 'table',
-    source: { reportId: null, resultRef: null },
-    position: { row: 0, col: 0, width: 12, height: 10 },
-    config: {},
-    ...overrides,
-  };
-}
+import type { LayoutBlock } from '../../report/output-layout';
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 

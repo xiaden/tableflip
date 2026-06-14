@@ -61,8 +61,6 @@ export function BaseStage({ sortedIds }: BaseStageProps) {
     _afterCombineChange();
   }, []);
 
-  const layoutColMap = base && tables[base] ? buildColSourceMap() : new Map<string, ReturnType<typeof buildColSourceMap> extends Map<string, infer V> ? V : never>();
-
   return (
     <>
       <div class="pl-stage">

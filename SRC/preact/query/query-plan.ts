@@ -17,19 +17,13 @@
 
 import type { ReportSpec, DbTable, AggMode } from '../types';
 import type { ColMapEntry } from '../catalog/column-catalog';
-import type { SourceTableEntry } from '../catalog/source-catalog';
 import { buildSourceCatalog } from '../catalog/source-catalog';
 import { buildColumnCatalog } from '../catalog/column-catalog';
-import { expandLookups } from './lookup-resolver';
 import { buildCalcExpressions } from './sql-calcs';
-import { buildWhere } from './sql-where';
-import { buildJoins } from './sql-joins';
-import { buildAggregates } from './sql-aggregates';
 import { buildDetailQuery } from './sql-detail';
 import { buildGroupedQuery } from './sql-grouped';
 import { buildTotalsQuery } from './sql-totals';
 import { buildSubtotalsQuery } from './sql-subtotals';
-import { resolveRef } from './resolve-ref';
 
 // ── Types ───────────────────────────────────────────────────────────────────────
 
@@ -156,13 +150,7 @@ export function buildQueryPlan(
   };
   const { colMap } = buildColumnCatalog(catalogCtx, sourceCatalog);
 
-  // ── 3. Expand lookups via lookup resolver ──────────────────────────────────
-  const _resolvedLookups = expandLookups(
-    reportSpec.pipeline.lookups || [],
-    sourceCatalog,
-  );
-
-  // ── 4. Build source plan ───────────────────────────────────────────────────
+  // ── 3. Build source plan ───────────────────────────────────────────────────
   const tablesById = new Map<string, { cols: string[]; name: string }>();
   for (const [tid, entry] of sourceCatalog) {
     tablesById.set(tid, { cols: entry.cols, name: entry.name });

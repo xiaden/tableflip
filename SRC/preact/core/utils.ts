@@ -1,4 +1,4 @@
-import type { AppState, ColSourceEntry } from '../types';
+import type { ColSourceEntry } from '../types';
 import { getStore } from './store';
 
 // Dynamic imports for Phase 2 modules — deferred to avoid hard dependency from Phase A.

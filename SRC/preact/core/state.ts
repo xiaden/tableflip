@@ -1,4 +1,4 @@
-import type { AppState, WorkspaceState, ReportSpec, LookupSpec, FilterSpec, SortSpec, OutputColumnSpec, AggregateSpec, CalcStage, DetailBandSpec } from '../types';
+import type { AppState, WorkspaceState, ReportSpec, LookupSpec, FilterSpec, SortSpec, OutputColumnSpec, DetailBandSpec } from '../types';
 
 /**
  * Creates a default AppState with sensible defaults, then applies optional overrides.

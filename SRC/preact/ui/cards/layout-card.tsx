@@ -12,10 +12,9 @@
 import { useState, useEffect, useCallback } from 'preact/hooks';
 import { getStore } from '../../core/store';
 import { buildReportSpecFromState } from '../../core/state';
-import { h, colUserLabel, tableShortName, defaultAggAlias } from '../../core/utils';
+import { colUserLabel, tableShortName, defaultAggAlias } from '../../core/utils';
 import { buildColSourceMap, projectedCols } from '../../catalog/column-catalog';
 import { buildSourceCatalog } from '../../catalog/source-catalog';
-import { _afterCombineChange } from '../../query/layout-selection';
 import {
   AGG_FNS, AGG_LABELS, AGG_NEEDS_COL,
   TOTAL_FNS, TOTAL_LABELS,
@@ -23,7 +22,7 @@ import {
 } from '../../report/aggregation-constants';
 import { ColumnChips } from '../sections/column-chips';
 import { MergeToggles, setMergeGroupUnderline } from '../sections/merge-toggles';
-import { RunBar } from '../sections/run-bar';
+
 import { Tip } from '../components/tip';
 import {
   setAggMode,
@@ -224,21 +223,21 @@ function AggregateItems({ cols }: { cols: string[] }) {
   const handleFnChange = useCallback((i: number, val: string) => {
     getStore().update(draft => {
       (draft.aggregates[i] as unknown as Record<string, unknown>).fn = val;
-      (draft.aggregates[i] as AggregateSpec & { auto?: boolean }).auto = false;
+      touchAggregate(i);
     });
   }, []);
 
   const handleColChange = useCallback((i: number, val: string) => {
     getStore().update(draft => {
       (draft.aggregates[i] as unknown as Record<string, unknown>).col = val;
-      (draft.aggregates[i] as AggregateSpec & { auto?: boolean }).auto = false;
+      touchAggregate(i);
     });
   }, []);
 
   const handleAliasChange = useCallback((i: number, val: string) => {
     getStore().update(draft => {
       (draft.aggregates[i] as unknown as Record<string, unknown>).alias = val;
-      (draft.aggregates[i] as AggregateSpec & { auto?: boolean }).auto = false;
+      touchAggregate(i);
     });
   }, []);
 

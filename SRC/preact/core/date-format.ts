@@ -1,4 +1,4 @@
-import type { DateComponent, DateInputFormat } from '../types';
+import type { DateInputFormat } from '../types';
 import { getStore } from './store';
 
 /** Returns the character width of a date component token. */

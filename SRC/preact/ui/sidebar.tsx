@@ -10,11 +10,11 @@
 
 import { useState, useEffect, useCallback } from 'preact/hooks';
 import { getStore } from '../core/store';
-import { h, getTableColor, toggleSidebar } from '../core/utils';
+import { getTableColor, toggleSidebar } from '../core/utils';
 import { dropTable } from '../core/sqldb';
 import { triggerFileInput } from './file-loader';
 import { saveState } from '../core/state-serializer';
-import type { AppState, DbTable } from '../types';
+import type { AppState } from '../types';
 
 /**
  * Sidebar component displaying loaded tables with color chips.

@@ -7,7 +7,6 @@ import {
   getRunOrder,
   getWorkspaceRunOrder,
 } from '../../report/report-graph';
-import type { ReportGraph } from '../../report/report-graph';
 import type { ReportSpec, WorkspaceState } from '../../types';
 import { createReportSpec, createWorkspaceState } from '../../core/state';
 

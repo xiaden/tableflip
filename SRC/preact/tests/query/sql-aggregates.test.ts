@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { renderAggregateExpr, buildAggregates } from '../../query/sql-aggregates';
-import type { AggregateSpec, AggMode } from '../../types';
-import type { ColMapEntry } from '../../catalog/column-catalog';
+import type { AggregateSpec } from '../../types';
 import { ordersColMap, normalizeSql } from './helpers';
 
 describe('sql-aggregates', () => {
