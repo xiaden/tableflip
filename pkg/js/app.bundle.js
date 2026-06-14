@@ -2920,6 +2920,7 @@ Row contents → ${previewStr}`,
               ingestSheet(wb, usable[0], stripExt(file.name), store);
               sheetCount++;
             } else {
+              setLoading(false);
               const sheets = usable.map((name) => {
                 const ws = wb.Sheets[name];
                 let rows = "?";

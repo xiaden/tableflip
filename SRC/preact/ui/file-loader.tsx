@@ -192,6 +192,7 @@ export function Loader() {
             sheetCount++;
           } else {
             // Show sheet selector modal
+            setLoading(false);
             const sheets: SheetInfo[] = usable.map(name => {
               const ws = wb.Sheets[name];
               let rows = '?';
