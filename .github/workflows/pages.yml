@@ -33,6 +33,11 @@ jobs:
       - run: npm run build
         working-directory: SRC
 
+      - run: npm run docs
+        working-directory: SRC
+
+      - run: cp -r SRC/docs ./pkg/docs
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
