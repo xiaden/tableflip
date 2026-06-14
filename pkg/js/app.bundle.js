@@ -433,13 +433,13 @@
     }
   }
   function L(n2, l3, u4, t3, i3, r3, o3, e3, f4, c3, a3) {
-    var s3, h6, p3, v3, y3, _3, g4, m3 = t3 && t3.__k || w, b2 = l3.length;
-    for (f4 = T(u4, l3, m3, f4, b2), s3 = 0; s3 < b2; s3++) null != (p3 = u4.__k[s3]) && (h6 = -1 != p3.__i && m3[p3.__i] || d, p3.__i = s3, _3 = q(n2, p3, h6, i3, r3, o3, e3, f4, c3, a3), v3 = p3.__e, p3.ref && h6.ref != p3.ref && (h6.ref && J(h6.ref, null, p3), a3.push(p3.ref, p3.__c || v3, p3)), null == y3 && null != v3 && (y3 = v3), (g4 = !!(4 & p3.__u)) || h6.__k === p3.__k ? (f4 = j(p3, f4, n2, g4), g4 && h6.__e && (h6.__e = null)) : "function" == typeof p3.type && void 0 !== _3 ? f4 = _3 : v3 && (f4 = v3.nextSibling), p3.__u &= -7);
+    var s3, h4, p3, v3, y3, _3, g4, m3 = t3 && t3.__k || w, b2 = l3.length;
+    for (f4 = T(u4, l3, m3, f4, b2), s3 = 0; s3 < b2; s3++) null != (p3 = u4.__k[s3]) && (h4 = -1 != p3.__i && m3[p3.__i] || d, p3.__i = s3, _3 = q(n2, p3, h4, i3, r3, o3, e3, f4, c3, a3), v3 = p3.__e, p3.ref && h4.ref != p3.ref && (h4.ref && J(h4.ref, null, p3), a3.push(p3.ref, p3.__c || v3, p3)), null == y3 && null != v3 && (y3 = v3), (g4 = !!(4 & p3.__u)) || h4.__k === p3.__k ? (f4 = j(p3, f4, n2, g4), g4 && h4.__e && (h4.__e = null)) : "function" == typeof p3.type && void 0 !== _3 ? f4 = _3 : v3 && (f4 = v3.nextSibling), p3.__u &= -7);
     return u4.__e = y3, f4;
   }
   function T(n2, l3, u4, t3, i3) {
-    var r3, o3, e3, f4, c3, a3 = u4.length, s3 = a3, h6 = 0;
-    for (n2.__k = new Array(i3), r3 = 0; r3 < i3; r3++) null != (o3 = l3[r3]) && "boolean" != typeof o3 && "function" != typeof o3 ? ("string" == typeof o3 || "number" == typeof o3 || "bigint" == typeof o3 || o3.constructor == String ? o3 = n2.__k[r3] = x(null, o3, null, null, null) : g(o3) ? o3 = n2.__k[r3] = x(S, { children: o3 }, null, null, null) : void 0 === o3.constructor && o3.__b > 0 ? o3 = n2.__k[r3] = x(o3.type, o3.props, o3.key, o3.ref ? o3.ref : null, o3.__v) : n2.__k[r3] = o3, f4 = r3 + h6, o3.__ = n2, o3.__b = n2.__b + 1, e3 = null, -1 != (c3 = o3.__i = O(o3, u4, f4, s3)) && (s3--, (e3 = u4[c3]) && (e3.__u |= 2)), null == e3 || null == e3.__v ? (-1 == c3 && (i3 > a3 ? h6-- : i3 < a3 && h6++), "function" != typeof o3.type && (o3.__u |= 4)) : c3 != f4 && (c3 == f4 - 1 ? h6-- : c3 == f4 + 1 ? h6++ : (c3 > f4 ? h6-- : h6++, o3.__u |= 4))) : n2.__k[r3] = null;
+    var r3, o3, e3, f4, c3, a3 = u4.length, s3 = a3, h4 = 0;
+    for (n2.__k = new Array(i3), r3 = 0; r3 < i3; r3++) null != (o3 = l3[r3]) && "boolean" != typeof o3 && "function" != typeof o3 ? ("string" == typeof o3 || "number" == typeof o3 || "bigint" == typeof o3 || o3.constructor == String ? o3 = n2.__k[r3] = x(null, o3, null, null, null) : g(o3) ? o3 = n2.__k[r3] = x(S, { children: o3 }, null, null, null) : void 0 === o3.constructor && o3.__b > 0 ? o3 = n2.__k[r3] = x(o3.type, o3.props, o3.key, o3.ref ? o3.ref : null, o3.__v) : n2.__k[r3] = o3, f4 = r3 + h4, o3.__ = n2, o3.__b = n2.__b + 1, e3 = null, -1 != (c3 = o3.__i = O(o3, u4, f4, s3)) && (s3--, (e3 = u4[c3]) && (e3.__u |= 2)), null == e3 || null == e3.__v ? (-1 == c3 && (i3 > a3 ? h4-- : i3 < a3 && h4++), "function" != typeof o3.type && (o3.__u |= 4)) : c3 != f4 && (c3 == f4 - 1 ? h4-- : c3 == f4 + 1 ? h4++ : (c3 > f4 ? h4-- : h4++, o3.__u |= 4))) : n2.__k[r3] = null;
     if (s3) for (r3 = 0; r3 < a3; r3++) null != (e3 = u4[r3]) && 0 == (2 & e3.__u) && (e3.__e == t3 && (t3 = $(e3)), K(e3, e3));
     return t3;
   }
@@ -500,27 +500,27 @@
     };
   }
   function q(n2, u4, t3, i3, r3, o3, e3, f4, c3, a3) {
-    var s3, h6, p3, v3, y3, d3, _3, k3, x3, M3, $3, I2, P4, A4, H3, T4 = u4.type;
+    var s3, h4, p3, v3, y3, d3, _3, k3, x3, M3, $3, I2, P4, A4, H3, T4 = u4.type;
     if (void 0 !== u4.constructor) return null;
     128 & t3.__u && (c3 = !!(32 & t3.__u), o3 = [f4 = u4.__e = t3.__e]), (s3 = l.__b) && s3(u4);
     n: if ("function" == typeof T4) try {
-      if (k3 = u4.props, x3 = T4.prototype && T4.prototype.render, M3 = (s3 = T4.contextType) && i3[s3.__c], $3 = s3 ? M3 ? M3.props.value : s3.__ : i3, t3.__c ? _3 = (h6 = u4.__c = t3.__c).__ = h6.__E : (x3 ? u4.__c = h6 = new T4(k3, $3) : (u4.__c = h6 = new C(k3, $3), h6.constructor = T4, h6.render = Q), M3 && M3.sub(h6), h6.state || (h6.state = {}), h6.__n = i3, p3 = h6.__d = true, h6.__h = [], h6._sb = []), x3 && null == h6.__s && (h6.__s = h6.state), x3 && null != T4.getDerivedStateFromProps && (h6.__s == h6.state && (h6.__s = m({}, h6.__s)), m(h6.__s, T4.getDerivedStateFromProps(k3, h6.__s))), v3 = h6.props, y3 = h6.state, h6.__v = u4, p3) x3 && null == T4.getDerivedStateFromProps && null != h6.componentWillMount && h6.componentWillMount(), x3 && null != h6.componentDidMount && h6.__h.push(h6.componentDidMount);
+      if (k3 = u4.props, x3 = T4.prototype && T4.prototype.render, M3 = (s3 = T4.contextType) && i3[s3.__c], $3 = s3 ? M3 ? M3.props.value : s3.__ : i3, t3.__c ? _3 = (h4 = u4.__c = t3.__c).__ = h4.__E : (x3 ? u4.__c = h4 = new T4(k3, $3) : (u4.__c = h4 = new C(k3, $3), h4.constructor = T4, h4.render = Q), M3 && M3.sub(h4), h4.state || (h4.state = {}), h4.__n = i3, p3 = h4.__d = true, h4.__h = [], h4._sb = []), x3 && null == h4.__s && (h4.__s = h4.state), x3 && null != T4.getDerivedStateFromProps && (h4.__s == h4.state && (h4.__s = m({}, h4.__s)), m(h4.__s, T4.getDerivedStateFromProps(k3, h4.__s))), v3 = h4.props, y3 = h4.state, h4.__v = u4, p3) x3 && null == T4.getDerivedStateFromProps && null != h4.componentWillMount && h4.componentWillMount(), x3 && null != h4.componentDidMount && h4.__h.push(h4.componentDidMount);
       else {
-        if (x3 && null == T4.getDerivedStateFromProps && k3 !== v3 && null != h6.componentWillReceiveProps && h6.componentWillReceiveProps(k3, $3), u4.__v == t3.__v || !h6.__e && null != h6.shouldComponentUpdate && false === h6.shouldComponentUpdate(k3, h6.__s, $3)) {
-          u4.__v != t3.__v && (h6.props = k3, h6.state = h6.__s, h6.__d = false), u4.__e = t3.__e, u4.__k = t3.__k, u4.__k.some(function(n3) {
+        if (x3 && null == T4.getDerivedStateFromProps && k3 !== v3 && null != h4.componentWillReceiveProps && h4.componentWillReceiveProps(k3, $3), u4.__v == t3.__v || !h4.__e && null != h4.shouldComponentUpdate && false === h4.shouldComponentUpdate(k3, h4.__s, $3)) {
+          u4.__v != t3.__v && (h4.props = k3, h4.state = h4.__s, h4.__d = false), u4.__e = t3.__e, u4.__k = t3.__k, u4.__k.some(function(n3) {
             n3 && (n3.__ = u4);
-          }), w.push.apply(h6.__h, h6._sb), h6._sb = [], h6.__h.length && e3.push(h6);
+          }), w.push.apply(h4.__h, h4._sb), h4._sb = [], h4.__h.length && e3.push(h4);
           break n;
         }
-        null != h6.componentWillUpdate && h6.componentWillUpdate(k3, h6.__s, $3), x3 && null != h6.componentDidUpdate && h6.__h.push(function() {
-          h6.componentDidUpdate(v3, y3, d3);
+        null != h4.componentWillUpdate && h4.componentWillUpdate(k3, h4.__s, $3), x3 && null != h4.componentDidUpdate && h4.__h.push(function() {
+          h4.componentDidUpdate(v3, y3, d3);
         });
       }
-      if (h6.context = $3, h6.props = k3, h6.__P = n2, h6.__e = false, I2 = l.__r, P4 = 0, x3) h6.state = h6.__s, h6.__d = false, I2 && I2(u4), s3 = h6.render(h6.props, h6.state, h6.context), w.push.apply(h6.__h, h6._sb), h6._sb = [];
+      if (h4.context = $3, h4.props = k3, h4.__P = n2, h4.__e = false, I2 = l.__r, P4 = 0, x3) h4.state = h4.__s, h4.__d = false, I2 && I2(u4), s3 = h4.render(h4.props, h4.state, h4.context), w.push.apply(h4.__h, h4._sb), h4._sb = [];
       else do {
-        h6.__d = false, I2 && I2(u4), s3 = h6.render(h6.props, h6.state, h6.context), h6.state = h6.__s;
-      } while (h6.__d && ++P4 < 25);
-      h6.state = h6.__s, null != h6.getChildContext && (i3 = m(m({}, i3), h6.getChildContext())), x3 && !p3 && null != h6.getSnapshotBeforeUpdate && (d3 = h6.getSnapshotBeforeUpdate(v3, y3)), A4 = null != s3 && s3.type === S && null == s3.key ? E(s3.props.children) : s3, f4 = L(n2, g(A4) ? A4 : [A4], u4, t3, i3, r3, o3, e3, f4, c3, a3), h6.base = u4.__e, u4.__u &= -161, h6.__h.length && e3.push(h6), _3 && (h6.__E = h6.__ = null);
+        h4.__d = false, I2 && I2(u4), s3 = h4.render(h4.props, h4.state, h4.context), h4.state = h4.__s;
+      } while (h4.__d && ++P4 < 25);
+      h4.state = h4.__s, null != h4.getChildContext && (i3 = m(m({}, i3), h4.getChildContext())), x3 && !p3 && null != h4.getSnapshotBeforeUpdate && (d3 = h4.getSnapshotBeforeUpdate(v3, y3)), A4 = null != s3 && s3.type === S && null == s3.key ? E(s3.props.children) : s3, f4 = L(n2, g(A4) ? A4 : [A4], u4, t3, i3, r3, o3, e3, f4, c3, a3), h4.base = u4.__e, u4.__u &= -161, h4.__h.length && e3.push(h4), _3 && (h4.__E = h4.__ = null);
     } catch (n3) {
       if (u4.__v = null, c3 || null != o3) if (n3.then) {
         for (u4.__u |= c3 ? 160 : 128; f4 && 8 == f4.nodeType && f4.nextSibling; ) f4 = f4.nextSibling;
@@ -554,7 +554,7 @@
     return "object" != typeof n2 || null == n2 || n2.__b > 0 ? n2 : g(n2) ? n2.map(E) : void 0 !== n2.constructor ? null : m({}, n2);
   }
   function G(u4, t3, i3, r3, o3, e3, f4, c3, a3) {
-    var s3, h6, p3, v3, y3, w3, _3, m3 = i3.props || d, k3 = t3.props, x3 = t3.type;
+    var s3, h4, p3, v3, y3, w3, _3, m3 = i3.props || d, k3 = t3.props, x3 = t3.type;
     if ("svg" == x3 ? o3 = "http://www.w3.org/2000/svg" : "math" == x3 ? o3 = "http://www.w3.org/1998/Math/MathML" : o3 || (o3 = "http://www.w3.org/1999/xhtml"), null != e3) {
       for (s3 = 0; s3 < e3.length; s3++) if ((y3 = e3[s3]) && "setAttribute" in y3 == !!x3 && (x3 ? y3.localName == x3 : 3 == y3.nodeType)) {
         u4 = y3, e3[s3] = null;
@@ -569,8 +569,8 @@
     else {
       if (e3 = "textarea" == x3 && null != k3.defaultValue ? null : e3 && n.call(u4.childNodes), !c3 && null != e3) for (m3 = {}, s3 = 0; s3 < u4.attributes.length; s3++) m3[(y3 = u4.attributes[s3]).name] = y3.value;
       for (s3 in m3) y3 = m3[s3], "dangerouslySetInnerHTML" == s3 ? p3 = y3 : "children" == s3 || s3 in k3 || "value" == s3 && "defaultValue" in k3 || "checked" == s3 && "defaultChecked" in k3 || N(u4, s3, null, y3, o3);
-      for (s3 in k3) y3 = k3[s3], "children" == s3 ? v3 = y3 : "dangerouslySetInnerHTML" == s3 ? h6 = y3 : "value" == s3 ? w3 = y3 : "checked" == s3 ? _3 = y3 : c3 && "function" != typeof y3 || m3[s3] === y3 || N(u4, s3, y3, m3[s3], o3);
-      if (h6) c3 || p3 && (h6.__html == p3.__html || h6.__html == u4.innerHTML) || (u4.innerHTML = h6.__html), t3.__k = [];
+      for (s3 in k3) y3 = k3[s3], "children" == s3 ? v3 = y3 : "dangerouslySetInnerHTML" == s3 ? h4 = y3 : "value" == s3 ? w3 = y3 : "checked" == s3 ? _3 = y3 : c3 && "function" != typeof y3 || m3[s3] === y3 || N(u4, s3, y3, m3[s3], o3);
+      if (h4) c3 || p3 && (h4.__html == p3.__html || h4.__html == u4.innerHTML) || (u4.innerHTML = h4.__html), t3.__k = [];
       else if (p3 && (u4.innerHTML = ""), L("template" == t3.type ? u4.content : u4, g(v3) ? v3 : [v3], t3, i3, r3, "foreignObject" == x3 ? "http://www.w3.org/1999/xhtml" : o3, e3, f4, e3 ? e3[0] : i3.__k && $(i3, 0), c3, a3), null != e3) for (s3 = e3.length; s3--; ) b(e3[s3]);
       c3 && "textarea" != x3 || (s3 = "value", "progress" == x3 && null == w3 ? u4.removeAttribute("value") : null != w3 && (w3 !== u4[s3] || "progress" == x3 && !w3 || "option" == x3 && w3 != m3[s3]) && N(u4, s3, w3, m3[s3], o3), s3 = "checked", null != _3 && _3 != u4[s3] && N(u4, s3, _3, m3[s3], o3));
     }
@@ -1423,27 +1423,6 @@
       }
     }
     return issues;
-  }
-  function expandLookups(lookups, sourceCatalog) {
-    if (!lookups || lookups.length === 0) return [];
-    const results = [];
-    for (const lookup of lookups) {
-      if (lookup.enabled === false) continue;
-      if (!lookup.rightId || !sourceCatalog.has(lookup.rightId)) continue;
-      const rightTable = sourceCatalog.get(lookup.rightId);
-      const pairs = Array.isArray(lookup.keyPairs) ? lookup.keyPairs.filter((p3) => p3.left && p3.right) : [];
-      if (pairs.length === 0) continue;
-      const validPairs = pairs.filter((p3) => rightTable.cols.includes(p3.right));
-      if (validPairs.length === 0) continue;
-      results.push({
-        lookup,
-        resolved: {
-          rightTable,
-          pairs: validPairs
-        }
-      });
-    }
-    return results;
   }
 
   // preact/report/calc-validator.ts
@@ -3233,6 +3212,13 @@ Row contents → ${previewStr}`,
       draft.aggregates.splice(i3, 1);
     });
   }
+  function touchAggregate(i3) {
+    getStore().update((draft) => {
+      if (draft.aggregates[i3]) {
+        draft.aggregates[i3].auto = false;
+      }
+    });
+  }
 
   // preact/core/state-serializer.ts
   function buildPayload(state) {
@@ -3626,7 +3612,6 @@ Row contents → ${previewStr}`,
       _disabledCardCols.clear();
       _afterCombineChange();
     }, []);
-    const layoutColMap = base && tables[base] ? buildColSourceMap() : /* @__PURE__ */ new Map();
     return /* @__PURE__ */ u3(S, { children: [
       /* @__PURE__ */ u3("div", { class: "pl-stage", children: [
         /* @__PURE__ */ u3("div", { class: "pl-stage-label", children: [
@@ -4197,7 +4182,7 @@ Row contents → ${previewStr}`,
       colOpts.map((o3) => /* @__PURE__ */ u3("option", { value: o3.value, children: o3.label }, o3.value))
     ] });
   }
-  function MathBuilder({ calc, i: i3, cols, colOptsFor, onPropChange }) {
+  function MathBuilder({ calc, colOptsFor, onPropChange }) {
     const math = calc.math;
     const steps = math?.steps || [];
     const firstStep = steps[0] || {};
@@ -4260,7 +4245,7 @@ Row contents → ${previewStr}`,
       ] })
     ] });
   }
-  function TextEditBuilder({ calc, i: i3, cols, colOptsFor, onPropChange }) {
+  function TextEditBuilder({ calc, colOptsFor, onPropChange }) {
     const text = calc.text;
     const op = text?.operation || "combine";
     if (op === "combine") {
@@ -4336,7 +4321,7 @@ Row contents → ${previewStr}`,
     return /* @__PURE__ */ u3(S, {});
   }
   var COND_OPS = ["=", "!=", ">", ">=", "<", "<="];
-  function CompareBuilder({ calc, i: i3, cols, colOptsFor, onPropChange, onCondChange }) {
+  function CompareBuilder({ calc, colOptsFor, onPropChange, onCondChange }) {
     const compare = calc.compare;
     const glue = compare?.compareMode || "AND";
     const conditions = compare?.conditions || [];
@@ -4382,7 +4367,7 @@ Row contents → ${previewStr}`,
     ] });
   }
   var FMT_OPTS = [["D", "D"], ["DD", "DD"], ["M", "M"], ["MM", "MM"], ["MMM", "MMM"], ["YY", "YY"], ["YYYY", "YYYY"]];
-  function DateBuilder({ calc, i: i3, cols, colOptsFor, onPropChange }) {
+  function DateBuilder({ calc, i: i3, colOptsFor, onPropChange }) {
     const date = calc.date;
     const src = date?.source;
     const srcCol = src?.type === "column" ? src.value || "" : "";
@@ -5816,19 +5801,19 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     const handleFnChange = q2((i3, val) => {
       getStore().update((draft) => {
         draft.aggregates[i3].fn = val;
-        draft.aggregates[i3].auto = false;
+        touchAggregate(i3);
       });
     }, []);
     const handleColChange = q2((i3, val) => {
       getStore().update((draft) => {
         draft.aggregates[i3].col = val;
-        draft.aggregates[i3].auto = false;
+        touchAggregate(i3);
       });
     }, []);
     const handleAliasChange = q2((i3, val) => {
       getStore().update((draft) => {
         draft.aggregates[i3].alias = val;
-        draft.aggregates[i3].auto = false;
+        touchAggregate(i3);
       });
     }, []);
     return /* @__PURE__ */ u3(S, { children: aggregates.map((agg, i3) => {
@@ -6561,14 +6546,14 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     }
     throw new Error(`Unknown date operation "${op}" in calc "${alias}"`);
   }
-  function renderDateSource(source, colMap, trail, format) {
+  function renderDateSource(source, colMap, _trail, format) {
     if (source.type === "column") {
       const expr = resolveRef(source.value, colMap);
       return normalizeDateExpr(expr, format ?? null);
     }
     throw new Error(`Unsupported date source type "${source.type}"`);
   }
-  function renderTypedValue(tv, colMap, trail) {
+  function renderTypedValue(tv, colMap, _trail) {
     if (tv.type === "text") return `'${String(tv.value).replace(/'/g, "''")}'`;
     if (tv.type === "number") return String(Number(tv.value));
     if (tv.type === "column") return resolveRef(tv.value, colMap);
@@ -6723,7 +6708,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     if (!orParts.length) return null;
     return orParts.length > 1 ? `(${orParts.join(" OR ")})` : orParts[0];
   }
-  function buildWhere(filters, colMap, colState) {
+  function buildWhere(filters, colMap, _colState) {
     if (!filters || filters.length === 0) return { where: "", params: [] };
     const params = [];
     const parts = [];
@@ -6739,11 +6724,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
   }
 
   // preact/query/sql-joins.ts
-  function getTableName(tid, sourceCatalog) {
-    const entry = sourceCatalog.get(tid);
-    return entry ? entry.name ?? tid : tid;
-  }
-  function buildJoins(lookups, colMap, sourceCatalog) {
+  function buildJoins(lookups, colMap, _sourceCatalog) {
     if (!lookups || lookups.length === 0) return { joins: "", params: [] };
     const params = [];
     const joinClauses = [];
@@ -6752,7 +6733,6 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
       const pairs = Array.isArray(lk.keyPairs) ? lk.keyPairs.filter((p3) => p3.left && p3.right) : [];
       if (pairs.length === 0) continue;
       const jType = lk.required ? "INNER" : "LEFT";
-      const rightTableName = getTableName(lk.rightId, sourceCatalog);
       const rightTableRef = quoteId(lk.rightId);
       const onParts = [];
       for (const p3 of pairs) {
@@ -7104,10 +7084,6 @@ FROM ${fromClause}${joinPart}${wherePart}`);
       detailBands: reportSpec.pipeline.detailBands || []
     };
     const { colMap } = buildColumnCatalog(catalogCtx, sourceCatalog);
-    const _resolvedLookups = expandLookups(
-      reportSpec.pipeline.lookups || [],
-      sourceCatalog
-    );
     const tablesById = /* @__PURE__ */ new Map();
     for (const [tid, entry] of sourceCatalog) {
       tablesById.set(tid, { cols: entry.cols, name: entry.name });
@@ -8243,8 +8219,8 @@ ORDER BY ${sortParts.join(", ")}`;
     if (!ws || !Array.isArray(cleanRows) || !cleanRows.length) return;
     if (!headers || !headers.length || !mergeHeaderSet || mergeHeaderSet.size === 0) return;
     const merges = [];
-    headers.forEach((h6, cIdx) => {
-      if (!mergeHeaderSet.has(h6)) return;
+    headers.forEach((h4, cIdx) => {
+      if (!mergeHeaderSet.has(h4)) return;
       const leftGateHeaders = headers.slice(0, cIdx).filter((lh) => mergeHeaderSet.has(lh));
       const gateByLeft = leftGateHeaders.length > 0;
       let i3 = 0;
@@ -8253,13 +8229,13 @@ ORDER BY ${sortParts.join(", ")}`;
           i3++;
           continue;
         }
-        const v3 = cleanRows[i3]?.[h6];
+        const v3 = cleanRows[i3]?.[h4];
         if (v3 == null || String(v3) === "") {
           i3++;
           continue;
         }
         let j4 = i3 + 1;
-        while (j4 < cleanRows.length && (rowKinds[j4] ?? 0) === 0 && cleanRows[j4]?.[h6] === v3) {
+        while (j4 < cleanRows.length && (rowKinds[j4] ?? 0) === 0 && cleanRows[j4]?.[h4] === v3) {
           if (gateByLeft && leftGateHeaders.some((lh) => cleanRows[j4]?.[lh] !== cleanRows[j4 - 1]?.[lh])) {
             break;
           }
@@ -8304,8 +8280,8 @@ ORDER BY ${sortParts.join(", ")}`;
         const prev = mergeUnderlineStartByRow.get(sheetRow);
         mergeUnderlineStartByRow.set(sheetRow, prev == null ? colIdx : Math.min(prev, colIdx));
       };
-      headers.forEach((h6, cIdx) => {
-        if (!mergeHeaderSet.has(h6)) return;
+      headers.forEach((h4, cIdx) => {
+        if (!mergeHeaderSet.has(h4)) return;
         const leftGateHeaders = headers.slice(0, cIdx).filter((lh) => mergeHeaderSet.has(lh));
         let i3 = 0;
         while (i3 < cleanRows.length) {
@@ -8313,22 +8289,22 @@ ORDER BY ${sortParts.join(", ")}`;
             i3++;
             continue;
           }
-          const v3 = cleanRows[i3]?.[h6];
+          const v3 = cleanRows[i3]?.[h4];
           if (v3 == null || String(v3) === "") {
             i3++;
             continue;
           }
           let j4 = i3 + 1;
-          while (j4 < cleanRows.length && (rowKinds[j4] ?? 0) === 0 && cleanRows[j4]?.[h6] === v3) {
+          while (j4 < cleanRows.length && (rowKinds[j4] ?? 0) === 0 && cleanRows[j4]?.[h4] === v3) {
             if (leftGateHeaders.some((lh) => cleanRows[j4]?.[lh] !== cleanRows[j4 - 1]?.[lh])) break;
             j4++;
           }
           const span = j4 - i3;
           if (span > 1) {
-            let p3 = mergeParticipation.get(h6);
+            let p3 = mergeParticipation.get(h4);
             if (!p3) {
               p3 = /* @__PURE__ */ new Set();
-              mergeParticipation.set(h6, p3);
+              mergeParticipation.set(h4, p3);
             }
             for (let r3 = i3; r3 < j4; r3++) p3.add(r3);
             addUnderline(j4 - 1, cIdx);
@@ -8457,11 +8433,11 @@ ORDER BY ${sortParts.join(", ")}`;
     }
     ws["!autofilter"] = { ref };
     ws["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft", state: "frozen" };
-    ws["!cols"] = headers.map((h6) => {
-      let maxLen = String(h6 || "").length;
+    ws["!cols"] = headers.map((h4) => {
+      let maxLen = String(h4 || "").length;
       const sample = Math.min(cleanRows.length, WIDTH_SAMPLE_ROWS);
       for (let i3 = 0; i3 < sample; i3++) {
-        const v3 = cleanRows[i3]?.[h6];
+        const v3 = cleanRows[i3]?.[h4];
         if (v3 == null) continue;
         maxLen = Math.max(maxLen, String(v3).length);
       }
