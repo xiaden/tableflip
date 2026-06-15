@@ -76,6 +76,185 @@ const BAND_TINT_PALETTE = [
   'FFFDF4FF',  // purple-50
 ];
 
+export function computeBandColSets(
+  detailBands: DetailBandSpec[] | undefined,
+  allCols: string[],
+): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  if (!detailBands) return result;
+  for (const band of detailBands) {
+    if (band.enabled === false) continue;
+    const prefix = '_' + band.id + '_';
+    const bandCols = allCols.filter(c => c.startsWith(prefix));
+    // Order by band.cols array (user's column selection order)
+    const ordered: string[] = band.cols
+      .map(c => prefix + c)
+      .filter(c => bandCols.includes(c));
+    // Append any band-prefixed cols not in band.cols (defensive)
+    for (const c of bandCols) {
+      if (!ordered.includes(c)) ordered.push(c);
+    }
+    result[band.id] = ordered;
+  }
+  return result;
+}
+
+export function applyBandGroup(
+  rows: Record<string, unknown>[],
+  bandId: string,
+  matchAlias: string,
+  bandColAliases: string[],
+  allBandLabels: string[],
+  hdrMap: Record<string, string>,
+): Record<string, unknown>[] {
+  const matchLabel = hdrMap[matchAlias] || matchAlias;
+
+  // Build lookup: bandLabel → bandColAlias for THIS band's columns
+  const thisBandLabelToAlias: Record<string, string> = {};
+  for (const colAlias of bandColAliases) {
+    const label = hdrMap[colAlias] || colAlias;
+    thisBandLabelToAlias[label] = colAlias;
+  }
+
+  const result: Record<string, unknown>[] = [];
+  let currentMatchValue: unknown = null;
+  let collectedBandRows: Record<string, unknown>[] = [];
+
+  function flushCollected() {
+    if (collectedBandRows.length === 0) return;
+
+    // Section header row: match value + this band's display names
+    const headerRow: Record<string, unknown> = { _processed: true, _rowKind: 4 };
+    headerRow[matchLabel] = currentMatchValue;
+    for (const label of allBandLabels) {
+      const colAlias = thisBandLabelToAlias[label];
+      headerRow[label] = colAlias ? (hdrMap[colAlias] || colAlias) : '';
+    }
+    result.push(headerRow);
+
+    // Band data rows: match value + this band's values
+    for (const row of collectedBandRows) {
+      const dataRow: Record<string, unknown> = { _processed: true, _rowKind: 0, _band_id: bandId };
+      dataRow[matchLabel] = currentMatchValue;
+      for (const label of allBandLabels) {
+        const colAlias = thisBandLabelToAlias[label];
+        dataRow[label] = colAlias ? (row[colAlias] ?? '') : '';
+      }
+      result.push(dataRow);
+    }
+
+    collectedBandRows = [];
+  }
+
+  for (const row of rows) {
+    if (row._processed) {
+      // Already transformed by a previous band group
+      if (row._rowKind === 5) {
+        // Parent row from previous band — flush and update match value
+        flushCollected();
+        const val = row[matchLabel] ?? row[matchAlias];
+        if (val != null) currentMatchValue = val;
+      }
+      result.push(row);
+      continue;
+    }
+
+    if (row._isTotalsRow) {
+      // Totals row — flush collected, pass through unchanged
+      flushCollected();
+      result.push(row);
+      continue;
+    }
+
+    if (row._band_id == null) {
+      // Parent row — flush any collected band rows, then emit compact parent
+      flushCollected();
+      currentMatchValue = row[matchAlias];
+      const parentRow: Record<string, unknown> = { _processed: true, _rowKind: 5 };
+      parentRow[matchLabel] = currentMatchValue;
+      for (const label of allBandLabels) {
+        parentRow[label] = '';
+      }
+      result.push(parentRow);
+    } else if (String(row._band_id) === bandId) {
+      // This band's row — collect for deferred emission
+      collectedBandRows.push(row);
+    } else {
+      // Other band's row — flush collected rows first, pass through
+      flushCollected();
+      result.push(row);
+    }
+  }
+
+  // End of input — flush any remaining collected rows
+  flushCollected();
+
+  return result;
+}
+
+export function buildBandColumnLayout(
+  dataRows: Record<string, unknown>[],
+  detailBands: DetailBandSpec[],
+  allCols: string[],
+  hdrMap: Record<string, string>,
+): { cleanRows: Record<string, unknown>[]; rowKinds: number[]; headers: string[]; bandIds: string[] } {
+  const enabledBands = (detailBands || []).filter(b => b.enabled !== false);
+  if (enabledBands.length === 0) {
+    // No enabled bands — return data unchanged with kind 0 for all rows
+    const rowKinds = dataRows.map(() => 0);
+    const bandIds = dataRows.map(() => '');
+    const headers: string[] = [];
+    return { cleanRows: dataRows, rowKinds, headers, bandIds };
+  }
+
+  // Per-band column alias arrays
+  const bandColSets = computeBandColSets(detailBands, allCols);
+
+  // Match column: use first enabled band's keyPairs[0].left
+  const matchAlias = enabledBands[0]?.keyPairs?.[0]?.left;
+  const matchLabel = matchAlias ? (hdrMap[matchAlias] || matchAlias) : '';
+
+  // Collect all unique band column labels across all bands, in band order
+  const allBandLabels: string[] = [];
+  for (const bandId of Object.keys(bandColSets)) {
+    for (const colAlias of bandColSets[bandId]) {
+      const label = hdrMap[colAlias] || colAlias;
+      if (!allBandLabels.includes(label)) {
+        allBandLabels.push(label);
+      }
+    }
+  }
+
+  const headers = [matchLabel, ...allBandLabels];
+
+  // Compose band group transformations
+  let rows = dataRows;
+  for (const band of enabledBands) {
+    const bandColAliases = bandColSets[band.id] || [];
+    const bandMatchAlias = band.keyPairs?.[0]?.left || matchAlias || '';
+    rows = applyBandGroup(rows, band.id, bandMatchAlias, bandColAliases, allBandLabels, hdrMap);
+  }
+
+  // Extract output arrays
+  const cleanRows = rows.map(row => {
+    const out: Record<string, unknown> = {};
+    for (const h of headers) {
+      out[h] = row[h] ?? '';
+    }
+    return out;
+  });
+
+  const rowKinds = rows.map(row => {
+    if (row._rowKind != null) return row._rowKind as number;
+    if (row._isTotalsRow) return 3;
+    return 0;
+  });
+
+  const bandIds = rows.map(row => (row._band_id != null ? String(row._band_id) : ''));
+
+  return { cleanRows, rowKinds, headers, bandIds };
+}
+
 /**
  * Insert band section header rows when _band_id transitions and compute rowKinds.
  * Returns enriched rows and the parallel rowKinds array.
@@ -171,6 +350,30 @@ export async function exportAs(fmt: string): Promise<void> {
   };
 
   const dataRows = totalsRow ? [...rows, { ...totalsRow, _isTotalsRow: true }] : [...rows];
+
+  // ── Band layout path ────────────────────────────────────────────────
+  const enabledBands = (state.detailBands || []).filter(b => b.enabled !== false && b.rightId);
+  if (enabledBands.length > 0) {
+    const { cleanRows, rowKinds: bandRowKinds, headers: bandHeaders, bandIds } =
+      buildBandColumnLayout(dataRows, state.detailBands || [], cols || [], hdrMap || {});
+
+    if (isCsv) {
+      const ws = XLSX.utils.json_to_sheet(cleanRows, { header: bandHeaders, skipHeader: false });
+      const csv = XLSX.utils.sheet_to_csv(ws);
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+      dl(blob, fn + '.csv');
+    } else {
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(cleanRows, { header: bandHeaders, skipHeader: false });
+      applyExportMerges(ws, cleanRows, bandRowKinds, bandHeaders, mergeHeaderSet);
+      styleExportSheet(ws, cleanRows, bandRowKinds, mergeHeaderSet, bandIds);
+      XLSX.utils.book_append_sheet(wb, ws, 'Results');
+      XLSX.writeFile(wb, fn + '.xlsx');
+    }
+    toast('Exported ' + cleanRows.length.toLocaleString() + ' rows as ' + fmt.toUpperCase(), 'ok');
+    return; // early return — band path is mutually exclusive with non-band path
+  }
+  // ── End band layout path ────────────────────────────────────────────
 
   // Build band label lookup and insert section header rows (XLSX only)
   const bandLabels = buildBandLabels(state.detailBands, state.tables);
@@ -370,6 +573,25 @@ export function styleExportSheet(
   // Body row styling
   for (let r = 1; r <= range.e.r; r++) {
     const rowType = rowKinds[r - 1] ?? 0;
+
+    // Band parent row (kind 5) — bold, slate-50 fill, bottom border
+    if (rowType === 5) {
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({ r, c });
+        let cell = ws[addr] as Record<string, unknown> | undefined;
+        if (!cell) {
+          cell = { t: 's', v: '' };
+          ws[addr] = cell;
+        }
+        cell.s = {
+          font: { ...fontBase, bold: true, color: { rgb: 'FF111827' } },
+          fill: { fgColor: { rgb: 'FFF8FAFC' } },
+          alignment: { horizontal: 'left', vertical: 'center' },
+          border: { bottom: { style: 'thin', color: borderColor } },
+        };
+      }
+      continue;
+    }
 
     // Band header row (kind 4) — distinct styling, full-width, skip normal logic
     if (rowType === 4) {

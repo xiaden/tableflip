@@ -1,8 +1,9 @@
-# Pivot Table UI Redesign — Design Document
+# Live Chip-Table UI Redesign — Design Document
 
 **Status:** Draft  
 **Author:** agent  
 **Created:** 2026-06-15  
+**Design Name:** Live Chip-Table UI  
 
 **Related Documents:**
 - [ADR-002: Five-Layer Architecture](artifacts/decisions/ADR-002-five-layer-architecture.md) — Establishes the five-layer architecture. This redesign is UI-layer only — no changes to Core, Catalog, Query, or Report layers.
@@ -30,7 +31,7 @@
 - Component and unit tests for new components
 
 **Out of scope:**
-- Core layer changes (store, sqldb, utils, state)
+- Core layer changes (store, sqldb, utils, state) — *exceptions: `core/agg-state.ts` relocation from `ui/aggregation.ts` (fixes layer violation), and `core/state.ts` extension of `buildReportSpecFromState()` to produce a full `ReportSpec`*
 - Catalog layer changes (source-catalog, column-catalog)
 - Query layer changes (SQL generation, query plan)
 - Report layer changes (engine, validation, result-set, export)
@@ -196,9 +197,9 @@ function detectZone(e: DragEvent, headerEl: HTMLElement): 'top' | 'middle' | 'bo
 
 ### 3.5 Auto-Preview Debouncing
 
-**Decision:** 400ms debounce with `JSON.stringify` hash of `buildReportSpecFromState()` output. Dirty indicator via `_ui.previewDirty` store field. Cancel pending on new change.
+**Decision:** 400ms debounce with `JSON.stringify` hash of `buildReportSpecFromState()` output (extended to return a full `ReportSpec`, not just the pipeline portion). Dirty indicator via `_ui.previewDirty` store field. Cancel pending on new change.
 
-**Rationale:** The old UI required clicking "Run Report" to see results. The new UI auto-runs on every pipeline change with debouncing. The hash-based dirty check prevents redundant re-execution when state changes don't affect the report spec (e.g., sidebar collapse toggle).
+**Rationale:** The old UI required clicking "Run Report" to see results. The new UI auto-runs on every pipeline change with debouncing. The hash-based dirty check prevents redundant re-execution when state changes don't affect the report spec (e.g., sidebar collapse toggle). `buildReportSpecFromState()` is extended from its current pipeline-only output (`{ base, baseCols, stacks, lookups, calcStages, detailBands }`) to produce a full `ReportSpec` — including `outputColumns`, `filters`, `sorts`, `aggregation`, `mergeDisplay`, `publish`, `detailBandMode` — matching the shape that `runQuery()` in `run-bar.tsx` (lines 70–106) currently constructs inline. This ensures the auto-preview hash covers all report-affecting state and the spec passed to `executeReport()` is complete.
 
 **Implementation:**
 ```typescript
@@ -297,11 +298,13 @@ function schedulePreview() {
   - `computeDebounceHash()` — spec changes → different hash, UI-only changes → same hash
   - `clampWidth()` — min 60, max 600, default 150
 - **Component tests** (Vitest + jsdom):
-  - `PivotGridHeader` — dragover events trigger zone highlights, drop triggers correct action
-  - `PivotGrid` — renders correct number of rows for viewport, scroll updates visible range
-  - `ColumnPalette` — dragstart sets dataTransfer, drop on header adds column
-  - `PivotContextMenu` — right-click opens menu, items trigger actions
-  - `PivotToolbar` — agg mode change updates store, filter chip close removes filter
+   - `PivotGridHeader` — dragover events trigger zone highlights, drop triggers correct action
+   - `PivotGrid` — renders correct number of rows for viewport, scroll updates visible range
+   - `ColumnPalette` — dragstart sets dataTransfer, drop on header adds column
+   - `PivotContextMenu` — right-click opens menu, items trigger actions
+   - `PivotToolbar` — agg mode change updates store, filter chip close removes filter
+   - `PivotFilterRow` — chip rendering, inline editor expansion, chip close removes filter/sort
+   - `PivotLayout` — sidebar + toolbar + grid composition, store subscription wiring
 - **Manual testing:**
   - Load 10K row dataset, verify scroll smoothness
   - Load 50K row dataset, verify no frame drops during scroll
@@ -329,7 +332,7 @@ Store notifies all subscribers (synchronous)
             400ms debounce timer starts
                 │
                 ▼ (400ms later)
-            buildReportSpecFromState(state) → spec
+            buildReportSpecFromState(state) → full ReportSpec
             JSON.stringify(spec) → hash
             hash !== lastHash → proceed
                 │
@@ -406,7 +409,8 @@ The pivot UI depends on existing lower layers. No changes to these layers are re
 | Layer | Module | Usage |
 |-------|--------|-------|
 | Core | `store.ts` | `getState()`, `update()`, `set()`, `subscribe()` |
-| Core | `state.ts` | `buildReportSpecFromState()`, `createAppState()` |
+| Core | `state.ts` | `buildReportSpecFromState()` (extended to return full `ReportSpec`), `createAppState()` |
+| Core | `agg-state.ts` | `setAggMode()`, `loadAggModeState()`, `saveActiveAggModeState()`, `ensureAggModeState()`, `addAggregate()`, `removeAggregate()`, `touchAggregate()`, subtotal helpers |
 | Core | `sqldb.ts` | `execQuery()`, `quoteId()` |
 | Core | `utils.ts` | `colUserLabel()`, `toast()`, `dl()`, `h()` |
 | Catalog | `column-catalog.ts` | `buildColSourceMap()`, `projectedCols()` |
@@ -566,6 +570,11 @@ Implement all DnD interactions.
 | `tests/ui/pivot/pivot-grid.test.tsx` | Test | ~120 | Grid virtualization component tests |
 | `tests/ui/pivot/pivot-grid-header.test.tsx` | Test | ~100 | Header DnD component tests |
 | `tests/ui/pivot/column-palette.test.tsx` | Test | ~80 | Palette DnD component tests |
+| `tests/ui/pivot/pivot-context-menu.test.tsx` | Test | ~60 | Context menu component tests (right-click, actions) |
+| `tests/ui/pivot/pivot-toolbar.test.tsx` | Test | ~80 | Toolbar component tests (agg mode, filter chips, export, validation pill) |
+| `tests/ui/pivot/pivot-filter-row.test.tsx` | Test | ~70 | Filter/sort chip row component tests (inline editor, chip close) |
+| `tests/ui/pivot/pivot-layout.test.tsx` | Test | ~80 | Root layout integration tests (sidebar + toolbar + grid composition) |
+| `core/agg-state.ts` | Core | ~222 | Aggregation mode state management — relocated from `ui/aggregation.ts` |
 
 ### Modified Files
 
@@ -574,6 +583,7 @@ Implement all DnD interactions.
 | `ui/app.tsx` | Rewrite | Replace 3-tab shell with `<PivotLayout>` |
 | `types.ts` | Add field | Add `_ui?` optional field to AppState |
 | `core/state-serializer.ts` | Minor | Reset transient `_ui` fields on load |
+| `core/state.ts` | Extend | Extend `buildReportSpecFromState()` to return full `ReportSpec` (currently returns pipeline-only object `{ base, baseCols, stacks, lookups, calcStages, detailBands }`; must also include outputColumns, filters, sorts, aggregation, mergeDisplay, publish, detailBandMode) |
 
 ### Deleted Files
 
@@ -584,11 +594,13 @@ Implement all DnD interactions.
 | `ui/cards/layout-card.tsx` | ~150 | Merged into pivot-toolbar + column-palette |
 | `ui/cards/filter-sort-card.tsx` | ~100 | Merged into pivot-toolbar + pivot-filter-row |
 | `ui/tabs.ts` | ~30 | Tab switching eliminated |
-| `ui/aggregation.ts` | ~80 | Agg mode UI merged into pivot-toolbar |
+| `ui/aggregation.ts` | 222 | Relocated to `core/agg-state.ts` — pure state mutations, not UI code |
+
+> **Note on `aggregation.ts`:** This file (222 lines) contains only pure state mutation functions (`setAggMode()`, `loadAggModeState()`, `saveActiveAggModeState()`, `ensureAggModeState()`, `addAggregate()`, `removeAggregate()`, `touchAggregate()`, `setSubtotalGrandTotal()`, `setSubtotalSpacer()`, `setSubtotalOnTop()`, `setSubtotalStrategy()`, plus internal helpers `_readAggModeState()`, `_defaultAggModeState()`, `_selColsToArray()`) with zero UI rendering code. It is relocated to `core/agg-state.ts` to fix a layer violation — `core/state-serializer.ts` already imports from it, and the new `pivot-toolbar.tsx` will import from core. The `index.ts` re-exports are updated to reference the new location.
 
 ### Unchanged Files (Referenced but not modified)
 
-All files in `core/`, `catalog/`, `query/`, `report/` layers remain unchanged.
+All files in `catalog/`, `query/`, `report/` layers remain unchanged. Core layer: `state.ts` extended (see Modified Files), `agg-state.ts` relocated from `ui/aggregation.ts` (see New Files); all other core files unchanged.
 UI components reused as-is: `chip.tsx`, `modal.tsx`, `context-menu.tsx`, `rename-modal.tsx`, `calc-builder.tsx`, `tip.tsx`, `row-explosion-dialog.tsx`.
 UI sections reused as-is: `base-stage.tsx`, `stack-sheets.tsx`, `lookup-stage.tsx`, `calc-stage.tsx`, `detail-band-stage.tsx`, `filter-list.tsx`, `sort-list.tsx`, `merge-toggles.tsx`.
 `export.ts`, `file-loader.tsx`, `loader.ts`, `sidebar.tsx` (logic extracted into pivot-sidebar but file may be kept for reference during migration).
@@ -634,17 +646,13 @@ UI sections reused as-is: `base-stage.tsx`, `stack-sheets.tsx`, `lookup-stage.ts
 
 ## Overview
 
-## Overview
-
-This design document specifies the replacement of TableFlip's current 3-tab card-based UI (Query Builder / Browse Sheet / Report) with a single-screen pivot-table layout. The current UI requires users to switch between tabs to configure a pipeline, view results, and export — creating a fragmented workflow where configuration and feedback are separated. The new layout presents the entire report-building experience in one view: a collapsible sidebar for pipeline configuration, a toolbar for aggregation/filter/sort/export controls, and a custom virtual-scrolling grid that shows live results.
+This design document specifies the replacement of TableFlip's current 3-tab card-based UI (Query Builder / Browse Sheet / Report) with a single-screen Live Chip-Table layout. The current UI requires users to switch between tabs to configure a pipeline, view results, and export — creating a fragmented workflow where configuration and feedback are separated. The new layout presents the entire report-building experience in one view: a collapsible sidebar for pipeline configuration, a toolbar for aggregation/filter/sort/export controls, and a custom virtual-scrolling grid that shows live results.
 
 The primary driver is the removal of AG Grid as a dependency. AG Grid currently provides the result/preview grid via `ui/grid.tsx` (582 lines). The new custom grid must match AG Grid's scroll performance for large datasets while supporting new interaction patterns (column header drop zones for aggregation/band assignment, inline column resize, right-click context menus).
 
-This design is grounded in extensive research: Librarian briefing (architectural constraints), Ideator analysis (Option A "Minimal Pivot" selected at 3.8/5 composite score), Architect tradeoff analysis (10 implementation decisions), and Estimator sizing (EPIC: 70-120 hours, ~14 files).
+This design is grounded in extensive research: Librarian briefing (architectural constraints), Ideator analysis (Option A "Live Chip-Table" selected at 3.8/5 composite score), Architect tradeoff analysis (10 implementation decisions), and Estimator sizing (EPIC: 70-120 hours, ~14 files).
 
 ---
-
-## Requirements
 
 ## Requirements
 
@@ -654,7 +662,7 @@ This design is grounded in extensive research: Librarian briefing (architectural
 3. **Column header drop zones** — 3-zone detection (top=agg key, middle=add/reorder column, bottom=detail band). Visual feedback during dragover.
 4. **Drag-and-drop from column palette** — Native HTML5 DragEvent extending existing `column-chips.tsx` pattern. `dataTransfer.setData('text/plain', alias)`.
 5. **Column resize** — Mousedown on header right-edge 6px grab zone. Document overlay during drag. Widths persisted in `_ui.columnWidths`. Min 60px, max 600px.
-6. **Auto-preview** — 400ms debounced report execution on state change. Hash-based dirty check via `JSON.stringify(buildReportSpecFromState())`. No manual "Run Report" button.
+6. **Auto-preview** — 400ms debounced report execution on state change. Hash-based dirty check via `JSON.stringify(buildReportSpecFromState())` (full `ReportSpec` including pipeline, outputColumns, filters, sorts, aggregation, mergeDisplay, publish, detailBandMode). No manual "Run Report" button.
 7. **Calc editor in modal** — Reuses existing `Modal` component and `calc-builder.tsx` content. Opens from sidebar calc stage chip.
 8. **Filter/sort chip row in toolbar** — Chip per active filter/sort. Click to expand inline editor. Close button to remove. Horizontal scroll overflow.
 9. **Export** — Single Export button with dropdown (Excel/CSV). Calls existing `exportAs()` from `export.ts`.
