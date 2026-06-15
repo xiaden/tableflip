@@ -29,7 +29,7 @@
 | Function | Signature | Description |
 | --- | --- | --- |
 | `computeBandColSets` | `(detailBands: DetailBandSpec[] \| undefined, allCols: string[]) → Record<string, string[]>` | Extracts per-band ordered column alias arrays from superset columns using `_{bandId}_` prefix filter. Skips disabled bands. Orders by `band.cols` array. |
-| `applyBandGroup` | `(rows: Record<string, unknown>[], bandId: string, matchAlias: string, bandColAliases: string[], allBandLabels: string[], hdrMap: Record<string, string>) → Record<string, unknown>[]` | Composable per-band-group row transformation. Replaces wide band rows with compact format (match value + band values). Inserts section headers (kind 4). Marks synthetic rows with `_processed: true`. Parent rows become kind 5. |
+| `applyBandGroup` | `(rows: Record<string, unknown>[], bandId: string, matchAlias: string, bandColAliases: string[], allBandLabels: string[], hdrMap: Record<string, string>) → Record<string, unknown>[]` | Composable per-band-group row transformation. Replaces wide band rows with compact format (match value + band values). Inserts section headers (kind 4). Marks synthetic rows with `_processed: true`. Parent rows become kind 5. `_processed` kind-5 rows from prior bands trigger flush + match value update. `_isTotalsRow` rows pass through unchanged. |
 | `buildBandColumnLayout` | `(dataRows: Record<string, unknown>[], detailBands: DetailBandSpec[], allCols: string[], hdrMap: Record<string, string>) → BandLayoutResult` | Orchestrates composition of all band group transformations. Builds header array. Returns `{ cleanRows, rowKinds, headers, bandIds }`. |
 
 ### Modified Functions
@@ -71,3 +71,5 @@ _(empty — this feature has no API contracts)_
 | Each band group is independent | Band groups compose sequentially; each has its own match column from `keyPairs[0].left` | — |
 | Stack mode removed entirely | Cartesian cross-products are undesired behavior for detail bands | — |
 | No v1/v2 fallback logic | Band layout is the only export path when detail bands are present | — |
+| `_processed` parent rows trigger flush in subsequent bands | When band B encounters a `_processed` kind-5 row from band A, it flushes collected band rows and updates match value from the processed row's match column. This ensures correct section header placement across parent boundaries in multi-band compositions. | TASK-band-export-layout-A |
+| Totals rows pass through `applyBandGroup` unchanged | Rows with `_isTotalsRow: true` are flushed and passed through without conversion to kind-5 parent rows. The `rowKinds` extraction in `buildBandColumnLayout` then correctly assigns kind 3. Without this, totals rows (which have `_band_id == null`) would be misidentified as parent rows. | TASK-band-export-layout-A |
