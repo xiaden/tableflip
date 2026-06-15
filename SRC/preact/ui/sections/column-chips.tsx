@@ -97,25 +97,8 @@ export function ColumnChips() {
 
   useEffect(() => getStore().subscribe(s => setState(s)), []);
 
-  // Sync colOrder
   useEffect(() => {
-    const st = getStore().getState();
-    const reportSpec = buildReportSpecFromState(st);
-    const sourceCatalog = buildSourceCatalog(st.tables);
-    const currentCols = projectedCols(reportSpec, sourceCatalog);
-    const colSet = new Set(currentCols);
-    const needsSync = st.colOrder.some(c => !colSet.has(c)) || currentCols.some(c => !st.colOrder.includes(c));
-    if (needsSync) {
-      getStore().update(draft => {
-        const cs = projectedCols(reportSpec, sourceCatalog);
-        const currentSet = new Set(cs);
-        draft.colOrder = [
-          ...draft.colOrder.filter(c => currentSet.has(c)),
-          ...cs.filter(c => !draft.colOrder.includes(c)),
-        ];
-      });
-    }
-    _syncSubtotalByToLayout();
+    _afterCombineChange();
   }, [state.base, state.lookups.length, state.calcStages.length]);
 
   const base = state.base;

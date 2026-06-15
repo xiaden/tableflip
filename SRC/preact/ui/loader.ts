@@ -13,6 +13,7 @@ import type { ColumnType } from '../types';
 import { toast, stickyToast, stripExt, getTableColor } from '../core/utils';
 import { loadState } from '../core/state-loader';
 import { dropTable, createTable, insertRows, tableRowCount } from '../core/sqldb';
+import { _afterCombineChange } from '../query/layout-selection';
 
 /**
  * Expands merged cells in an XLSX worksheet so that every cell in a merge range
@@ -298,6 +299,7 @@ export function ingestSheet(wb: XLSXWorkbook, sheetName: string, label: string, 
     draft.tableColors[id] = color;
     if (!draft.base) draft.base = id;
   });
+  _afterCombineChange();
 
   if (suggested.size) {
     const previews = [...suggestedPreviews.values()];

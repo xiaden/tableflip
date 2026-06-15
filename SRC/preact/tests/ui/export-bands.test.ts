@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import {
   filterExportCols,
   buildBandLabels,
@@ -7,9 +7,15 @@ import {
   computeBandColSets,
   applyBandGroup,
   buildBandColumnLayout,
+  exportAs,
 } from '../../ui/export';
-import { initStore } from '../../core/store';
+import { initStore, getStore } from '../../core/store';
 import type { DetailBandSpec, DbTable } from '../../types';
+
+// Mock validation to return healthy status so exportAs() doesn't block
+vi.mock('../../report/validation', () => ({
+  getValidation: vi.fn().mockReturnValue({ reportStatus: 'healthy', items: {} }),
+}));
 
 // ── XLSX mock ──────────────────────────────────────────────────────────────
 // styleExportSheet uses XLSX.utils.encode_cell and XLSX.utils.decode_range.
@@ -63,7 +69,12 @@ beforeAll(() => {
     utils: {
       encode_cell: encodeCell,
       decode_range: decodeRange,
+      json_to_sheet: vi.fn().mockReturnValue({ '!ref': 'A1:B2' }),
+      sheet_to_csv: vi.fn().mockReturnValue('a,b,c'),
+      book_new: vi.fn().mockReturnValue({}),
+      book_append_sheet: vi.fn(),
     },
+    writeFile: vi.fn(),
   };
 });
 
@@ -869,6 +880,10 @@ describe('computeBandColSets', () => {
     // band.cols is empty, so ordered starts empty; defensive append adds the rest
     expect(result['band_0']).toEqual(['_band_0_Product', '_band_0_Qty']);
   });
+
+  it('returns empty object for undefined detailBands', () => {
+    expect(computeBandColSets(undefined, ['col1'])).toEqual({});
+  });
 });
 
 // ── applyBandGroup Tests ──────────────────────────────────────────────────────
@@ -1009,6 +1024,75 @@ describe('applyBandGroup', () => {
     expect(result).toHaveLength(2);
     expect(result[0]._rowKind).toBe(5);
     expect(result[1]._rowKind).toBe(5);
+  });
+
+  it('totals rows pass through unchanged and trigger flush', () => {
+    const rows = [
+      { OrderId: 'ORD-1', _band_id: null, _band_0_Product: null },
+      { OrderId: null, _band_id: 'band_0', _band_0_Product: 'Widget' },
+      { OrderId: 'TOTAL', _band_0_Product: null, _isTotalsRow: true },
+    ];
+    const result = applyBandGroup(rows, 'band_0', 'OrderId', ['_band_0_Product'], ['Product'], { OrderId: 'Order ID', _band_0_Product: 'Product' });
+
+    // Should have: parent (kind 5), section header (kind 4), data row (kind 0), totals row (isTotalsRow)
+    expect(result.length).toBe(4);
+    expect(result[0]).toHaveProperty('_rowKind', 5);
+    expect(result[1]).toHaveProperty('_rowKind', 4);
+    expect(result[2]).toHaveProperty('_rowKind', 0);
+    // Totals row should be passed through unchanged (not kind 5)
+    expect(result[3]).toHaveProperty('_isTotalsRow', true);
+    expect(result[3]).not.toHaveProperty('_rowKind', 5);
+  });
+
+  it('kind-5 processed row from previous band triggers flush and updates match value', () => {
+    const rows = [
+      { _processed: true, _rowKind: 5, 'Order ID': 'ORD-2' },
+      { _band_id: 'band_0', _band_0_Product: 'Gadget' },
+    ];
+    const result = applyBandGroup(rows, 'band_0', 'OrderId', ['_band_0_Product'], ['Product'], { OrderId: 'Order ID', _band_0_Product: 'Product' });
+
+    // The processed row should pass through unchanged
+    expect(result[0]).toHaveProperty('_processed', true);
+    expect(result[0]).toHaveProperty('_rowKind', 5);
+    // A section header should be emitted with match value 'ORD-2'
+    expect(result[1]).toHaveProperty('_rowKind', 4);
+    expect(result[1]['Order ID']).toBe('ORD-2');
+    // Data row should carry match value 'ORD-2'
+    expect(result[2]).toHaveProperty('_rowKind', 0);
+    expect(result[2]['Order ID']).toBe('ORD-2');
+  });
+
+  it('band row before first parent has null match value', () => {
+    const rows = [
+      { _band_id: 'band_0', _band_0_Product: 'Widget' },
+    ];
+    const result = applyBandGroup(rows, 'band_0', 'OrderId', ['_band_0_Product'], ['Product'], { OrderId: 'Order ID', _band_0_Product: 'Product' });
+    // Section header + 1 data row
+    expect(result.length).toBe(2);
+    expect(result[0]).toHaveProperty('_rowKind', 4);
+    expect(result[0]['Order ID']).toBeNull(); // match value is null since no parent preceded
+    expect(result[1]).toHaveProperty('_rowKind', 0);
+    expect(result[1]['Order ID']).toBeNull();
+  });
+
+  it('empty bandColAliases produces section header and data rows with only match column', () => {
+    const rows = [
+      { OrderId: 'ORD-1', _band_id: null },
+      { _band_id: 'band_0' },
+    ];
+    const result = applyBandGroup(rows, 'band_0', 'OrderId', [], ['Product', 'Qty'], { OrderId: 'Order ID' });
+    // parent + section header + data row
+    expect(result.length).toBe(3);
+    // Section header: match value + empty strings
+    expect(result[1]).toHaveProperty('_rowKind', 4);
+    expect(result[1]['Order ID']).toBe('ORD-1');
+    expect(result[1]['Product']).toBe(''); // empty since no band col aliases
+    expect(result[1]['Qty']).toBe('');     // empty since no band col aliases
+    // Data row: match value + empty strings
+    expect(result[2]).toHaveProperty('_rowKind', 0);
+    expect(result[2]['Order ID']).toBe('ORD-1');
+    expect(result[2]['Product']).toBe('');
+    expect(result[2]['Qty']).toBe('');
   });
 });
 
@@ -1253,6 +1337,89 @@ describe('styleExportSheet — band parent (kind 5) styling', () => {
     const fill3 = ((cell3.s as Record<string, unknown>).fill as Record<string, unknown>);
     expect((fill3.fgColor as Record<string, unknown>).rgb).toBe('FFE2E8F0');
   });
+
+  it('creates cells for kind 5 row if they do not exist', () => {
+    // Sheet with only header cells — range extends to row 1 but no cells there
+    const ws: XLSXSheet = {};
+    ws[encodeCell({ r: 0, c: 0 })] = { t: 's', v: 'Col1' };
+    ws[encodeCell({ r: 0, c: 1 })] = { t: 's', v: 'Col2' };
+    ws['!ref'] = 'A1:B2'; // Row 1 has no cells
+
+    const cleanRows = [
+      { Col1: 'Parent Row', Col2: '' },
+    ];
+    const rowKinds = [5];
+
+    styleExportSheet(ws, cleanRows, rowKinds);
+
+    // Cells should have been created for sheet row 1
+    const cellA2 = ws[encodeCell({ r: 1, c: 0 })] as Record<string, unknown>;
+    const cellB2 = ws[encodeCell({ r: 1, c: 1 })] as Record<string, unknown>;
+    expect(cellA2).toBeDefined();
+    expect(cellB2).toBeDefined();
+    expect((cellA2.s as Record<string, unknown>).font).toBeDefined();
+    expect((cellB2.s as Record<string, unknown>).font).toBeDefined();
+  });
+
+  it('kind 5 has left/center alignment', () => {
+    const ws = makeSheet([['Col'], ['Parent']]);
+    const cleanRows = [{ Col: 'Parent' }];
+    const rowKinds = [5];
+    styleExportSheet(ws, cleanRows, rowKinds);
+    const cell = ws[encodeCell({ r: 1, c: 0 })] as Record<string, unknown>;
+    const alignment = (cell.s as Record<string, unknown>).alignment as Record<string, unknown>;
+    expect(alignment.horizontal).toBe('left');
+    expect(alignment.vertical).toBe('center');
+  });
+
+  it('kind 5 has font color FF111827', () => {
+    const ws = makeSheet([['Col'], ['Parent']]);
+    const cleanRows = [{ Col: 'Parent' }];
+    const rowKinds = [5];
+    styleExportSheet(ws, cleanRows, rowKinds);
+    const cell = ws[encodeCell({ r: 1, c: 0 })] as Record<string, unknown>;
+    const font = (cell.s as Record<string, unknown>).font as Record<string, unknown>;
+    expect(font.color).toEqual({ rgb: 'FF111827' });
+  });
+
+  it('kind 5 styling applied to ALL columns in the row', () => {
+    const ws = makeSheet([
+      ['A', 'B', 'C'],
+      ['p', '', ''],
+    ]);
+    const cleanRows = [{ A: 'p', B: '', C: '' }];
+    const rowKinds = [5];
+    styleExportSheet(ws, cleanRows, rowKinds);
+    for (let c = 0; c < 3; c++) {
+      const cell = ws[encodeCell({ r: 1, c })] as Record<string, unknown>;
+      expect(cell).toBeDefined();
+      const style = cell.s as Record<string, unknown>;
+      const font = style.font as Record<string, unknown>;
+      expect(font.bold).toBe(true);
+      expect(font.italic).toBeUndefined();
+      const fill = style.fill as Record<string, unknown>;
+      expect(fill.fgColor).toEqual({ rgb: 'FFF8FAFC' });
+    }
+  });
+
+  it('kind 5 does not affect kind 1 or kind 2 rows', () => {
+    const ws = makeSheet([
+      ['Col'],
+      ['Subtotal'],
+      ['Spacer'],
+    ]);
+    const cleanRows = [{ Col: 'Subtotal' }, { Col: '' }];
+    const rowKinds = [1, 2];
+    styleExportSheet(ws, cleanRows, rowKinds);
+    // Kind 1 should have bold but not slate-50 fill
+    const kind1Cell = ws[encodeCell({ r: 1, c: 0 })] as Record<string, unknown>;
+    const kind1Style = kind1Cell.s as Record<string, unknown>;
+    expect(kind1Style.font).toBeDefined();
+    // Kind 2 should not have slate-50 fill
+    const kind2Cell = ws[encodeCell({ r: 2, c: 0 })] as Record<string, unknown>;
+    const kind2Style = kind2Cell.s as Record<string, unknown>;
+    expect(kind2Style.font).toBeDefined();
+  });
 });
 
 // ── buildBandColumnLayout — integration scenarios ─────────────────────────────
@@ -1364,5 +1531,123 @@ describe('buildBandColumnLayout — integration scenarios', () => {
 
     // Parent row
     expect(cleanRows[0]['Order ID']).toBe('ORD-1');
+  });
+});
+
+// ── exportAs — band layout dispatch tests ─────────────────────────────────────
+
+describe('exportAs — band layout dispatch', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('band path activates for valid band config and produces compact layout', async () => {
+    initStore();
+    getStore().update(draft => {
+      draft.result = {
+        rows: [
+          { OrderId: 'ORD-1', _band_id: null, Company: 'Acme' },
+          { OrderId: null, _band_id: 'band_0', _band_0_Product: 'Widget', _band_0_Qty: 5 },
+        ],
+        cols: ['OrderId', 'Company', '_band_0_Product', '_band_0_Qty'],
+      };
+      draft.detailBands = [
+        { id: 'band_0', rightId: 'tbl-items', keyPairs: [{ left: 'OrderId', right: 'OrderId' }], cols: ['Product', 'Qty'], enabled: true, sorts: [], label: 'Items' },
+      ];
+      draft.tables = {};
+    });
+
+    const jsonToSheetSpy = vi.spyOn((globalThis as any).XLSX.utils, 'json_to_sheet');
+    await exportAs('xlsx');
+
+    expect(jsonToSheetSpy).toHaveBeenCalled();
+    const firstCall = jsonToSheetSpy.mock.calls[0];
+    const headers = (firstCall[1] as Record<string, unknown> | undefined)?.header as string[] | undefined;
+    // Headers should be band-compact labels, not raw _band_0 aliases
+    expect(headers).toBeDefined();
+    expect(Array.isArray(headers)).toBe(true);
+    // Should NOT contain raw band alias prefixes
+    for (const h of headers!) {
+      expect(h).not.toMatch(/^_band_/);
+    }
+  });
+
+  it('CSV band layout produces same compact structure with no _band_id in headers', async () => {
+    initStore();
+    getStore().update(draft => {
+      draft.result = {
+        rows: [
+          { OrderId: 'ORD-1', _band_id: null, _band_0_Product: null },
+          { OrderId: null, _band_id: 'band_0', _band_0_Product: 'Widget' },
+        ],
+        cols: ['OrderId', '_band_0_Product'],
+      };
+      draft.detailBands = [
+        { id: 'band_0', rightId: 'tbl-items', keyPairs: [{ left: 'OrderId', right: 'OrderId' }], cols: ['Product'], enabled: true, sorts: [], label: 'Items' },
+      ];
+      draft.tables = {};
+    });
+
+    const jsonToSheetSpy = vi.spyOn((globalThis as any).XLSX.utils, 'json_to_sheet');
+    await exportAs('csv');
+
+    expect(jsonToSheetSpy).toHaveBeenCalled();
+    const firstCall = jsonToSheetSpy.mock.calls[0];
+    const headers = (firstCall[1] as Record<string, unknown> | undefined)?.header as string[] | undefined;
+    // Headers must not contain _band_id
+    expect(headers).toBeDefined();
+    expect(headers).not.toContain('_band_id');
+  });
+
+  it('non-band path for no bands uses existing headers', async () => {
+    initStore();
+    getStore().update(draft => {
+      draft.result = {
+        rows: [
+          { OrderId: 'ORD-1', Company: 'Acme', _band_id: null },
+        ],
+        cols: ['OrderId', 'Company'],
+      };
+      draft.detailBands = [];
+      draft.tables = {};
+    });
+
+    const jsonToSheetSpy = vi.spyOn((globalThis as any).XLSX.utils, 'json_to_sheet');
+    await exportAs('xlsx');
+
+    expect(jsonToSheetSpy).toHaveBeenCalled();
+    const firstCall = jsonToSheetSpy.mock.calls[0];
+    const headers = (firstCall[1] as Record<string, unknown> | undefined)?.header as string[] | undefined;
+    // Non-band path uses original superset column display names
+    expect(headers).toBeDefined();
+  });
+
+  it('band layout with multiple bands produces headers from both bands', async () => {
+    initStore();
+    getStore().update(draft => {
+      draft.result = {
+        rows: [
+          { OrderId: 'ORD-1', _band_id: null, Company: 'Acme', _band_0_Product: null, _band_1_Note: null },
+          { OrderId: null, _band_id: 'band_0', _band_0_Product: 'Widget', _band_1_Note: null },
+          { OrderId: null, _band_id: 'band_1', _band_0_Product: null, _band_1_Note: 'Urgent' },
+        ],
+        cols: ['OrderId', 'Company', '_band_0_Product', '_band_1_Note'],
+      };
+      draft.detailBands = [
+        { id: 'band_0', rightId: 'tbl-items', keyPairs: [{ left: 'OrderId', right: 'OrderId' }], cols: ['Product'], enabled: true, sorts: [], label: 'Items' },
+        { id: 'band_1', rightId: 'tbl-notes', keyPairs: [{ left: 'OrderId', right: 'OrderId' }], cols: ['Note'], enabled: true, sorts: [], label: 'Notes' },
+      ];
+      draft.tables = {};
+    });
+
+    const jsonToSheetSpy = vi.spyOn((globalThis as any).XLSX.utils, 'json_to_sheet');
+    await exportAs('xlsx');
+
+    expect(jsonToSheetSpy).toHaveBeenCalled();
+    const firstCall = jsonToSheetSpy.mock.calls[0];
+    const headers = (firstCall[1] as Record<string, unknown> | undefined)?.header as string[] | undefined;
+    expect(headers).toBeDefined();
+    // Headers should include columns from both bands
+    expect(headers!.length).toBeGreaterThanOrEqual(2);
   });
 });

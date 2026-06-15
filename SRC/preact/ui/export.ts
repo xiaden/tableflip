@@ -76,6 +76,16 @@ const BAND_TINT_PALETTE = [
   'FFFDF4FF',  // purple-50
 ];
 
+/**
+ * Extracts per-band ordered column alias arrays from superset columns.
+ * Filters `allCols` by `_{bandId}_` prefix, orders by `band.cols` array,
+ * appends any remaining band-prefixed cols not in `band.cols` (defensive).
+ * Skips bands where `enabled === false`.
+ *
+ * @param detailBands - Detail band specs to extract column sets from; undefined returns empty object.
+ * @param allCols - Superset of all column aliases to filter from.
+ * @returns Map of band ID to ordered column alias array.
+ */
 export function computeBandColSets(
   detailBands: DetailBandSpec[] | undefined,
   allCols: string[],
@@ -99,6 +109,26 @@ export function computeBandColSets(
   return result;
 }
 
+/**
+ * Composable per-band-group row transformation.
+ * Replaces wide interleaved band rows with compact "match column + band columns" layout.
+ * Inserts section header rows (kind 4) before each group of band data rows.
+ * Parent rows are converted to kind 5 (match value populated, band cols empty).
+ * All synthetic rows are marked `_processed: true` for composability.
+ *
+ * Composability contract:
+ * - `_processed` kind-5 parent rows from prior bands trigger flush + match value update.
+ * - `_isTotalsRow` rows pass through unchanged (not identified as parent rows).
+ * - Band data rows carry `_band_id` for tint assignment.
+ *
+ * @param rows - Interleaved parent/band rows from engine (with `_band_id` markers).
+ * @param bandId - ID of the band to transform (e.g. 'band_0').
+ * @param matchAlias - Column alias for the match value (from keyPairs[0].left).
+ * @param bandColAliases - Ordered array of this band's column aliases.
+ * @param allBandLabels - Union of all enabled bands' column labels, in band order.
+ * @param hdrMap - Header label map from buildExportHeaderMap().
+ * @returns Transformed row array with `_processed`, `_rowKind`, `_band_id` markers.
+ */
 export function applyBandGroup(
   rows: Record<string, unknown>[],
   bandId: string,
@@ -112,7 +142,9 @@ export function applyBandGroup(
   // Build lookup: bandLabel → bandColAlias for THIS band's columns
   const thisBandLabelToAlias: Record<string, string> = {};
   for (const colAlias of bandColAliases) {
-    const label = hdrMap[colAlias] || colAlias;
+    const rawLabel = hdrMap[colAlias] || colAlias;
+    // Strip _band_N_ prefix if hdrMap returned an identity mapping for a band column
+    const label = rawLabel.startsWith('_band_') ? rawLabel.replace(/^_band_\d+_/, '') : rawLabel;
     thisBandLabelToAlias[label] = colAlias;
   }
 
@@ -128,7 +160,7 @@ export function applyBandGroup(
     headerRow[matchLabel] = currentMatchValue;
     for (const label of allBandLabels) {
       const colAlias = thisBandLabelToAlias[label];
-      headerRow[label] = colAlias ? (hdrMap[colAlias] || colAlias) : '';
+      headerRow[label] = colAlias ? label : '';
     }
     result.push(headerRow);
 
@@ -192,6 +224,22 @@ export function applyBandGroup(
   return result;
 }
 
+/**
+ * Orchestrates the band layout pipeline.
+ * Filters enabled bands, calls `computeBandColSets()` for per-band column arrays,
+ * resolves the match alias from the first enabled band's keyPairs[0].left,
+ * collects unique band column labels across all bands via hdrMap,
+ * composes `applyBandGroup()` transformations sequentially for each enabled band,
+ * then extracts `cleanRows` (projected to headers only), `rowKinds`, and `bandIds`.
+ *
+ * Returns data unchanged with empty headers when no enabled bands exist.
+ *
+ * @param dataRows - Raw result rows with _band_id markers.
+ * @param detailBands - All detail band specs (enabled check done internally).
+ * @param allCols - Superset of all column aliases.
+ * @param hdrMap - Header label map from buildExportHeaderMap().
+ * @returns BandLayoutResult with cleanRows, rowKinds, headers, and bandIds.
+ */
 export function buildBandColumnLayout(
   dataRows: Record<string, unknown>[],
   detailBands: DetailBandSpec[],
@@ -218,7 +266,9 @@ export function buildBandColumnLayout(
   const allBandLabels: string[] = [];
   for (const bandId of Object.keys(bandColSets)) {
     for (const colAlias of bandColSets[bandId]) {
-      const label = hdrMap[colAlias] || colAlias;
+      const rawLabel = hdrMap[colAlias] || colAlias;
+      // Strip _band_N_ prefix if hdrMap returned an identity mapping for a band column
+      const label = rawLabel.startsWith('_band_') ? rawLabel.replace(/^_band_\d+_/, '') : rawLabel;
       if (!allBandLabels.includes(label)) {
         allBandLabels.push(label);
       }
@@ -305,7 +355,16 @@ export function enrichRowsWithBandHeaders(
 /**
  * Exports the current result set as XLSX or CSV.
  * Validates the report before export and applies merge/styling for XLSX.
- * @param fmt - Export format: 'xlsx' or 'csv'
+ *
+ * Dispatch paths:
+ * 1. Band layout path — activates when `state.detailBands` has enabled bands with `rightId`.
+ *    Calls `buildBandColumnLayout()` for compact match+band-cols output with band-specific
+ *    headers, row kinds, and band IDs. Applies band-specific styling via `styleExportSheet()`.
+ *    Early returns before the non-band path.
+ * 2. Non-band path — existing enrichment via `enrichRowsWithBandHeaders()` + styling for
+ *    reports without enabled detail bands.
+ *
+ * @param fmt - Export format: 'xlsx' or 'csv'.
  */
 export async function exportAs(fmt: string): Promise<void> {
   const state = getStore().getState();
@@ -467,12 +526,13 @@ function applyExportMerges(
  *
  * Row-kind handling:
  *  - kind 4 (band header): bold italic blue text on blue-100 background, full-width underline.
+ *  - kind 5 (band parent): bold text on slate-50 background, thin bottom border, left/center alignment.
  *  - Other data rows with a matching band index receive a subtle tint from
  *    BAND_TINT_PALETTE (cycling by band position) to visually group child rows.
  *
  * @param ws - The worksheet to style.
  * @param cleanRows - Data rows (after enrichment) used to derive cell types and band IDs.
- * @param rowKinds - Parallel array of row-kind codes (0=detail, 1=subtotal, 2=spacer, 3=grand, 4=band header).
+ * @param rowKinds - Parallel array of row-kind codes (0=detail, 1=subtotal, 2=spacer, 3=grand, 4=band header, 5=band parent).
  * @param mergeHeaderSet - Set of "row:col" keys identifying merged-cell anchors for underline styling.
  * @param bandIds - Ordered band-ID list used to resolve each row's band index for tint selection.
  */
