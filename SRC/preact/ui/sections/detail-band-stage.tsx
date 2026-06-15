@@ -242,7 +242,7 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
     <>
       <div class={stageClasses}>
       <div class="pl-stage-label">
-        Related Details from <Tip text={"Add related rows from another sheet beneath each parent row — like sub-report details.\n\nFor example: show each Order followed by its Line Items. Use '+ AND' to match on multiple columns at once."} />
+          Related Details from <Tip text={"Add related rows from another sheet beneath each parent row — like sub-report details.\n\nFor example: show each Order followed by its Line Items. Use '+ AND' to match on multiple columns at once.\n\nExported spreadsheets cannot be re-sorted after detail bands are inserted — apply all desired sorts in the report's Sorting stage before export."} />
         <label class="pl-enable-toggle" title={bandEnabled ? "Disable this detail band (won't block report)" : 'Enable this detail band'}>
           <input type="checkbox" checked={bandEnabled} onChange={e => handleEnabledChange((e.target as HTMLInputElement).checked)} />
           <span class="pl-enable-label">{bandEnabled ? 'Enabled' : 'Disabled'}</span>

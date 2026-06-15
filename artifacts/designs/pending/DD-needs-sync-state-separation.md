@@ -179,9 +179,13 @@ In `alias-rename.test.ts`, lines 28-29: change `selCols: null` to `selCols: new 
 |---------|------|---------------------|
 | Base table changed | `base-stage.tsx:51-58` | `baseCols`, `selCols`, `colOrder` |
 | Base table deleted | `sidebar.tsx:42-48` | `baseCols`, `selCols`, `colOrder` |
-| Lookup added/removed/enabled/disabled | `pipeline-card.tsx` (lookup stage) | `selCols`, `colOrder` |
-| Calc stage added/removed/enabled/disabled | `calc-stage.tsx:67-73` | `selCols`, `colOrder` |
-| Stack added/removed | `pipeline-card.tsx` (stack handling) | `selCols`, `colOrder` |
+| Lookup added (new empty stage) | `pipeline-card.tsx (cards/):53-67` (`addLookup`) | `selCols`, `colOrder` |
+| Lookup rightId changed / enabled/disabled | `lookup-stage.tsx:97-102` (`updateLookup` wrapper) | `selCols`, `colOrder` |
+| Lookup removed | `lookup-stage.tsx:191-195` (`removeLookup`) | `selCols`, `colOrder` |
+| Calc stage added (new empty stage) | `pipeline-card.tsx (cards/):70-88` (`addCalcStage`) | `selCols`, `colOrder` |
+| Calc stage enabled/disabled | `calc-stage.tsx:67-73` (`updateCalc` wrapper) | `selCols`, `colOrder` |
+| Stack added | `stack-sheets.tsx:35-40` (`addStack`) | `selCols`, `colOrder` |
+| Stack removed | `stack-sheets.tsx:43-47` (`removeStack`) | `selCols`, `colOrder` |
 | Detail band rightId changed | `detail-band-stage.tsx:116-122` | `selCols`, `colOrder` (band columns are separate) |
 
 #### Edited Signals (set by user actions, persisted)
@@ -194,6 +198,7 @@ In `alias-rename.test.ts`, lines 28-29: change `selCols: null` to `selCols: new 
 | Column dragged to reorder | `column-chips.tsx:198-215` | `colOrder` |
 | selectAllCols() called | `column-chips.tsx:306-314` | `selCols` |
 | selectNoneCols() called | `column-chips.tsx:317-319` | `selCols` |
+| Calc column chip toggled in/out of selCols | `calc-stage.tsx:282-293` | `selCols` |
 | Band column toggled | `detail-band-stage.tsx:168-179` | `detailBandFieldFlags[bandId]` |
 | Band "All" / "None" buttons | `detail-band-stage.tsx:182-196` | `detailBandFieldFlags[bandId]` |
 
@@ -277,16 +282,19 @@ The ambiguity: `outputColumns: []` in `ReportSpec` currently means "project all 
 **Validation:** `npm run typecheck` passes. Existing tests pass with updated fixtures.
 
 ### Phase B: Signal Sinks (UI Mutation Sites)
-**Estimated size: MEDIUM (~100 LOC)**
+**Estimated size: MEDIUM (~120 LOC)**
 
 | File | Change |
 |------|--------|
 | `SRC/preact/ui/sections/base-stage.tsx` | In `handleBaseChange` (line 52-58): set `fieldFlags.baseCols = { stale: true, edited: false }`, `fieldFlags.selCols = { stale: true, edited: false }`, `fieldFlags.colOrder = { stale: true, edited: false }`. In chip click handler (line 97-103): set `fieldFlags.selCols = { stale: false, edited: true }`. In All/None buttons (lines 125-133): set `fieldFlags.selCols = { stale: false, edited: true }`. |
-| `SRC/preact/ui/sections/detail-band-stage.tsx` | In `handleRightIdChange` (line 116-122): set `detailBandFieldFlags[val] = { stale: false, edited: false }` (auto-populated). In `toggleCol` (line 168-179): set `detailBandFieldFlags[band.id] = { stale: false, edited: true }`. In `selectAllCols`/`selectNoneCols` (lines 182-196): set `detailBandFieldFlags[band.id] = { stale: false, edited: true }`. |
+| `SRC/preact/ui/sections/detail-band-stage.tsx` | In `handleRightIdChange` (line 116-122): set `detailBandFieldFlags[bandDraft.id] = { stale: false, edited: false }` (auto-populated; keyed by band's own UUID, not the incoming table rightId). In `toggleCol` (line 168-179): set `detailBandFieldFlags[band.id] = { stale: false, edited: true }`. In `selectAllCols`/`selectNoneCols` (lines 182-196): set `detailBandFieldFlags[band.id] = { stale: false, edited: true }`. |
 | `SRC/preact/ui/sections/column-chips.tsx` | In `handleDblClick` for 'none' mode (line 167-173): set `fieldFlags.selCols = { stale: false, edited: true }`. In `onDrop` (line 206-213): set `fieldFlags.colOrder = { stale: false, edited: true }`. In `selectAllCols()` (line 310-312): set `fieldFlags.selCols = { stale: false, edited: true }`. In `selectNoneCols()` (line 318): set `fieldFlags.selCols = { stale: false, edited: true }`. |
-| `SRC/preact/ui/sections/calc-stage.tsx` | In `updateCalc` wrapper (line 67-73): when calc is added/removed/enabled/disabled, set `fieldFlags.selCols = { stale: true, edited: false }` and `fieldFlags.colOrder = { stale: true, edited: false }`. |
+| `SRC/preact/ui/sections/calc-stage.tsx` | In `updateCalc` wrapper (line 67-73): when calc is added/removed/enabled/disabled, set `fieldFlags.selCols = { stale: true, edited: false }` and `fieldFlags.colOrder = { stale: true, edited: false }`. In calc column chip onClick toggle (line 282-293): set `fieldFlags.selCols = { stale: false, edited: true }` — this is a direct user edit toggling the calc alias in/out of `draft.selCols`. |
 | `SRC/preact/ui/aggregation.ts` | In `loadAggModeState` (lines 124-151): set `fieldFlags.selCols = { stale: false, edited: false }` — this is a system restore, not a user edit. |
 | `SRC/preact/ui/sidebar.tsx` | In `handleRemove` (line 42-48): when base table is deleted, set `fieldFlags.baseCols = { stale: true, edited: false }`, `fieldFlags.selCols = { stale: true, edited: false }`, `fieldFlags.colOrder = { stale: true, edited: false }`. |
+| `SRC/preact/ui/sections/lookup-stage.tsx` | In `updateLookup` wrapper (line 97-102): set `fieldFlags.selCols = { stale: true, edited: false }` and `fieldFlags.colOrder = { stale: true, edited: false }` inside the `store.update` block before `_afterCombineChange()`. Covers rightId change, enable/disable, key pair changes. In `removeLookup` (line 191-195): set same stale flags inside the `store.update` block before `_afterCombineChange()`. |
+| `SRC/preact/ui/sections/stack-sheets.tsx` | In `addStack` (line 35-40): set `fieldFlags.selCols = { stale: true, edited: false }` and `fieldFlags.colOrder = { stale: true, edited: false }` inside the `store.update` block before `_afterCombineChange()`. In `removeStack` (line 43-47): set same stale flags inside the `store.update` block. |
+| `SRC/preact/ui/cards/pipeline-card.tsx` | In `addLookup` (line 53-67): set `fieldFlags.selCols = { stale: true, edited: false }` and `fieldFlags.colOrder = { stale: true, edited: false }` inside the `store.update` block before `_afterCombineChange()`. In `addCalcStage` (line 70-88): set same stale flags inside the `store.update` block. |
 
 **Validation:** Manual testing of each mutation site. Flag state inspected via devtools or temporary logging.
 
@@ -361,7 +369,7 @@ function resolveStaleFields(draft: AppState): void {
 |------|--------|
 | `SRC/preact/core/state-serializer.ts` | In `buildPayload()`: serialize `fieldFlags` with only `edited` (not `stale`). Add `fieldFlags` key to payload: `{ baseCols: { edited: ... }, selCols: { edited: ... }, ... }`. Serialize `detailBandFieldFlags` similarly (only `edited`). |
 | `SRC/preact/core/state-hydrator.ts` | After existing hydration: read `payload.fieldFlags` if present, default missing flags to `{ stale: false, edited: false }`. Read `payload.detailBandFieldFlags` if present, default missing band flags. For `outputColumns`: if payload has `outputColumns: []` or missing, set to `['__ALL__']` for backward compat. |
-| `SRC/preact/core/state-schema.ts` | **Decision needed (see Open Questions):** bump `STATE_VERSION` to 3, or keep at 2 since `fieldFlags` is an additive optional key? |
+| `SRC/preact/core/state-schema.ts` | **No change needed.** `fieldFlags` is an additive optional key — backward compatible with `STATE_VERSION = 2` (see Risk Area §5, Option A). No version bump required. |
 
 **Serialization shape:**
 ```json
@@ -430,7 +438,7 @@ Tests that use `createAppState()` or `createReportSpec()` get flags automaticall
 | 2 | `SRC/preact/core/state.ts` | Core | Add defaults | +10 |
 | 3 | `SRC/preact/core/state-serializer.ts` | Core | Serialize edited flags | +15 |
 | 4 | `SRC/preact/core/state-hydrator.ts` | Core | Default missing flags, handle `__ALL__` | +25 |
-| 5 | `SRC/preact/core/state-schema.ts` | Core | Possibly bump STATE_VERSION | +1 |
+| 5 | `SRC/preact/core/state-schema.ts` | Core | **Unchanged** — no STATE_VERSION bump needed (additive optional key, backward compatible; see Risk Area §5 recommendation: Option A) | 0 |
 | 6 | `SRC/preact/core/alias-rename.ts` | Core | Fix null annotations | ~4 (net change) |
 | 7 | `SRC/preact/query/layout-selection.ts` | Query | Add `resolveStaleFields()`, update `_afterCombineChange()` | +60 |
 | 8 | `SRC/preact/query/query-plan.ts` | Query | Handle `__ALL__` sentinel | +8 |
@@ -438,19 +446,22 @@ Tests that use `createAppState()` or `createReportSpec()` get flags automaticall
 | 10 | `SRC/preact/ui/sections/base-stage.tsx` | UI | Set stale/edited flags | +12 |
 | 11 | `SRC/preact/ui/sections/detail-band-stage.tsx` | UI | Set detailBandFieldFlags | +10 |
 | 12 | `SRC/preact/ui/sections/column-chips.tsx` | UI | Set edited flags | +8 |
-| 13 | `SRC/preact/ui/sections/calc-stage.tsx` | UI | Set stale flags | +4 |
+| 13 | `SRC/preact/ui/sections/calc-stage.tsx` | UI | Set stale flags + edited flag on chip toggle | +6 |
 | 14 | `SRC/preact/ui/aggregation.ts` | UI | Set flags on mode restore | +6 |
 | 15 | `SRC/preact/ui/sidebar.tsx` | UI | Set stale flags on base delete | +4 |
-| 16 | `SRC/preact/ui/sections/run-bar.tsx` | UI | Possibly handle `__ALL__` in outputColumns derivation | +3 |
-| 17 | `SRC/preact/tests/core/alias-rename.test.ts` | Test | Fix draft() helper | ~4 |
-| 18 | `SRC/preact/tests/core/state.test.ts` | Test | Add flag default assertions | +15 |
-| 19 | `SRC/preact/tests/core/state-serializer.test.ts` | Test | Add flag serialization tests | +30 |
-| 20 | `SRC/preact/tests/core/state-hydrator-bands.test.ts` | Test | Add flag hydration tests | +25 |
-| 21 | `SRC/preact/tests/query/query-plan.test.ts` | Test | Add `__ALL__` sentinel tests | +20 |
-| 22 | `SRC/preact/tests/report/preview-builder.test.ts` | Test | Add preview spec test | +10 |
+| 16 | `SRC/preact/ui/sections/lookup-stage.tsx` | UI | Set stale flags in updateLookup/removeLookup | +6 |
+| 17 | `SRC/preact/ui/sections/stack-sheets.tsx` | UI | Set stale flags in addStack/removeStack | +4 |
+| 18 | `SRC/preact/ui/cards/pipeline-card.tsx` | UI | Set stale flags in addLookup/addCalcStage | +6 |
+| 19 | `SRC/preact/ui/sections/run-bar.tsx` | UI | Possibly handle `__ALL__` in outputColumns derivation | +3 |
+| 20 | `SRC/preact/tests/core/alias-rename.test.ts` | Test | Fix draft() helper | ~4 |
+| 21 | `SRC/preact/tests/core/state.test.ts` | Test | Add flag default assertions | +15 |
+| 22 | `SRC/preact/tests/core/state-serializer.test.ts` | Test | Add flag serialization tests | +30 |
+| 23 | `SRC/preact/tests/core/state-hydrator-bands.test.ts` | Test | Add flag hydration tests | +25 |
+| 24 | `SRC/preact/tests/query/query-plan.test.ts` | Test | Add `__ALL__` sentinel tests | +20 |
+| 25 | `SRC/preact/tests/report/preview-builder.test.ts` | Test | Add preview spec test | +10 |
 | ~14 | Various test fixture files | Test | Add flag defaults to fixture objects | ~50 |
 
-**Total: ~25 files modified, ~34 files affected (including fixtures), ~600 LOC**
+**Total: ~28 files modified, ~37 files affected (including fixtures), ~620 LOC**
 
 ### Risk Areas
 
@@ -460,7 +471,7 @@ Tests that use `createAppState()` or `createReportSpec()` get flags automaticall
 **Resolution:** `loadAggModeState()` sets `fieldFlags.selCols = { stale: false, edited: false }` unconditionally. The rationale: aggModeState is a snapshot mechanism — restoring a snapshot is a system action, not a user edit. If the user subsequently toggles columns in the new mode, that action sets `edited=true`.
 
 #### 2. `_afterCombineChange` Call Sites
-`_afterCombineChange()` is called from ~10 locations: `base-stage.tsx` (3), `column-chips.tsx` (4), `calc-stage.tsx` (1), `alias-rename.ts` (1), `column-chips.tsx` selectAll/None (2). Each call must now consider flags.
+`_afterCombineChange()` is called from ~15 locations: `base-stage.tsx` (3), `column-chips.tsx` (4), `calc-stage.tsx` (2 — updateCalc wrapper + chip toggle), `alias-rename.ts` (1), `lookup-stage.tsx` (2 — updateLookup wrapper + removeLookup), `stack-sheets.tsx` (2 — addStack + removeStack), `pipeline-card.tsx` (cards/) (3 — addLookup + addCalcStage + addDetailBand). Each call must now consider flags.
 
 **Resolution:** The simplest approach — `_afterCombineChange()` checks stale flags at the top via `resolveStaleFields(draft)`. If a field's stale flag is not set, skip its auto-reconciliation. Callers don't need to change; they already set stale flags before calling `_afterCombineChange()`.
 
@@ -515,10 +526,8 @@ Adding `fieldFlags` to the serialized payload changes the shape. Two options:
 
 ## Open Questions
 
-### 1. STATE_VERSION bump: needed or not?
-**Recommendation:** No bump (Option A). `fieldFlags` is additive and backward-compatible. Old code ignores unknown keys; new code defaults missing keys. No migration complexity.
-**Decision needed from:** Project maintainer.
-**Impact of decision:** If bump is chosen, add ~20 LOC for v2→v3 migration in hydrator. If not, save that work and keep version stable.
+### 1. ~~STATE_VERSION bump: needed or not?~~ **RESOLVED**
+**Decision:** No bump (Option A). `fieldFlags` is additive and backward-compatible. Old code ignores unknown keys; new code defaults missing keys. No migration complexity. `state-schema.ts` is unchanged.
 
 ### 2. Should `edited` flags survive mode switches?
 When the user switches from 'none' mode to 'group' mode and back, should `fieldFlags.selCols.edited` retain its value from the 'none' mode snapshot?
@@ -541,12 +550,12 @@ The `'__ALL__'` sentinel lives inside the `outputColumns` string array. Alternat
 | Phase | Description | Files | LOC | Complexity |
 |-------|-------------|-------|-----|------------|
 | A | Types & Defaults | 4 | ~50 | Low — pure additions |
-| B | Signal Sinks | 6 | ~100 | Medium — audit all mutation sites |
+| B | Signal Sinks | 9 | ~120 | Medium — audit all mutation sites |
 | C | Resolution Logic | 1 | ~100 | Medium — core behavioral change |
 | D | Serialization & Hydration | 3 | ~50 | Low — additive, backward compat |
 | E | "Project All" Fix | 3-4 | ~50 | Low — sentinel check |
 | F | Tests | ~16 | ~200 | Medium — fixture updates + new tests |
-| **Total** | | **~25 unique files** | **~600** | |
+| **Total** | | **~28 unique files** | **~620** | |
 
 **Timeline estimate:**
 - Phase A: 0.5 day (types are straightforward)
