@@ -369,7 +369,6 @@
       activeTab: "query",
       previewTableId: null,
       detailBands: [],
-      detailBandMode: "separate",
       columnTypeOverrides: {}
     }, overrides || {});
   }
@@ -1247,14 +1246,14 @@
       } else if (baseOk) {
         for (let pi = 0; pi < (band.keyPairs || []).length; pi++) {
           const p3 = band.keyPairs[pi];
-          if (p3.left && !projected.has(p3.left)) {
+          if (p3.left && !colMap.has(p3.left)) {
             resolved = false;
             issues.push(mkIssue(
               `detailband_${i3}_kp${pi}_left`,
               "detailBand",
               "pipeline",
               `detailband_${i3}`,
-              `Match column "${p3.left}" is not available`,
+              `Match column "${p3.left}" does not exist in parent data`,
               { missingColumn: p3.left }
             ));
           }
@@ -1976,6 +1975,9 @@
     const state = getStore().getState();
     return state.columnLabels?.[tid]?.[physCol] ?? physCol;
   }
+  function colLabel(tid, physCol) {
+    return tableShortName(tid) + ":" + colUserLabel(tid, physCol);
+  }
   function setColLabel(tid, physCol, label) {
     const state = getStore().getState();
     const columnLabels = { ...state.columnLabels };
@@ -2017,38 +2019,38 @@
     if (/amount|total|value|price|cost|\bqty\b|quantity|\bnum\b|number|units|sales|revenue|weight|volume/.test(n2)) return "SUM";
     return "FIRST";
   }
-  function defaultAggAlias(fn, colLabel) {
+  function defaultAggAlias(fn, colLabel2) {
     switch (fn) {
       case "SUM":
-        return `Total ${colLabel}`;
+        return `Total ${colLabel2}`;
       case "AVG":
-        return `Avg ${colLabel}`;
+        return `Avg ${colLabel2}`;
       case "COUNT ROWS":
         return "Row Count";
       case "COUNT NON-EMPTY":
-        return `# ${colLabel}`;
+        return `# ${colLabel2}`;
       case "COUNT DISTINCT":
-        return `Unique ${colLabel}`;
+        return `Unique ${colLabel2}`;
       case "MIN":
-        return `Min ${colLabel}`;
+        return `Min ${colLabel2}`;
       case "MAX":
-        return `Max ${colLabel}`;
+        return `Max ${colLabel2}`;
       case "FIRST":
-        return `${colLabel} (first)`;
+        return `${colLabel2} (first)`;
       case "LAST":
-        return `${colLabel} (last)`;
+        return `${colLabel2} (last)`;
       case "DATE RANGE":
-        return `${colLabel} Range`;
+        return `${colLabel2} Range`;
       case "DATE SPAN":
-        return `${colLabel} Span (days)`;
+        return `${colLabel2} Span (days)`;
       case "NUMERIC RANGE":
-        return `${colLabel} Range`;
+        return `${colLabel2} Range`;
       case "NUMERIC SPAN":
-        return `${colLabel} Span`;
+        return `${colLabel2} Span`;
       case "LIST":
-        return `${colLabel} (list)`;
+        return `${colLabel2} (list)`;
       default:
-        return `${fn}(${colLabel})`;
+        return `${fn}(${colLabel2})`;
     }
   }
 
@@ -2070,8 +2072,7 @@
     "subtotalBy",
     "subtotalFns",
     "subtotalStrategy",
-    "detailBands",
-    "detailBandMode"
+    "detailBands"
   ];
   function isRecognizableConfig(payload) {
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) return false;
@@ -2362,7 +2363,6 @@
         });
       }
     }
-    next.detailBandMode = payload.detailBandMode === "stack" ? "stack" : "separate";
     next.columnTypeOverrides = {};
     if (payload.columnTypeOverrides && typeof payload.columnTypeOverrides === "object") {
       for (const [tid, cols] of Object.entries(payload.columnTypeOverrides)) {
@@ -2643,6 +2643,7 @@
       draft.tableColors[id] = color;
       if (!draft.base) draft.base = id;
     });
+    _afterCombineChange();
     if (suggested.size) {
       const previews = [...suggestedPreviews.values()];
       const previewStr = previews.length === 1 ? `"${previews[0]}"` : previews.map((p3) => `"${p3}"`).join(", ");
@@ -3439,7 +3440,6 @@ Row contents → ${previewStr}`,
         sorts: (b2.sorts || []).map((s3) => ({ col: s3.col || "", dir: s3.dir === "DESC" ? "DESC" : "ASC", enabled: s3.enabled !== false })),
         label: typeof b2.label === "string" ? b2.label : ""
       })),
-      detailBandMode: state.detailBandMode || "separate",
       columnTypeOverrides: JSON.parse(JSON.stringify(state.columnTypeOverrides || {}))
     };
   }
@@ -3643,18 +3643,13 @@ Row contents → ${previewStr}`,
       };
     }, [x3, y3, onClose]);
     return $2(
-      /* @__PURE__ */ u3("div", { class: "ctx-menu", ref: menuRef, style: { left: x3 + "px", top: y3 + "px" }, children: items.map((item, i3) => /* @__PURE__ */ u3(
-        "button",
-        {
-          class: "ctx-menu-item",
-          onClick: () => {
-            onClose();
-            item.action();
-          },
-          children: item.checked ? "✓ " + item.label : item.label
-        },
-        i3
-      )) }),
+      /* @__PURE__ */ u3("div", { class: "ctx-menu", ref: menuRef, style: { left: x3 + "px", top: y3 + "px" }, children: items.map((item, i3) => {
+        if (item.separator) return /* @__PURE__ */ u3("div", { class: "ctx-menu-sep" }, i3);
+        return /* @__PURE__ */ u3("button", { class: "ctx-menu-item", onClick: () => {
+          onClose();
+          item.action();
+        }, children: item.checked ? "✓ " + item.label : item.label }, i3);
+      }) }),
       document.body
     );
   }
@@ -3776,7 +3771,7 @@ Row contents → ${previewStr}`,
               Chip,
               {
                 col: c3,
-                label: colUserLabel(base, c3),
+                label: colLabel(base, c3),
                 selected: true,
                 draggable: false,
                 chipClass: "pl-col-chip",
@@ -3800,7 +3795,6 @@ Row contents → ${previewStr}`,
                       alias = a3;
                       break;
                     }
-                    if (!alias) return;
                   }
                   if (!alias) return;
                   setCtxMenu({
@@ -4132,7 +4126,7 @@ Row contents → ${previewStr}`,
               ] }),
               leftCols.map((c3) => {
                 const src = lkColMap.get(c3);
-                const label = src && src.kind !== "calc" ? colUserLabel(src.tid, src.col) : c3;
+                const label = src && src.kind !== "calc" ? colLabel(src.tid, src.col) : c3;
                 return /* @__PURE__ */ u3("option", { value: c3, children: label }, c3);
               })
             ] }),
@@ -4143,7 +4137,7 @@ Row contents → ${previewStr}`,
                 " column ",
                 "—"
               ] }),
-              rightCols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: `${tables[lk.rightId]?.name || lk.rightId} → ${colUserLabel(lk.rightId, c3)}` }, c3))
+              rightCols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: colLabel(lk.rightId, c3) }, c3))
             ] }),
             pairs.length > 1 && /* @__PURE__ */ u3("button", { class: "pl-rm-kp", title: "Remove this condition", onClick: () => removeKeyPair(pi), children: "✕" })
           ] }, pi)),
@@ -4186,7 +4180,7 @@ Row contents → ${previewStr}`,
               Chip,
               {
                 col: c3,
-                label: colUserLabel(lk.rightId, c3),
+                label: colLabel(lk.rightId, c3),
                 selected: true,
                 draggable: false,
                 chipClass: "pl-col-chip",
@@ -4822,7 +4816,7 @@ Row contents → ${previewStr}`,
     }, [i3]);
     const colOptsFor = q2((sel) => cols.filter((c3) => c3 !== alias).map((c3) => {
       const src = colMap.get(c3);
-      const label = src && src.kind !== "calc" ? colUserLabel(src.tid, src.col) : c3;
+      const label = src && src.kind !== "calc" ? colLabel(src.tid, src.col) : c3;
       return { value: c3, label, selected: sel === c3 };
     }), [cols, alias, colMap]);
     const Builder = calcModeComponents[mode];
@@ -4868,7 +4862,7 @@ Row contents → ${previewStr}`,
               col: alias,
               label: (() => {
                 const src = colMap.get(alias);
-                return src && src.kind !== "calc" ? colUserLabel(src.tid, src.col) : alias;
+                return src && src.kind !== "calc" ? colLabel(src.tid, src.col) : alias;
               })(),
               selected: _isAliasVisibleInLayout(alias, aggMode),
               draggable: false,
@@ -5101,7 +5095,7 @@ Row contents → ${previewStr}`,
               ] }),
               leftCols.map((c3) => {
                 const src = lkColMap.get(c3);
-                const label = src && src.kind !== "calc" ? colUserLabel(src.tid, src.col) : c3;
+                const label = src && src.kind !== "calc" ? colLabel(src.tid, src.col) : c3;
                 return /* @__PURE__ */ u3("option", { value: c3, children: label }, c3);
               })
             ] }),
@@ -5112,7 +5106,7 @@ Row contents → ${previewStr}`,
                 " column ",
                 "—"
               ] }),
-              rightCols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: `${tables[band.rightId]?.name || band.rightId} → ${colUserLabel(band.rightId, c3)}` }, c3))
+              rightCols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: colLabel(band.rightId, c3) }, c3))
             ] }),
             pairs.length > 1 && /* @__PURE__ */ u3("button", { class: "pl-rm-kp", title: "Remove this condition", onClick: () => removeKeyPair(pi), children: "✕" })
           ] }, pi)),
@@ -5131,7 +5125,7 @@ Row contents → ${previewStr}`,
               Chip,
               {
                 col: c3,
-                label: colUserLabel(band.rightId, c3),
+                label: colLabel(band.rightId, c3),
                 selected: isSelected,
                 draggable: false,
                 chipClass: "pl-col-chip",
@@ -5142,10 +5136,8 @@ Row contents → ${previewStr}`,
                 onContextMenu: (e3) => {
                   e3.preventDefault();
                   if (!band.rightId) return;
-                  const colMap2 = buildColSourceMap();
                   const bandPrefix = `_${band.id}_`;
                   const alias = bandPrefix + c3;
-                  if (!colMap2.has(alias)) return;
                   setCtxMenu({
                     x: e3.clientX,
                     y: e3.clientY,
@@ -5196,7 +5188,7 @@ Row contents → ${previewStr}`,
                       " column ",
                       "—"
                     ] }),
-                    rightCols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: colUserLabel(band.rightId, c3) }, c3))
+                    rightCols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: colLabel(band.rightId, c3) }, c3))
                   ]
                 }
               ),
@@ -5793,8 +5785,8 @@ FROM ${fromClause}`;
         colAliases.push(alias);
       }
       for (const agg of aggregates) {
-        const colLabel = agg.col && agg.col !== "*" ? agg.col : "all rows";
-        const outName = agg.alias?.trim() || defaultAggAlias(agg.fn, colLabel);
+        const colLabel2 = agg.col && agg.col !== "*" ? agg.col : "all rows";
+        const outName = agg.alias?.trim() || defaultAggAlias(agg.fn, colLabel2);
         if (selColSet && !selColSet.has(outName)) continue;
         if (isBand(outName)) continue;
         const calcExpr = agg.col ? calcExprs.get(agg.col) : void 0;
@@ -6239,75 +6231,6 @@ ORDER BY ${sortParts.join(", ")}`;
     const rows = execQuery(plan.sql, plan.params);
     return buildResultSet(plan.cols, rows, { aggMode: "group" });
   }
-  var STACK_ROW_LIMIT = 1e4;
-  var RowExplosionError = class extends Error {
-    /** The projected number of rows that would be produced. */
-    projectedCount;
-    /** The limit that was exceeded. */
-    limit;
-    constructor(projectedCount, limit) {
-      super(
-        `Detail band cross-product would produce ${projectedCount} rows, exceeding limit of ${limit}.`
-      );
-      this.name = "RowExplosionError";
-      this.projectedCount = projectedCount;
-      this.limit = limit;
-    }
-  };
-  function computeSupersetCols(parentCols, bandResults) {
-    const superset = [...parentCols];
-    const seen = new Set(parentCols);
-    for (const br of bandResults) {
-      for (const col of br.cols) {
-        if (!seen.has(col)) {
-          superset.push(col);
-          seen.add(col);
-        }
-      }
-    }
-    if (!seen.has("_band_id")) superset.push("_band_id");
-    return superset;
-  }
-  function padParentRow(row, supersetCols) {
-    const padded = { ...row };
-    for (const col of supersetCols) {
-      if (!(col in padded)) padded[col] = null;
-    }
-    padded._band_id = null;
-    return padded;
-  }
-  function padBandRow(row, supersetCols, bandId) {
-    const padded = {};
-    for (const col of supersetCols) {
-      padded[col] = col in row ? row[col] : null;
-    }
-    padded._band_id = bandId;
-    return padded;
-  }
-  function interleaveRows(parentRows, bandResults, supersetCols) {
-    const bandIndex = /* @__PURE__ */ new Map();
-    for (const br of bandResults) {
-      const idx = /* @__PURE__ */ new Map();
-      for (const row of br.rows) {
-        const key = makeKeyValue(row, br.childKeyCols);
-        if (!idx.has(key)) idx.set(key, []);
-        idx.get(key).push(row);
-      }
-      bandIndex.set(br.band.id, idx);
-    }
-    const result = [];
-    for (const parentRow of parentRows) {
-      result.push(padParentRow(parentRow, supersetCols));
-      for (const br of bandResults) {
-        const key = makeKeyValue(parentRow, br.parentKeyAliases);
-        const children = bandIndex.get(br.band.id)?.get(key) || [];
-        for (const child of children) {
-          result.push(padBandRow(child, supersetCols, br.band.id));
-        }
-      }
-    }
-    return result;
-  }
   function makeKeyValue(row, keyCols) {
     if (keyCols.length === 1) return String(row[keyCols[0]] ?? "");
     return keyCols.map((k3) => String(row[k3] ?? "")).join("|||");
@@ -6329,39 +6252,7 @@ ORDER BY ${sortParts.join(", ")}`;
     }
     return index;
   }
-  function crossProductRows(parentRow, bandResults, supersetCols, limit = STACK_ROW_LIMIT, childIndex) {
-    let combinations = [parentRow];
-    for (const br of bandResults) {
-      const parentKey = makeKeyValue(parentRow, br.parentKeyAliases);
-      let children;
-      if (childIndex) {
-        children = childIndex.get(br.band.id)?.get(parentKey) || [];
-      } else {
-        children = br.rows.filter(
-          (r3) => makeKeyValue(r3, br.childKeyCols) === parentKey
-        );
-      }
-      if (children.length === 0) continue;
-      const next = [];
-      for (const combo of combinations) {
-        for (const child of children) {
-          next.push({ ...combo, ...child, _band_id: br.band.id });
-        }
-      }
-      if (next.length > limit) {
-        throw new RowExplosionError(next.length, limit);
-      }
-      combinations = next;
-    }
-    return combinations.map((row) => {
-      const padded = {};
-      for (const col of supersetCols) {
-        padded[col] = col in row ? row[col] : null;
-      }
-      return padded;
-    });
-  }
-  function runDetailBandsMode(plan, reportSpec, tables, stackRowLimit = STACK_ROW_LIMIT) {
+  function runDetailBandsMode(plan, reportSpec, tables) {
     const parentRows = execQuery(plan.sql, plan.params);
     const sourceCatalog = buildSourceCatalog(tables);
     const catalogCtx = {
@@ -6418,41 +6309,33 @@ ORDER BY ${sortParts.join(", ")}`;
         childKeyCols: bandQuery.childKeyCols
       });
     }
-    const supersetCols = computeSupersetCols(parentCols, bandResults);
-    const mode = reportSpec.detailBandMode || "separate";
-    let resultRows;
-    if (mode === "stack") {
-      const childIndex = buildBandChildIndex(bandResults);
-      resultRows = [];
-      for (const parentRow of parentRows) {
-        const combos = crossProductRows(parentRow, bandResults, supersetCols, stackRowLimit, childIndex);
-        resultRows.push(...combos);
-        if (resultRows.length > stackRowLimit) {
-          throw new RowExplosionError(resultRows.length, stackRowLimit);
-        }
-      }
-    } else {
-      resultRows = interleaveRows(parentRows, bandResults, supersetCols);
-    }
     const bandLabels = {};
     for (const br of bandResults) {
       bandLabels[br.band.id] = br.band.label || br.band.id;
     }
-    return buildResultSet(supersetCols, resultRows, {
+    const brs = {
+      parentRows,
+      parentCols,
+      bandResults,
+      bandLabels
+    };
+    const result = buildResultSet(parentCols, parentRows, {
       aggMode: "none",
       bandCount: bandResults.length,
       bandIds: bandResults.map((br) => br.band.id),
       bandLabels
     });
+    result.bandResult = brs;
+    return result;
   }
   function runPreviewQuery(sql, params) {
     return execQuery(sql, params);
   }
-  function runReport(reportSpec, tables, stackRowLimit) {
+  function runReport(reportSpec, tables) {
     const plan = buildQueryPlan(reportSpec, tables);
     const enabledBands = (reportSpec.pipeline.detailBands || []).filter((b2) => b2.enabled !== false && b2.rightId);
     if (enabledBands.length > 0 && plan.aggMode === "none") {
-      return runDetailBandsMode(plan, reportSpec, tables, stackRowLimit);
+      return runDetailBandsMode(plan, reportSpec, tables);
     }
     switch (plan.aggMode) {
       case "totals":
@@ -6574,7 +6457,7 @@ ORDER BY ${sortParts.join(", ")}`;
       return { headers: [], rows: [], error: "No base table selected" };
     }
     const baseTable = state.tables[base];
-    const baseCols = baseTable.cols;
+    const baseCols = state.selCols instanceof Set && state.selCols.size > 0 ? baseTable.cols.filter((c3) => state.selCols.has(c3)) : baseTable.cols;
     if (!baseCols.length) {
       return { headers: [], rows: [], error: "Base table has no columns" };
     }
@@ -6608,7 +6491,7 @@ ORDER BY ${sortParts.join(", ")}`;
         calculatedColumns: slicedCalcs,
         detailBands: []
       },
-      outputColumns: [],
+      outputColumns: state.selCols instanceof Set ? (state.colOrder || []).filter((c3) => state.selCols.has(c3)) : state.colOrder || [],
       filters: [],
       sorts: [],
       aggregation: {
@@ -6625,8 +6508,7 @@ ORDER BY ${sortParts.join(", ")}`;
       },
       mergeDisplay: { mergedCols: [], mergeGroupUnderline: false },
       outputDefinition: null,
-      publish: { enabled: false, tableName: "" },
-      detailBandMode: "separate"
+      publish: { enabled: false, tableName: "" }
     };
   }
   function buildStagePreview(depth, kind, state) {
@@ -6721,19 +6603,12 @@ ORDER BY ${sortParts.join(", ")}`;
       });
       _afterCombineChange();
     }, []);
-    const setBandMode = q2((mode) => {
-      getStore().update((draft) => {
-        draft.detailBandMode = mode;
-      });
-      invalidateValidation();
-    }, []);
     const computePreview = q2((id) => {
       const currentState = getStore().getState();
       const result = buildPreview(id, currentState);
       setPreviews((prev) => ({ ...prev, [id]: result }));
     }, []);
     const hasBase = !!(base && tables[base]);
-    const enabledBandCount = detailBands.filter((b2) => b2.enabled !== false).length;
     return /* @__PURE__ */ u3("div", { id: "pipeline", class: "pipeline", children: [
       /* @__PURE__ */ u3("div", { class: "pl-top-pair", children: [
         /* @__PURE__ */ u3(BaseStage, { sortedIds }),
@@ -6772,36 +6647,6 @@ ORDER BY ${sortParts.join(", ")}`;
         /* @__PURE__ */ u3(CalcStageSection, { i: i3 }),
         /* @__PURE__ */ u3(PipelineArrow, { id: `calc${i3}`, result: previews[`calc${i3}`], onOpen: computePreview })
       ] }, `calc-${i3}`)),
-      enabledBandCount >= 2 && /* @__PURE__ */ u3("div", { class: "pl-band-mode-toggle", style: "display:flex;align-items:center;gap:8px;padding:4px 8px;flex-wrap:wrap", children: [
-        /* @__PURE__ */ u3("span", { children: "Multiple bands:" }),
-        /* @__PURE__ */ u3("label", { style: "display:inline-flex;align-items:center;gap:2px;cursor:pointer", children: [
-          /* @__PURE__ */ u3(
-            "input",
-            {
-              type: "radio",
-              name: "bandMode",
-              value: "separate",
-              checked: state.detailBandMode === "separate",
-              onChange: () => setBandMode("separate")
-            }
-          ),
-          "Separate bands (under each row)"
-        ] }),
-        /* @__PURE__ */ u3("label", { style: "display:inline-flex;align-items:center;gap:2px;cursor:pointer", children: [
-          /* @__PURE__ */ u3(
-            "input",
-            {
-              type: "radio",
-              name: "bandMode",
-              value: "stack",
-              checked: state.detailBandMode === "stack",
-              onChange: () => setBandMode("stack")
-            }
-          ),
-          "Stack side-by-side (cross-product)"
-        ] }),
-        /* @__PURE__ */ u3(Tip, { text: "Separate: each parent row is followed by its matching child rows from each band.\n\nStack: child rows from all bands are combined for each parent row (like a cross-product). Warning: this can produce many rows." })
-      ] }),
       detailBands.map((_band, i3) => /* @__PURE__ */ u3("div", { children: [
         /* @__PURE__ */ u3(
           DetailBandStage,
@@ -6818,15 +6663,15 @@ ORDER BY ${sortParts.join(", ")}`;
       hasBase && /* @__PURE__ */ u3("div", { style: "display:flex;justify-content:center;gap:8px;flex-wrap:wrap;padding:2px 0 8px", children: [
         /* @__PURE__ */ u3("div", { class: "pl-add-btn", onClick: addLookup, children: [
           "＋",
-          " Look up columns from another sheet"
+          " Add columns from another sheet"
         ] }),
         /* @__PURE__ */ u3("div", { class: "pl-add-btn", onClick: addCalcStage, children: [
           "＋",
-          " Add a calculated column from existing sheets"
+          " Add a calculated column"
         ] }),
         /* @__PURE__ */ u3("div", { class: "pl-add-btn", onClick: addDetailBand, children: [
           "＋",
-          " Add related details from another sheet"
+          " Add detail rows from another"
         ] })
       ] })
     ] });
@@ -6896,23 +6741,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     const [renameTarget, setRenameTarget] = d2(null);
     y2(() => getStore().subscribe((s3) => setState(s3)), []);
     y2(() => {
-      const st = getStore().getState();
-      const reportSpec = buildReportSpecFromState(st);
-      const sourceCatalog = buildSourceCatalog(st.tables);
-      const currentCols = projectedCols(reportSpec, sourceCatalog);
-      const colSet = new Set(currentCols);
-      const needsSync = st.colOrder.some((c3) => !colSet.has(c3)) || currentCols.some((c3) => !st.colOrder.includes(c3));
-      if (needsSync) {
-        getStore().update((draft) => {
-          const cs = projectedCols(reportSpec, sourceCatalog);
-          const currentSet = new Set(cs);
-          draft.colOrder = [
-            ...draft.colOrder.filter((c3) => currentSet.has(c3)),
-            ...cs.filter((c3) => !draft.colOrder.includes(c3))
-          ];
-        });
-      }
-      _syncSubtotalByToLayout();
+      _afterCombineChange();
     }, [state.base, state.lookups.length, state.calcStages.length]);
     const base = state.base;
     if (!base) return null;
@@ -7017,7 +6846,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
           children: colOrder.map((c3) => {
             const src = colMap.get(c3);
             const colorCls = src && src.kind !== "calc" ? getTableColorClass(src.tid) : "";
-            const label = src && src.kind !== "calc" ? colUserLabel(src.tid, src.col) : c3;
+            const label = src && src.kind !== "calc" ? colLabel(src.tid, src.col) : c3;
             if (selSet && !selSet.has(c3)) return null;
             const tip = _buildTooltip(c3, src, state);
             if (mode === "group") {
@@ -7136,7 +6965,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     }, []);
     return /* @__PURE__ */ u3("div", { id: "mergeToggles", children: displayCols.map((c3) => {
       const src = colMap.get(c3);
-      const label = src && src.kind !== "calc" ? colUserLabel(src.tid, src.col) : c3;
+      const label = src && src.kind !== "calc" ? colLabel(src.tid, src.col) : c3;
       return /* @__PURE__ */ u3("label", { style: "display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.76rem;font-weight:normal;margin-top:4px", children: [
         /* @__PURE__ */ u3(
           "input",
@@ -7164,7 +6993,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
       const calc = getStore().getState().calcStages?.[src.idx];
       return (calc?.alias || "").trim() || alias;
     }
-    return tableShortName(src.tid) + " → " + colUserLabel(src.tid, src.col);
+    return colLabel(src.tid, src.col);
   }
   function getHint(mode, state) {
     if (mode === "none") return null;
@@ -7311,8 +7140,8 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     }, []);
     return /* @__PURE__ */ u3(S, { children: aggregates.map((agg, i3) => {
       const needsCol = AGG_NEEDS_COL(agg.fn);
-      const colLabel = needsCol ? agg.col ? _syncColDisplayLabel(agg.col, colMap) : "" : "all rows";
-      const placeholder = defaultAggAlias(agg.fn, colLabel);
+      const colLabel2 = needsCol ? agg.col ? _syncColDisplayLabel(agg.col, colMap) : "" : "all rows";
+      const placeholder = defaultAggAlias(agg.fn, colLabel2);
       const isAuto = agg.auto;
       return /* @__PURE__ */ u3("div", { class: `agg-row${isAuto ? " agg-row-auto" : ""}`, children: [
         isAuto && /* @__PURE__ */ u3("span", { class: "agg-auto-badge", title: "Auto-added — edit or delete to customize.", children: "auto" }),
@@ -7567,7 +7396,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
         /* @__PURE__ */ u3("option", { value: "", children: "Column…" }),
         cols.map((c3) => {
           const src = colMap.get(c3);
-          const label = src && src.kind !== "calc" ? colUserLabel(src.tid, src.col) : c3;
+          const label = src && src.kind !== "calc" ? colLabel(src.tid, src.col) : c3;
           return /* @__PURE__ */ u3("option", { value: c3, children: label }, c3);
         })
       ] }),
@@ -7682,7 +7511,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
         ] }),
         cols.map((c3) => {
           const src = colMap.get(c3);
-          const label = src && src.kind !== "calc" ? colUserLabel(src.tid, src.col) : c3;
+          const label = src && src.kind !== "calc" ? colLabel(src.tid, src.col) : c3;
           return /* @__PURE__ */ u3("option", { value: c3, children: label }, c3);
         })
       ] }),
@@ -7785,51 +7614,10 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     ] });
   }
 
-  // preact/ui/components/row-explosion-dialog.tsx
-  function RowExplosionDialog({
-    projectedCount,
-    limit,
-    onProceed,
-    onCancel
-  }) {
-    return /* @__PURE__ */ u3(
-      Modal,
-      {
-        open: true,
-        title: "Row count warning",
-        onClose: onCancel,
-        closeOnBackdrop: false,
-        buttons: [
-          { label: "Cancel", action: onCancel },
-          { label: "Proceed anyway", primary: true, action: onProceed, className: "btn-warning" }
-        ],
-        children: [
-          /* @__PURE__ */ u3("p", { style: "font-size:0.82rem;line-height:1.5;margin:0 0 8px 0", children: [
-            "The stacking-mode cross-product would produce",
-            " ",
-            /* @__PURE__ */ u3("strong", { children: projectedCount.toLocaleString() }),
-            " rows, which exceeds the limit of ",
-            /* @__PURE__ */ u3("strong", { children: limit.toLocaleString() }),
-            "."
-          ] }),
-          /* @__PURE__ */ u3("p", { style: "font-size:0.78rem;line-height:1.5;margin:0;color:var(--muted)", children: [
-            "This may cause the application to slow down or become unresponsive. Click ",
-            /* @__PURE__ */ u3("em", { children: "Proceed anyway" }),
-            " to run with an elevated limit, or",
-            " ",
-            /* @__PURE__ */ u3("em", { children: "Cancel" }),
-            " to abort."
-          ] })
-        ]
-      }
-    );
-  }
-
   // preact/ui/sections/run-bar.tsx
   function RunBar({ onResult }) {
     const [state, setState] = d2(getStore().getState());
     const [runStatus, setRunStatus] = d2("");
-    const [explosionDialog, setExplosionDialog] = d2(null);
     y2(() => getStore().subscribe((s3) => setState(s3)), []);
     const base = state.base;
     const hasBaseConfigured = !!base;
@@ -7840,7 +7628,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     const issueCount = items.filter((it) => it.blocking).length;
     const statusPill = blocked ? { text: `⚠ Blocked (${issueCount} issue${issueCount !== 1 ? "s" : ""})`, bg: "rgba(200,60,60,0.18)", color: "#e07070", border: "1px solid rgba(200,60,60,0.35)" } : { text: "✓ Healthy", bg: "rgba(50,180,100,0.15)", color: "#6ec87e", border: "1px solid rgba(50,180,100,0.3)" };
     const runDisabled = blocked;
-    const runQuery = q2((overrideLimit) => {
+    const runQuery = q2(() => {
       const currentState = getStore().getState();
       if (!currentState.base || !currentState.tables[currentState.base]) return;
       invalidateValidation();
@@ -7891,10 +7679,9 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
               mergeGroupUnderline: currentState.mergeGroupUnderline
             },
             outputDefinition: null,
-            publish: { enabled: false, tableName: "" },
-            detailBandMode: currentState.detailBandMode || "separate"
+            publish: { enabled: false, tableName: "" }
           };
-          const resultSet = overrideLimit != null ? runReport(reportSpec, currentState.tables, overrideLimit) : runReport(reportSpec, currentState.tables);
+          const resultSet = runReport(reportSpec, currentState.tables);
           if (!resultSet) throw new Error("No result set returned");
           const displayRows = resultSet.rows.filter((r3) => !r3._row_type);
           const hasTotals = !!resultSet.metadata.totalsRow;
@@ -7903,7 +7690,8 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
             rows: resultSet.rows,
             totalsRow: resultSet.metadata.totalsRow || null,
             cols: resultSet.columns,
-            hasSubtotals: hasSubs
+            hasSubtotals: hasSubs,
+            bandResult: resultSet.bandResult
           };
           getStore().update((draft) => {
             draft.result = result;
@@ -7914,25 +7702,11 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
           setRunStatus(statusText);
           if (onResult) onResult(result);
         } catch (ex) {
-          if (ex instanceof RowExplosionError) {
-            setExplosionDialog({ projectedCount: ex.projectedCount, limit: ex.limit });
-            setRunStatus("Row limit exceeded");
-            return;
-          }
           setRunStatus("Error");
           toast("Query error: " + ex.message, "err");
         }
       }, 20);
     }, [onResult]);
-    const handleExplosionProceed = q2(() => {
-      setExplosionDialog(null);
-      const elevated = Math.max(5e4, Math.ceil((explosionDialog?.projectedCount ?? 5e4) * 2));
-      runQuery(elevated);
-    }, [runQuery, explosionDialog]);
-    const handleExplosionCancel = q2(() => {
-      setExplosionDialog(null);
-      setRunStatus("Cancelled");
-    }, []);
     return /* @__PURE__ */ u3("div", { id: "runRow", style: "display:flex;align-items:center;gap:8px;padding:8px 0", children: [
       /* @__PURE__ */ u3(
         "span",
@@ -7953,16 +7727,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
         "Run Report ",
         /* @__PURE__ */ u3(Tip, { text: "Generate your report. This applies all your:\n• Sheet combinations and lookups\n• Calculated columns\n• Filters and sort order\n• Summary settings\n\nto produce the final output." })
       ] }),
-      /* @__PURE__ */ u3("span", { id: "runStatus", style: "font-size:0.72rem;color:var(--muted)", children: runStatus }),
-      explosionDialog && /* @__PURE__ */ u3(
-        RowExplosionDialog,
-        {
-          projectedCount: explosionDialog.projectedCount,
-          limit: explosionDialog.limit,
-          onProceed: handleExplosionProceed,
-          onCancel: handleExplosionCancel
-        }
-      )
+      /* @__PURE__ */ u3("span", { id: "runStatus", style: "font-size:0.72rem;color:var(--muted)", children: runStatus })
     ] });
   }
 
@@ -7973,6 +7738,113 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     });
   }
 
+  // preact/report/overlay-grouping.ts
+  var GroupBoundaryDetector = class {
+    prevMatchValue = void 0;
+    keyAliases;
+    constructor(keyAliases) {
+      this.keyAliases = keyAliases;
+    }
+    /**
+     * Check if this parent row starts a new group.
+     * A new group begins when the match key value differs from the previous row.
+     * The first row always starts a new group.
+     *
+     * Updates internal state on each call — must be called sequentially.
+     */
+    isNewGroup(parentRow) {
+      const currentValue = makeKeyValue(parentRow, this.keyAliases);
+      if (this.prevMatchValue === void 0 || currentValue !== this.prevMatchValue) {
+        this.prevMatchValue = currentValue;
+        return true;
+      }
+      return false;
+    }
+    /**
+     * Get the match key value from a parent row.
+     * Used for BandSectionDescriptor.matchValue — returns the string produced
+     * by makeKeyValue (ASCII-safe concatenation for composite keys).
+     */
+    getCurrentMatchValue(parentRow) {
+      return makeKeyValue(parentRow, this.keyAliases);
+    }
+  };
+  function buildOverlayDescriptors(bandResult, detailBands) {
+    if (bandResult.parentRows.length === 0) {
+      return [];
+    }
+    const enabledBands = detailBands.filter((band) => {
+      if (band.enabled === false) return false;
+      return bandResult.bandResults.some((br) => br.band.id === band.id);
+    });
+    if (enabledBands.length === 0) {
+      return bandResult.parentRows.map((row) => ({
+        type: "parent",
+        data: row,
+        columns: bandResult.parentCols
+      }));
+    }
+    const childIndex = buildBandChildIndex(bandResult.bandResults);
+    const detectors = /* @__PURE__ */ new Map();
+    for (const band of enabledBands) {
+      const keyAliases = band.keyPairs.map((p3) => p3.left);
+      detectors.set(band.id, new GroupBoundaryDetector(keyAliases));
+    }
+    const result = [];
+    const groupMatchValues = /* @__PURE__ */ new Map();
+    let hasGroup = false;
+    const flushGroup = () => {
+      for (const band of enabledBands) {
+        const matchValue = groupMatchValues.get(band.id);
+        result.push({
+          type: "band-section",
+          bandId: band.id,
+          bandLabel: bandResult.bandLabels[band.id] ?? band.id,
+          bandColumns: band.cols,
+          matchValue,
+          depth: 0
+        });
+        const bandIdx = childIndex.get(band.id);
+        const children = bandIdx?.get(matchValue) ?? [];
+        for (const childRow of children) {
+          result.push({
+            type: "band-row",
+            bandId: band.id,
+            data: childRow,
+            columns: band.cols,
+            depth: 0
+          });
+        }
+      }
+    };
+    for (const parentRow of bandResult.parentRows) {
+      let boundaryDetected = false;
+      for (const band of enabledBands) {
+        const detector = detectors.get(band.id);
+        if (detector.isNewGroup(parentRow)) {
+          boundaryDetected = true;
+        }
+      }
+      if (boundaryDetected && hasGroup) {
+        flushGroup();
+      }
+      for (const band of enabledBands) {
+        const detector = detectors.get(band.id);
+        groupMatchValues.set(band.id, detector.getCurrentMatchValue(parentRow));
+      }
+      hasGroup = true;
+      result.push({
+        type: "parent",
+        data: parentRow,
+        columns: bandResult.parentCols
+      });
+    }
+    if (hasGroup) {
+      flushGroup();
+    }
+    return result;
+  }
+
   // preact/ui/grid.tsx
   function _displayLabel(alias, colMap) {
     const src = colMap.get(alias);
@@ -7981,7 +7853,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
       const calc = getStore().getState().calcStages?.[src.idx];
       return (calc?.alias || "").trim() || alias;
     }
-    return tableShortName(src.tid) + " → " + colUserLabel(src.tid, src.col);
+    return colLabel(src.tid, src.col);
   }
   var BAND_ROW_TINTS = [
     "rgba(148, 163, 184, 0.08)",
@@ -7995,6 +7867,67 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     "rgba(192, 132, 252, 0.08)"
     // purple
   ];
+  function descriptorsToGridRows(descriptors, parentCols, bandColSets) {
+    const allBandCols = Object.values(bandColSets).flat();
+    const supersetCols = [...parentCols, ...allBandCols];
+    const bandTintMap = /* @__PURE__ */ new Map();
+    let tintIdx = 0;
+    for (const d3 of descriptors) {
+      if ((d3.type === "band-row" || d3.type === "band-section") && d3.bandId != null && !bandTintMap.has(d3.bandId)) {
+        bandTintMap.set(d3.bandId, tintIdx++);
+      }
+    }
+    return descriptors.map((d3) => {
+      if (d3.type === "parent") {
+        const row2 = { ...d3.data };
+        for (const bc of allBandCols) {
+          if (row2[bc] === void 0) row2[bc] = "";
+        }
+        return row2;
+      }
+      if (d3.type === "band-section") {
+        const row2 = {
+          _isBandHeader: true,
+          _band_id: d3.bandId,
+          _bandLabel: d3.bandLabel,
+          _bandTintIndex: bandTintMap.get(d3.bandId) ?? 0
+        };
+        for (const sc of supersetCols) {
+          row2[sc] = "";
+        }
+        return row2;
+      }
+      const row = { ...d3.data, _band_id: d3.bandId };
+      for (const pc of parentCols) {
+        if (row[pc] === void 0) row[pc] = "";
+      }
+      return row;
+    });
+  }
+  var BandHeaderRenderer = class {
+    eGui;
+    init(params) {
+      this.eGui = document.createElement("div");
+      const label = String(params.data._bandLabel ?? params.data._band_id ?? "");
+      const tintIndex = params.data._bandTintIndex ?? 0;
+      const color = BAND_ROW_TINTS[tintIndex % BAND_ROW_TINTS.length];
+      this.eGui.style.cssText = `
+      display: flex; align-items: center; height: 100%;
+      padding: 4px 12px; background: ${color};
+      border-top: 1px solid rgba(255,255,255,0.1);
+      font-weight: 600; font-size: 13px;
+    `.trim();
+      this.eGui.textContent = label;
+    }
+    getGui() {
+      return this.eGui;
+    }
+    refresh() {
+      return false;
+    }
+    destroy() {
+    }
+  };
   function createBandRowStyler(rows) {
     const bandIndex = /* @__PURE__ */ new Map();
     let nextIdx = 0;
@@ -8007,6 +7940,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     return (params) => {
       const data = params.data;
       if (!data) return void 0;
+      if (data._isBandHeader === true) return void 0;
       const bandId = data._band_id;
       if (bandId == null || typeof bandId !== "string") return void 0;
       const idx = bandIndex.get(bandId);
@@ -8076,39 +8010,84 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     y2(() => {
       const el = gridRef.current;
       if (!el) return;
-      const { rows: rows2, totalsRow: totalsRow2, cols: cols2 } = result;
-      const hasData2 = rows2.length > 0 || totalsRow2 !== null;
+      const { rows, totalsRow, cols } = result;
+      const bandResult2 = result.bandResult;
+      const hasData2 = bandResult2 ? bandResult2.parentRows.length > 0 : rows.length > 0 || totalsRow !== null;
       if (gridResult) {
         gridResult.destroy();
         gridResult = null;
       }
       if (!hasData2) return;
-      const tableData = totalsRow2 ? [...rows2, { ...totalsRow2, _isTotalsRow: true }] : rows2;
-      const colDefs = makeResultCols(cols2, onRenameDone, onTypeContextMenu);
-      const bandStyler = createBandRowStyler(rows2);
-      const options = {
-        rowData: tableData,
-        columnDefs: colDefs,
-        defaultColDef: {
-          sortable: true,
-          resizable: true,
-          filter: true,
-          floatingFilter: true,
-          minWidth: 80,
-          cellRenderer: (params) => {
-            const v3 = params.value;
-            return v3 == null ? "" : String(v3);
-          }
-        },
-        getRowStyle: (params) => bandStyler(params),
-        pagination: true,
-        paginationPageSize: 500,
-        paginationPageSizeSelector: [100, 250, 500, 1e3, 5e3],
-        multiSortKey: "ctrl",
-        onColumnMoved: () => _saveResultColState(),
-        onColumnResized: () => _saveResultColState(),
-        onColumnVisible: () => _saveResultColState()
-      };
+      let tableData;
+      let colDefs;
+      let bandStyler;
+      let options;
+      if (bandResult2) {
+        const detailBands = getStore().getState().detailBands;
+        const descriptors = buildOverlayDescriptors(bandResult2, detailBands);
+        const bandColSets = {};
+        for (const br of bandResult2.bandResults) {
+          bandColSets[br.band.id] = br.cols;
+        }
+        const gridRows = descriptorsToGridRows(descriptors, bandResult2.parentCols, bandColSets);
+        const supersetCols = [...bandResult2.parentCols, ...bandResult2.bandResults.flatMap((br) => br.cols)];
+        tableData = gridRows;
+        colDefs = makeResultCols(supersetCols, onRenameDone, onTypeContextMenu);
+        bandStyler = createBandRowStyler(gridRows);
+        options = {
+          rowData: tableData,
+          columnDefs: colDefs,
+          defaultColDef: {
+            sortable: true,
+            resizable: true,
+            filter: true,
+            floatingFilter: true,
+            minWidth: 80,
+            cellRenderer: (params) => {
+              const v3 = params.value;
+              return v3 == null ? "" : String(v3);
+            }
+          },
+          isFullWidthRow: (params) => params.data?._isBandHeader === true,
+          fullWidthCellRenderer: BandHeaderRenderer,
+          embedFullWidthRows: true,
+          getRowStyle: (params) => bandStyler(params),
+          pagination: true,
+          paginationPageSize: 500,
+          paginationPageSizeSelector: [100, 250, 500, 1e3, 5e3],
+          multiSortKey: "ctrl",
+          onColumnMoved: () => _saveResultColState(),
+          onColumnResized: () => _saveResultColState(),
+          onColumnVisible: () => _saveResultColState()
+        };
+      } else {
+        tableData = totalsRow ? [...rows, { ...totalsRow, _isTotalsRow: true }] : rows;
+        colDefs = makeResultCols(cols, onRenameDone, onTypeContextMenu);
+        bandStyler = createBandRowStyler(rows);
+        options = {
+          rowData: tableData,
+          columnDefs: colDefs,
+          defaultColDef: {
+            sortable: true,
+            resizable: true,
+            filter: true,
+            floatingFilter: true,
+            minWidth: 80,
+            cellRenderer: (params) => {
+              const v3 = params.value;
+              return v3 == null ? "" : String(v3);
+            }
+          },
+          getRowStyle: (params) => bandStyler(params),
+          pagination: true,
+          paginationPageSize: 500,
+          paginationPageSizeSelector: [100, 250, 500, 1e3, 5e3],
+          multiSortKey: "ctrl",
+          onColumnMoved: () => _saveResultColState(),
+          onColumnResized: () => _saveResultColState(),
+          onColumnVisible: () => _saveResultColState()
+        };
+      }
       gridResult = agGrid.createGrid(el, options);
       requestAnimationFrame(() => requestAnimationFrame(() => refreshResultGridLayout()));
       const state = getStore().getState();
@@ -8122,10 +8101,16 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
         }
       };
     }, [result, onRenameDone]);
-    const { rows, totalsRow, cols } = result;
-    const hasData = rows.length > 0 || totalsRow !== null;
+    const resultRows = result.rows;
+    const resultTotalsRow = result.totalsRow;
+    const resultCols = result.cols;
+    const bandResult = result.bandResult;
+    const displayRows = bandResult ? bandResult.parentRows : resultRows;
+    const hasTotalsRow = resultTotalsRow !== null;
+    const displayCols = bandResult ? [...bandResult.parentCols, ...bandResult.bandResults.flatMap((br) => br.cols)] : resultCols;
+    const hasData = displayRows.length > 0 || hasTotalsRow;
     return /* @__PURE__ */ u3(S, { children: hasData ? /* @__PURE__ */ u3(S, { children: [
-      /* @__PURE__ */ u3("span", { class: "results-count", style: "font-size:0.76rem;color:var(--muted)", children: totalsRow ? rows.length.toLocaleString() + " rows + 1 totals row · " + cols.length + " columns" : rows.length.toLocaleString() + " rows · " + cols.length + " columns" }),
+      /* @__PURE__ */ u3("span", { class: "results-count", style: "font-size:0.76rem;color:var(--muted)", children: hasTotalsRow ? displayRows.length.toLocaleString() + " rows + 1 totals row · " + displayCols.length + " columns" : displayRows.length.toLocaleString() + " rows · " + displayCols.length + " columns" }),
       /* @__PURE__ */ u3("div", { ref: gridRef, class: "ag-theme-balham-dark", style: "height:100%;width:100%" }),
       ctxMenu && /* @__PURE__ */ u3(ContextMenu, { x: ctxMenu.x, y: ctxMenu.y, items: ctxMenu.items, onClose: () => setCtxMenu(null) })
     ] }) : /* @__PURE__ */ u3("div", { class: "empty", children: [
@@ -8133,25 +8118,41 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
       /* @__PURE__ */ u3("div", { children: "No rows matched your query" })
     ] }) });
   }
-  function PreviewGrid({ tableId, onRenameDone }) {
+  function PreviewGrid({ tableId }) {
     const gridRef = A2(null);
     const [ctxMenu, setCtxMenu] = d2(null);
-    const onTypeContextMenu = (e3, tid, col) => {
+    const [renameTarget, setRenameTarget] = d2(null);
+    const showPreviewColumnMenu = q2((e3, col) => {
       const state2 = getStore().getState();
-      const currentType = state2.columnTypeOverrides?.[tid]?.[col] ?? state2.tables[tid]?.colTypes?.[col] ?? "string";
+      const currentType = state2.columnTypeOverrides?.[tableId]?.[col] ?? state2.tables[tableId]?.colTypes?.[col] ?? "string";
       const items = ["string", "number", "date", "boolean"].map((type) => ({
         label: "Type: " + type.charAt(0).toUpperCase() + type.slice(1),
         checked: currentType === type,
         action: () => {
           getStore().update((draft) => {
-            if (!draft.columnTypeOverrides[tid]) draft.columnTypeOverrides[tid] = {};
-            draft.columnTypeOverrides[tid][col] = type;
+            if (!draft.columnTypeOverrides[tableId]) draft.columnTypeOverrides[tableId] = {};
+            draft.columnTypeOverrides[tableId][col] = type;
           });
           invalidateValidation();
         }
       }));
+      items.push({ label: "", action: () => {
+      }, separator: true });
+      items.push({
+        label: "Rename",
+        action: () => {
+          const colMap = buildColSourceMap();
+          for (const [alias, src] of colMap.entries()) {
+            if (src && src.kind !== "calc" && src.tid === tableId && src.col === col) {
+              const target = resolveRenameTarget(alias);
+              if (target) setRenameTarget(target);
+              return;
+            }
+          }
+        }
+      });
       setCtxMenu({ x: e3.clientX, y: e3.clientY, items });
-    };
+    }, [tableId]);
     y2(() => {
       const el = gridRef.current;
       if (!el) return;
@@ -8163,7 +8164,6 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
       if (!tableId || !state2.tables[tableId]) return;
       const t4 = state2.tables[tableId];
       const cap2 = 1e4;
-      const excluded2 = state2.excludedRows[tableId] || /* @__PURE__ */ new Set();
       let rows;
       try {
         rows = execQuery(`SELECT "_rowno", ${t4.cols.map((c3) => quoteId(c3)).join(", ")} FROM ${quoteId(tableId)} LIMIT ${cap2}`);
@@ -8182,7 +8182,9 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
         floatingFilter: false,
         cellRenderer: (params) => {
           const rowno = params.value;
-          const isExcl = excluded2.has(rowno);
+          const st = getStore().getState();
+          const excludedSet = st.excludedRows[tableId] || /* @__PURE__ */ new Set();
+          const isExcl = excludedSet.has(rowno);
           const btn = document.createElement("button");
           const rowData = params.data;
           const preview = t4.cols.filter((c3) => c3 !== "_rowno").map((c3) => rowData[c3] == null ? "" : String(rowData[c3])).filter((v3) => v3 !== "").slice(0, 6).join(" · ");
@@ -8198,13 +8200,17 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
               if (set.has(rowno)) set.delete(rowno);
               else set.add(rowno);
             });
+            if (gridPreview) {
+              gridPreview.refreshCells({ force: true });
+              gridPreview.redrawRows?.();
+            }
           });
           return btn;
         }
       };
       gridPreview = agGrid.createGrid(el, {
         rowData: rows,
-        columnDefs: [excludeColDef, ...makePreviewCols(tableId, t4.cols, onRenameDone, onTypeContextMenu)],
+        columnDefs: [excludeColDef, ...makePreviewCols(tableId, t4.cols, showPreviewColumnMenu)],
         defaultColDef: {
           sortable: true,
           resizable: true,
@@ -8222,7 +8228,9 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
         multiSortKey: "ctrl",
         getRowStyle: (params) => {
           const rowno = params.data && params.data._rowno;
-          if (excluded2.has(rowno)) {
+          const st = getStore().getState();
+          const excludedSet = st.excludedRows[tableId] || /* @__PURE__ */ new Set();
+          if (excludedSet.has(rowno)) {
             return {
               color: "#c0392b",
               textDecoration: "line-through",
@@ -8238,7 +8246,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
           gridPreview = null;
         }
       };
-    }, [tableId, onRenameDone]);
+    }, [tableId, showPreviewColumnMenu]);
     const state = getStore().getState();
     if (!tableId || !state.tables[tableId]) {
       return /* @__PURE__ */ u3("div", { class: "empty", children: [
@@ -8277,6 +8285,10 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
               getStore().update((draft) => {
                 draft.excludedRows[tableId] = /* @__PURE__ */ new Set();
               });
+              if (gridPreview) {
+                gridPreview.refreshCells({ force: true });
+                gridPreview.redrawRows?.();
+              }
             },
             children: "Clear all"
           }
@@ -8291,13 +8303,21 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
         t3.rowCount > cap ? " (preview: first " + cap.toLocaleString() + ")" : ""
       ] }),
       /* @__PURE__ */ u3("div", { ref: gridRef, class: "ag-theme-balham-dark", style: "height:100%;width:100%" }),
-      ctxMenu && /* @__PURE__ */ u3(ContextMenu, { x: ctxMenu.x, y: ctxMenu.y, items: ctxMenu.items, onClose: () => setCtxMenu(null) })
+      ctxMenu && /* @__PURE__ */ u3(ContextMenu, { x: ctxMenu.x, y: ctxMenu.y, items: ctxMenu.items, onClose: () => setCtxMenu(null) }),
+      renameTarget && /* @__PURE__ */ u3(
+        RenameModal,
+        {
+          target: renameTarget,
+          onClose: () => setRenameTarget(null),
+          onDone: () => invalidateValidation()
+        }
+      )
     ] });
   }
   function makeResultCols(cols, onRenameDone, onTypeContextMenu) {
     const colMap = buildColSourceMap();
     const state = getStore().getState();
-    const dataCols = cols.filter((c3) => c3 !== "_rowno" && c3 !== "_row_type" && c3 !== "_isTotalsRow" && c3 !== "_band_id");
+    const dataCols = cols.filter((c3) => c3 !== "_rowno" && c3 !== "_row_type" && c3 !== "_isTotalsRow" && c3 !== "_band_id" && c3 !== "_isBandHeader");
     return dataCols.map((c3) => {
       const src = colMap.get(c3);
       const dispLabel = _displayLabel(c3, colMap);
@@ -8337,26 +8357,17 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
       };
     });
   }
-  function makePreviewCols(tid, physCols, onRenameDone, onTypeContextMenu) {
+  function makePreviewCols(tid, physCols, onShowPreviewMenu) {
     const color = getTableColor(tid);
     const state = getStore().getState();
     return physCols.filter((c3) => c3 !== "_rowno").map((c3) => {
       const renamed = state.columnLabels?.[tid]?.[c3];
       const label = renamed || c3;
-      const doRename = () => {
-        const colMap = buildColSourceMap();
-        for (const [alias, src] of colMap.entries()) {
-          if (src && src.kind !== "calc" && src.tid === tid && src.col === c3) {
-            const target = resolveRenameTarget(alias);
-            if (target && onRenameDone) onRenameDone();
-            return;
-          }
-        }
-      };
       const doClear = renamed ? () => {
         setColLabel(tid, c3, c3);
-        if (onRenameDone) onRenameDone();
+        invalidateValidation();
       } : null;
+      const showMenu = onShowPreviewMenu ? (e3) => onShowPreviewMenu(e3, c3) : null;
       return {
         field: c3,
         headerName: label,
@@ -8365,7 +8376,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
         floatingFilter: true,
         sortable: true,
         resizable: true,
-        headerComponent: _makeHeaderComponent(label, color, renamed, c3, doRename, doClear, onTypeContextMenu ? (e3) => onTypeContextMenu(e3, tid, c3) : null),
+        headerComponent: _makeHeaderComponent(label, color, renamed, c3, null, doClear, null, showMenu),
         cellRenderer: (params) => {
           const v3 = params.value;
           return v3 == null ? "" : String(v3);
@@ -8373,7 +8384,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
       };
     });
   }
-  function _makeHeaderComponent(label, color, renamed, origCol, onRename, onClear, onContextMenu = null) {
+  function _makeHeaderComponent(label, color, renamed, origCol, onRename, onClear, onContextMenu = null, onShowMenu = null) {
     return class {
       _params;
       _gui;
@@ -8392,19 +8403,21 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
         if (origCol) txt.title = renamed ? `Original: ${origCol}` : origCol;
         txt.addEventListener("click", (e3) => params.progressSort(e3.shiftKey));
         this._gui.appendChild(txt);
-        if (onRename || onContextMenu) {
+        if (onShowMenu || onRename || onContextMenu) {
           const more = document.createElement("button");
           more.textContent = "⋯";
           more.title = "Rename column";
           more.style.cssText = "background:none;border:none;cursor:pointer;font-size:13px;padding:0 2px;color:#aaa;flex-shrink:0;line-height:1";
           more.addEventListener("click", (e3) => {
             e3.stopPropagation();
-            if (onRename) onRename();
+            if (onShowMenu) onShowMenu(e3);
+            else if (onRename) onRename();
           });
           more.addEventListener("contextmenu", (e3) => {
             e3.preventDefault();
             e3.stopPropagation();
-            if (onContextMenu) onContextMenu(e3);
+            if (onShowMenu) onShowMenu(e3);
+            else if (onContextMenu) onContextMenu(e3);
           });
           this._gui.appendChild(more);
         }
@@ -8470,127 +8483,6 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     "FFFDF4FF"
     // purple-50
   ];
-  function computeBandColSets(detailBands, allCols) {
-    const result = {};
-    if (!detailBands) return result;
-    for (const band of detailBands) {
-      if (band.enabled === false) continue;
-      const prefix = "_" + band.id + "_";
-      const bandCols = allCols.filter((c3) => c3.startsWith(prefix));
-      const ordered = band.cols.map((c3) => prefix + c3).filter((c3) => bandCols.includes(c3));
-      for (const c3 of bandCols) {
-        if (!ordered.includes(c3)) ordered.push(c3);
-      }
-      result[band.id] = ordered;
-    }
-    return result;
-  }
-  function applyBandGroup(rows, bandId, matchAlias, bandColAliases, allBandLabels, hdrMap) {
-    const matchLabel = hdrMap[matchAlias] || matchAlias;
-    const thisBandLabelToAlias = {};
-    for (const colAlias of bandColAliases) {
-      const label = hdrMap[colAlias] || colAlias;
-      thisBandLabelToAlias[label] = colAlias;
-    }
-    const result = [];
-    let currentMatchValue = null;
-    let collectedBandRows = [];
-    function flushCollected() {
-      if (collectedBandRows.length === 0) return;
-      const headerRow = { _processed: true, _rowKind: 4 };
-      headerRow[matchLabel] = currentMatchValue;
-      for (const label of allBandLabels) {
-        const colAlias = thisBandLabelToAlias[label];
-        headerRow[label] = colAlias ? hdrMap[colAlias] || colAlias : "";
-      }
-      result.push(headerRow);
-      for (const row of collectedBandRows) {
-        const dataRow = { _processed: true, _rowKind: 0, _band_id: bandId };
-        dataRow[matchLabel] = currentMatchValue;
-        for (const label of allBandLabels) {
-          const colAlias = thisBandLabelToAlias[label];
-          dataRow[label] = colAlias ? row[colAlias] ?? "" : "";
-        }
-        result.push(dataRow);
-      }
-      collectedBandRows = [];
-    }
-    for (const row of rows) {
-      if (row._processed) {
-        if (row._rowKind === 5) {
-          flushCollected();
-          const val = row[matchLabel] ?? row[matchAlias];
-          if (val != null) currentMatchValue = val;
-        }
-        result.push(row);
-        continue;
-      }
-      if (row._isTotalsRow) {
-        flushCollected();
-        result.push(row);
-        continue;
-      }
-      if (row._band_id == null) {
-        flushCollected();
-        currentMatchValue = row[matchAlias];
-        const parentRow = { _processed: true, _rowKind: 5 };
-        parentRow[matchLabel] = currentMatchValue;
-        for (const label of allBandLabels) {
-          parentRow[label] = "";
-        }
-        result.push(parentRow);
-      } else if (String(row._band_id) === bandId) {
-        collectedBandRows.push(row);
-      } else {
-        flushCollected();
-        result.push(row);
-      }
-    }
-    flushCollected();
-    return result;
-  }
-  function buildBandColumnLayout(dataRows, detailBands, allCols, hdrMap) {
-    const enabledBands = (detailBands || []).filter((b2) => b2.enabled !== false);
-    if (enabledBands.length === 0) {
-      const rowKinds2 = dataRows.map(() => 0);
-      const bandIds2 = dataRows.map(() => "");
-      const headers2 = [];
-      return { cleanRows: dataRows, rowKinds: rowKinds2, headers: headers2, bandIds: bandIds2 };
-    }
-    const bandColSets = computeBandColSets(detailBands, allCols);
-    const matchAlias = enabledBands[0]?.keyPairs?.[0]?.left;
-    const matchLabel = matchAlias ? hdrMap[matchAlias] || matchAlias : "";
-    const allBandLabels = [];
-    for (const bandId of Object.keys(bandColSets)) {
-      for (const colAlias of bandColSets[bandId]) {
-        const label = hdrMap[colAlias] || colAlias;
-        if (!allBandLabels.includes(label)) {
-          allBandLabels.push(label);
-        }
-      }
-    }
-    const headers = [matchLabel, ...allBandLabels];
-    let rows = dataRows;
-    for (const band of enabledBands) {
-      const bandColAliases = bandColSets[band.id] || [];
-      const bandMatchAlias = band.keyPairs?.[0]?.left || matchAlias || "";
-      rows = applyBandGroup(rows, band.id, bandMatchAlias, bandColAliases, allBandLabels, hdrMap);
-    }
-    const cleanRows = rows.map((row) => {
-      const out = {};
-      for (const h4 of headers) {
-        out[h4] = row[h4] ?? "";
-      }
-      return out;
-    });
-    const rowKinds = rows.map((row) => {
-      if (row._rowKind != null) return row._rowKind;
-      if (row._isTotalsRow) return 3;
-      return 0;
-    });
-    const bandIds = rows.map((row) => row._band_id != null ? String(row._band_id) : "");
-    return { cleanRows, rowKinds, headers, bandIds };
-  }
   function enrichRowsWithBandHeaders(dataRows, exportCols, bandLabels, isCsv) {
     let enrichedRows;
     if (!isCsv) {
@@ -8619,6 +8511,101 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
       return Number.isFinite(t3) ? t3 : 0;
     });
     return { enrichedRows, rowKinds };
+  }
+  function buildExportFromDescriptors(descriptors, parentCols, hdrMap, isCsv) {
+    const parentLabels = parentCols.map((c3) => hdrMap[c3] || c3);
+    const headers = [...parentLabels];
+    let maxBandWidth = 0;
+    let widestBandCols = [];
+    let widestBandId = "";
+    for (const d3 of descriptors) {
+      if (d3.type === "band-section") {
+        if (d3.bandColumns.length > maxBandWidth) {
+          maxBandWidth = d3.bandColumns.length;
+          widestBandCols = d3.bandColumns;
+          widestBandId = d3.bandId;
+        }
+      }
+    }
+    const P4 = parentLabels.length;
+    if (maxBandWidth > P4 - 1) {
+      for (let i3 = P4 - 1; i3 < widestBandCols.length; i3++) {
+        const col = widestBandCols[i3];
+        const prefixedKey = `_${widestBandId}_${col}`;
+        const rawLabel = hdrMap[prefixedKey] || prefixedKey;
+        const displayLabel = rawLabel.replace(/^_band_\d+_/, "");
+        headers.push(displayLabel);
+      }
+    }
+    if (descriptors.length === 0) {
+      return { cleanRows: [], rowKinds: [], headers, bandIds: [] };
+    }
+    const rows = [];
+    const rowKinds = [];
+    const bandIds = [];
+    for (const descriptor of descriptors) {
+      if (descriptor.type === "parent") {
+        const row = {};
+        for (const key of Object.keys(descriptor.data)) {
+          if (key.startsWith("_")) {
+            row[key] = descriptor.data[key];
+          } else {
+            const label = hdrMap[key] || key;
+            row[label] = descriptor.data[key];
+          }
+        }
+        for (const h4 of headers) {
+          if (row[h4] == null) row[h4] = "";
+        }
+        const kind = descriptor.data._isTotalsRow ? 3 : 5;
+        rows.push(row);
+        rowKinds.push(kind);
+        bandIds.push("");
+      } else if (descriptor.type === "band-section") {
+        if (isCsv) continue;
+        const row = {};
+        row[headers[0]] = descriptor.matchValue;
+        for (let i3 = 0; i3 < descriptor.bandColumns.length; i3++) {
+          const col = descriptor.bandColumns[i3];
+          const prefixedKey = `_${descriptor.bandId}_${col}`;
+          const rawLabel = hdrMap[prefixedKey] || col;
+          const displayLabel = rawLabel.replace(/^_band_\d+_/, "");
+          if (i3 + 1 < headers.length) {
+            row[headers[i3 + 1]] = displayLabel;
+          }
+        }
+        for (const h4 of headers) {
+          if (row[h4] == null) row[h4] = "";
+        }
+        rows.push(row);
+        rowKinds.push(4);
+        bandIds.push("");
+      } else if (descriptor.type === "band-row") {
+        const row = {};
+        row[headers[0]] = "";
+        for (let i3 = 0; i3 < descriptor.columns.length; i3++) {
+          const col = descriptor.columns[i3];
+          const prefixedKey = `_${descriptor.bandId}_${col}`;
+          if (i3 + 1 < headers.length) {
+            row[headers[i3 + 1]] = descriptor.data[prefixedKey] ?? "";
+          }
+        }
+        for (const h4 of headers) {
+          if (row[h4] == null) row[h4] = "";
+        }
+        rows.push(row);
+        rowKinds.push(0);
+        bandIds.push(descriptor.bandId);
+      }
+    }
+    const cleanRows = rows.map((row) => {
+      const out = {};
+      for (const h4 of headers) {
+        out[h4] = row[h4] ?? "";
+      }
+      return out;
+    });
+    return { cleanRows, rowKinds, headers, bandIds };
   }
   async function exportAs(fmt) {
     const state = getStore().getState();
@@ -8651,9 +8638,16 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
       return out;
     };
     const dataRows = totalsRow ? [...rows, { ...totalsRow, _isTotalsRow: true }] : [...rows];
-    const enabledBands = (state.detailBands || []).filter((b2) => b2.enabled !== false && b2.rightId);
-    if (enabledBands.length > 0) {
-      const { cleanRows, rowKinds: bandRowKinds, headers: bandHeaders, bandIds } = buildBandColumnLayout(dataRows, state.detailBands || [], cols || [], hdrMap || {});
+    const resultCast = result;
+    const bandResult = resultCast.bandResult;
+    if (bandResult) {
+      const adjustedParentRows = totalsRow ? [...bandResult.parentRows, { ...totalsRow, _isTotalsRow: true }] : bandResult.parentRows;
+      const adjustedBandResult = {
+        ...bandResult,
+        parentRows: adjustedParentRows
+      };
+      const descriptors = buildOverlayDescriptors(adjustedBandResult, state.detailBands || []);
+      const { cleanRows, rowKinds: bandRowKinds, headers: bandHeaders, bandIds } = buildExportFromDescriptors(descriptors, bandResult.parentCols, hdrMap || {}, isCsv);
       if (isCsv) {
         const ws = XLSX.utils.json_to_sheet(cleanRows, { header: bandHeaders, skipHeader: false });
         const csv = XLSX.utils.sheet_to_csv(ws);
