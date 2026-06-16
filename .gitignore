@@ -9,6 +9,8 @@ Thumbs.db
 *.log
 
 # Build/cache artifacts
+pkg/
+docs/
 dist/
 build/
 coverage/

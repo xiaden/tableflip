@@ -10,7 +10,7 @@
 import { useState, useEffect, useCallback } from 'preact/hooks';
 import { getStore } from '../../core/store';
 import { buildReportSpecFromState } from '../../core/state';
-import { colUserLabel } from '../../core/utils';
+import { colLabel } from '../../core/utils';
 import { buildColSourceMap, projectedCols } from '../../catalog/column-catalog';
 import { buildSourceCatalog } from '../../catalog/source-catalog';
 import type { AppState } from '../../types';
@@ -65,7 +65,7 @@ export function MergeToggles() {
     <div id="mergeToggles">
       {displayCols.map(c => {
         const src = colMap.get(c);
-        const label = src && src.kind !== 'calc' ? colUserLabel(src.tid, src.col) : c;
+        const label = src && src.kind !== 'calc' ? colLabel(src.tid, src.col) : c;
         return (
           <label key={c} style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.76rem;font-weight:normal;margin-top:4px">
             <input

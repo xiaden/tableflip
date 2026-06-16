@@ -12,7 +12,7 @@ import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { getStore } from '../../core/store';
 import { buildReportSpecFromState } from '../../core/state';
 import {
-  colUserLabel,
+  colLabel,
   getTableColorClass,
   smartDefaultFn,
 } from '../../core/utils';
@@ -215,7 +215,7 @@ export function ColumnChips() {
         {colOrder.map(c => {
           const src = colMap.get(c);
           const colorCls = src && src.kind !== 'calc' ? getTableColorClass(src.tid) : '';
-          const label = src && src.kind !== 'calc' ? colUserLabel(src.tid, src.col) : c;
+          const label = src && src.kind !== 'calc' ? colLabel(src.tid, src.col) : c;
 
           if (selSet && !selSet.has(c)) return null;
 

@@ -67,8 +67,9 @@ export type { ReportNode, ReportGraph } from './report/report-graph';
 export { checkCalcError } from './report/calc-validator';
 export { invalidateValidation, getValidation, deriveValidation } from './report/validation';
 export type { ValidationIssue, ValidationItem, ValidationCard, ValidationResult } from './report/validation';
-export { runReport, RowExplosionError, STACK_ROW_LIMIT, buildBandChildIndex, runPreviewQuery } from './report/engine';
+export { runReport, buildBandChildIndex, runPreviewQuery } from './report/engine';
 export type { BandChildIndex } from './report/engine';
+export { buildOverlayDescriptors } from './report/overlay-grouping';
 export { buildPreview } from './report/preview-builder';
 export type { PreviewResult } from './report/preview-builder';
 
@@ -97,8 +98,6 @@ export { Modal } from './ui/components/modal';
 export { ContextMenu } from './ui/components/context-menu';
 export { Chip } from './ui/components/chip';
 export { RenameModal, resolveRenameTarget } from './ui/components/rename-modal';
-export { RowExplosionDialog } from './ui/components/row-explosion-dialog';
-export type { RowExplosionDialogProps } from './ui/components/row-explosion-dialog';
 export { MathBuilder, TextEditBuilder, CompareBuilder, DateBuilder, calcModeComponents } from './ui/components/calc-builder';
 export type { CalcBuilderProps, ColOption } from './ui/components/calc-builder';
 export { switchTab } from './ui/tabs';
@@ -138,4 +137,10 @@ export type {
   DateComponent,
   DateInputFormat,
   ColSourceEntry,
+  BandResult,
+  BandResultSet,
+  OverlayDescriptor,
+  ParentDescriptor,
+  BandSectionDescriptor,
+  BandRowDescriptor,
 } from './types';

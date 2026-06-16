@@ -10,7 +10,7 @@
 import { useState, useEffect, useCallback } from 'preact/hooks';
 import { getStore } from '../../core/store';
 import {
-  colUserLabel,
+  colLabel,
   getTableColor,
   chipFgColor,
 } from '../../core/utils';
@@ -86,7 +86,7 @@ export function BaseStage({ sortedIds }: BaseStageProps) {
                   <Chip
                     key={c}
                     col={c}
-                    label={colUserLabel(base, c)}
+                    label={colLabel(base, c)}
                     selected={true}
                     draggable={false}
                     chipClass="pl-col-chip"
@@ -107,7 +107,6 @@ export function BaseStage({ sortedIds }: BaseStageProps) {
                       let alias = '';
                       for (const [a, src] of colMap2.entries()) {
                         if (src && src.kind !== 'calc' && src.tid === base && src.col === c) { alias = a; break; }
-                        if (!alias) return;
                       }
                       if (!alias) return;
                       setCtxMenu({

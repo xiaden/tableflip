@@ -11,7 +11,7 @@ import { useState, useEffect, useCallback } from 'preact/hooks';
 import { getStore } from '../../core/store';
 import { buildReportSpecFromState } from '../../core/state';
 import {
-  colUserLabel,
+  colLabel,
   getTableColorClass,
 } from '../../core/utils';
 import {
@@ -234,14 +234,14 @@ export function LookupStage({ i, sortedIds, usedAsLookup, usedAsStack }: LookupS
                   <option value="">{'—'} column {'—'}</option>
                   {leftCols.map(c => {
                     const src = lkColMap.get(c);
-                    const label = src && src.kind !== 'calc' ? colUserLabel(src.tid, src.col) : c;
+                    const label = src && src.kind !== 'calc' ? colLabel(src.tid, src.col) : c;
                     return <option key={c} value={c}>{label}</option>;
                   })}
                 </select>
                 <span class="pl-lookup-eq">=</span>
                 <select value={pair.right || ''} onChange={e => handleKpRightChange(pi, (e.target as HTMLSelectElement).value)}>
                   <option value="">{'—'} column {'—'}</option>
-                  {rightCols.map(c => <option key={c} value={c}>{`${tables[lk.rightId]?.name || lk.rightId} → ${colUserLabel(lk.rightId, c)}`}</option>)}
+                  {rightCols.map(c => <option key={c} value={c}>{colLabel(lk.rightId, c)}</option>)}
                 </select>
                 {pairs.length > 1 && (
                   <button class="pl-rm-kp" title="Remove this condition" onClick={() => removeKeyPair(pi)}>{'✕'}</button>
@@ -277,7 +277,7 @@ export function LookupStage({ i, sortedIds, usedAsLookup, usedAsStack }: LookupS
                 <Chip
                   key={c}
                   col={c}
-                  label={colUserLabel(lk.rightId, c)}
+                  label={colLabel(lk.rightId, c)}
                   selected={true}
                   draggable={false}
                   chipClass="pl-col-chip"

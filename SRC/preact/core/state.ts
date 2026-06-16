@@ -39,7 +39,6 @@ export function createAppState(overrides?: Partial<AppState>): AppState {
     activeTab: 'query',
     previewTableId: null,
     detailBands: [],
-    detailBandMode: 'separate',
     columnTypeOverrides: {},
   }, overrides || {});
 }
@@ -106,7 +105,6 @@ export function createReportSpec(overrides?: Partial<ReportSpec>): ReportSpec {
       enabled: false,
       tableName: '',
     },
-    detailBandMode: 'separate',
   }, overrides || {});
 }
 

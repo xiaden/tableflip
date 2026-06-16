@@ -11,12 +11,11 @@ import { createAppState } from '../../core/state';
 import type { DetailBandSpec } from '../../types';
 
 describe('buildPayload — detail bands', () => {
-  it('should serialize empty detailBands and default detailBandMode', () => {
+  it('should serialize empty detailBands', () => {
     const state = createAppState({ base: 'Orders' });
     const payload = buildPayload(state);
 
     expect(payload.detailBands).toEqual([]);
-    expect(payload.detailBandMode).toBe('separate');
   });
 
   it('should serialize a single detail band with all fields', () => {
@@ -71,13 +70,6 @@ describe('buildPayload — detail bands', () => {
     expect((payload.detailBands as any[])[0].id).toBe('band_0');
     expect((payload.detailBands as any[])[1].id).toBe('band_1');
     expect((payload.detailBands as any[])[1].enabled).toBe(false);
-  });
-
-  it('should serialize detailBandMode as stack', () => {
-    const state = createAppState({ base: 'Orders', detailBandMode: 'stack' });
-    const payload = buildPayload(state);
-
-    expect(payload.detailBandMode).toBe('stack');
   });
 
   it('should normalize sort directions during serialization', () => {
@@ -139,7 +131,6 @@ describe('buildPayload — detail bands', () => {
     const state = createAppState({
       base: 'Orders',
       detailBands: [band],
-      detailBandMode: 'stack',
     });
     const payload = buildPayload(state);
 
@@ -155,7 +146,6 @@ describe('buildPayload — detail bands', () => {
       sorts: [{ col: 'ProductName', dir: 'ASC', enabled: true }],
       label: 'Line Items',
     }]);
-    expect(parsed.detailBandMode).toBe('stack');
   });
 
   it('should deep clone detail band arrays to avoid reference sharing', () => {

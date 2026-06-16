@@ -9,7 +9,7 @@
  * objects rather than mutating inputs.
  */
 
-import type { ReportSpec, WorkspaceState } from '../types';
+import type { ReportSpec, WorkspaceState, BandResultSet } from '../types';
 import type { ResultSet } from './result-set';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -32,6 +32,11 @@ export interface PublishedOutput {
   rows: Record<string, unknown>[];
   source: string;
   publishedAt: number;
+  /**
+   * Present when detail bands are active. Contains flat parent rows + separate
+   * band result sets. When present, columns and rows contain only parent data.
+   */
+  bandResult?: BandResultSet;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -41,10 +46,8 @@ export interface PublishedOutput {
  * Uses displayCols from metadata when available, otherwise falls back to columns.
  * Filters out subtotal/spacer rows (rows where _row_type is non-null and non-zero).
  *
- * Band-aware: when the result set contains a _band_id column (from detail band
- * execution), it is always included in the published columns even if displayCols
- * omits it (displayCols is a grid-display concept that filters internal columns).
- * Band rows (_row_type undefined/null, _band_id set) pass the row filter correctly.
+ * Under the overlay model, ResultSet.columns contains only parent columns
+ * (no _band_id, no band columns). Band data lives in resultSet.bandResult.bandResults[].
  *
  * @param resultSet - The result set to extract from
  * @returns Object with columns and filtered rows
@@ -53,21 +56,11 @@ function createResultTable(resultSet: ResultSet): { columns: string[]; rows: Rec
   const cols = (resultSet.metadata && resultSet.metadata.displayCols.length > 0)
     ? resultSet.metadata.displayCols
     : resultSet.columns;
-
-  // Ensure _band_id is included in published columns for downstream consumers.
-  // displayCols may omit _band_id (it's an internal tagging column filtered from
-  // the grid), but published output must carry it so downstream reports can
-  // distinguish parent rows (_band_id=null) from band rows (_band_id='band_N').
-  const hasBandIdInData = resultSet.columns.includes('_band_id');
-  const columns = hasBandIdInData && !cols.includes('_band_id')
-    ? [...cols, '_band_id']
-    : cols;
-
   const rows = (resultSet.rows || []).filter((r: Record<string, unknown>) => {
     const t = r['_row_type'];
     return t == null || t === 0;
   });
-  return { columns, rows };
+  return { columns: cols, rows };
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────────
@@ -89,6 +82,7 @@ export function publishReportOutput(reportSpec: ReportSpec, resultSet: ResultSet
     rows:        table.rows,
     source:      'report',
     publishedAt: Date.now(),
+    ...(resultSet.bandResult ? { bandResult: resultSet.bandResult } : {}),
   };
 }
 

@@ -205,7 +205,9 @@ function buildBasePreview(state: AppState): PreviewResult {
   }
 
   const baseTable = state.tables[base];
-  const baseCols = baseTable.cols;
+  const baseCols = state.selCols instanceof Set && state.selCols.size > 0
+    ? baseTable.cols.filter(c => state.selCols.has(c))
+    : baseTable.cols;
   if (!baseCols.length) {
     return { headers: [], rows: [], error: 'Base table has no columns' };
   }
@@ -272,7 +274,9 @@ function buildPreviewReportSpec(
       calculatedColumns: slicedCalcs,
       detailBands: [],
     },
-    outputColumns: [],
+    outputColumns: state.selCols instanceof Set
+      ? (state.colOrder || []).filter(c => state.selCols.has(c))
+      : (state.colOrder || []),
     filters: [],
     sorts: [],
     aggregation: {
@@ -290,7 +294,6 @@ function buildPreviewReportSpec(
     mergeDisplay: { mergedCols: [], mergeGroupUnderline: false },
     outputDefinition: null,
     publish: { enabled: false, tableName: '' },
-    detailBandMode: 'separate',
   };
 }
 

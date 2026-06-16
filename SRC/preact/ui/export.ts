@@ -13,7 +13,8 @@ import { getStore } from '../core/store';
 import { buildExportHeaderMap, toast, dl } from '../core/utils';
 import { buildColSourceMap } from '../catalog/column-catalog';
 import { getValidation } from '../report/validation';
-import type { DetailBandSpec, DbTable } from '../types';
+import type { DetailBandSpec, DbTable, OverlayDescriptor, BandResultSet } from '../types';
+import { buildOverlayDescriptors } from '../report/overlay-grouping';
 
 // ── Pure helpers (extracted for testability) ─────────────────────────────────
 
@@ -77,235 +78,6 @@ const BAND_TINT_PALETTE = [
 ];
 
 /**
- * Extracts per-band ordered column alias arrays from superset columns.
- * Filters `allCols` by `_{bandId}_` prefix, orders by `band.cols` array,
- * appends any remaining band-prefixed cols not in `band.cols` (defensive).
- * Skips bands where `enabled === false`.
- *
- * @param detailBands - Detail band specs to extract column sets from; undefined returns empty object.
- * @param allCols - Superset of all column aliases to filter from.
- * @returns Map of band ID to ordered column alias array.
- */
-export function computeBandColSets(
-  detailBands: DetailBandSpec[] | undefined,
-  allCols: string[],
-): Record<string, string[]> {
-  const result: Record<string, string[]> = {};
-  if (!detailBands) return result;
-  for (const band of detailBands) {
-    if (band.enabled === false) continue;
-    const prefix = '_' + band.id + '_';
-    const bandCols = allCols.filter(c => c.startsWith(prefix));
-    // Order by band.cols array (user's column selection order)
-    const ordered: string[] = band.cols
-      .map(c => prefix + c)
-      .filter(c => bandCols.includes(c));
-    // Append any band-prefixed cols not in band.cols (defensive)
-    for (const c of bandCols) {
-      if (!ordered.includes(c)) ordered.push(c);
-    }
-    result[band.id] = ordered;
-  }
-  return result;
-}
-
-/**
- * Composable per-band-group row transformation.
- * Replaces wide interleaved band rows with compact "match column + band columns" layout.
- * Inserts section header rows (kind 4) before each group of band data rows.
- * Parent rows are converted to kind 5 (match value populated, band cols empty).
- * All synthetic rows are marked `_processed: true` for composability.
- *
- * Composability contract:
- * - `_processed` kind-5 parent rows from prior bands trigger flush + match value update.
- * - `_isTotalsRow` rows pass through unchanged (not identified as parent rows).
- * - Band data rows carry `_band_id` for tint assignment.
- *
- * @param rows - Interleaved parent/band rows from engine (with `_band_id` markers).
- * @param bandId - ID of the band to transform (e.g. 'band_0').
- * @param matchAlias - Column alias for the match value (from keyPairs[0].left).
- * @param bandColAliases - Ordered array of this band's column aliases.
- * @param allBandLabels - Union of all enabled bands' column labels, in band order.
- * @param hdrMap - Header label map from buildExportHeaderMap().
- * @returns Transformed row array with `_processed`, `_rowKind`, `_band_id` markers.
- */
-export function applyBandGroup(
-  rows: Record<string, unknown>[],
-  bandId: string,
-  matchAlias: string,
-  bandColAliases: string[],
-  allBandLabels: string[],
-  hdrMap: Record<string, string>,
-): Record<string, unknown>[] {
-  const matchLabel = hdrMap[matchAlias] || matchAlias;
-
-  // Build lookup: bandLabel → bandColAlias for THIS band's columns
-  const thisBandLabelToAlias: Record<string, string> = {};
-  for (const colAlias of bandColAliases) {
-    const rawLabel = hdrMap[colAlias] || colAlias;
-    // Strip _band_N_ prefix if hdrMap returned an identity mapping for a band column
-    const label = rawLabel.startsWith('_band_') ? rawLabel.replace(/^_band_\d+_/, '') : rawLabel;
-    thisBandLabelToAlias[label] = colAlias;
-  }
-
-  const result: Record<string, unknown>[] = [];
-  let currentMatchValue: unknown = null;
-  let collectedBandRows: Record<string, unknown>[] = [];
-
-  function flushCollected() {
-    if (collectedBandRows.length === 0) return;
-
-    // Section header row: match value + this band's display names
-    const headerRow: Record<string, unknown> = { _processed: true, _rowKind: 4 };
-    headerRow[matchLabel] = currentMatchValue;
-    for (const label of allBandLabels) {
-      const colAlias = thisBandLabelToAlias[label];
-      headerRow[label] = colAlias ? label : '';
-    }
-    result.push(headerRow);
-
-    // Band data rows: match value + this band's values
-    for (const row of collectedBandRows) {
-      const dataRow: Record<string, unknown> = { _processed: true, _rowKind: 0, _band_id: bandId };
-      dataRow[matchLabel] = currentMatchValue;
-      for (const label of allBandLabels) {
-        const colAlias = thisBandLabelToAlias[label];
-        dataRow[label] = colAlias ? (row[colAlias] ?? '') : '';
-      }
-      result.push(dataRow);
-    }
-
-    collectedBandRows = [];
-  }
-
-  for (const row of rows) {
-    if (row._processed) {
-      // Already transformed by a previous band group
-      if (row._rowKind === 5) {
-        // Parent row from previous band — flush and update match value
-        flushCollected();
-        const val = row[matchLabel] ?? row[matchAlias];
-        if (val != null) currentMatchValue = val;
-      }
-      result.push(row);
-      continue;
-    }
-
-    if (row._isTotalsRow) {
-      // Totals row — flush collected, pass through unchanged
-      flushCollected();
-      result.push(row);
-      continue;
-    }
-
-    if (row._band_id == null) {
-      // Parent row — flush any collected band rows, then emit compact parent
-      flushCollected();
-      currentMatchValue = row[matchAlias];
-      const parentRow: Record<string, unknown> = { _processed: true, _rowKind: 5 };
-      parentRow[matchLabel] = currentMatchValue;
-      for (const label of allBandLabels) {
-        parentRow[label] = '';
-      }
-      result.push(parentRow);
-    } else if (String(row._band_id) === bandId) {
-      // This band's row — collect for deferred emission
-      collectedBandRows.push(row);
-    } else {
-      // Other band's row — flush collected rows first, pass through
-      flushCollected();
-      result.push(row);
-    }
-  }
-
-  // End of input — flush any remaining collected rows
-  flushCollected();
-
-  return result;
-}
-
-/**
- * Orchestrates the band layout pipeline.
- * Filters enabled bands, calls `computeBandColSets()` for per-band column arrays,
- * resolves the match alias from the first enabled band's keyPairs[0].left,
- * collects unique band column labels across all bands via hdrMap,
- * composes `applyBandGroup()` transformations sequentially for each enabled band,
- * then extracts `cleanRows` (projected to headers only), `rowKinds`, and `bandIds`.
- *
- * Returns data unchanged with empty headers when no enabled bands exist.
- *
- * @param dataRows - Raw result rows with _band_id markers.
- * @param detailBands - All detail band specs (enabled check done internally).
- * @param allCols - Superset of all column aliases.
- * @param hdrMap - Header label map from buildExportHeaderMap().
- * @returns BandLayoutResult with cleanRows, rowKinds, headers, and bandIds.
- */
-export function buildBandColumnLayout(
-  dataRows: Record<string, unknown>[],
-  detailBands: DetailBandSpec[],
-  allCols: string[],
-  hdrMap: Record<string, string>,
-): { cleanRows: Record<string, unknown>[]; rowKinds: number[]; headers: string[]; bandIds: string[] } {
-  const enabledBands = (detailBands || []).filter(b => b.enabled !== false);
-  if (enabledBands.length === 0) {
-    // No enabled bands — return data unchanged with kind 0 for all rows
-    const rowKinds = dataRows.map(() => 0);
-    const bandIds = dataRows.map(() => '');
-    const headers: string[] = [];
-    return { cleanRows: dataRows, rowKinds, headers, bandIds };
-  }
-
-  // Per-band column alias arrays
-  const bandColSets = computeBandColSets(detailBands, allCols);
-
-  // Match column: use first enabled band's keyPairs[0].left
-  const matchAlias = enabledBands[0]?.keyPairs?.[0]?.left;
-  const matchLabel = matchAlias ? (hdrMap[matchAlias] || matchAlias) : '';
-
-  // Collect all unique band column labels across all bands, in band order
-  const allBandLabels: string[] = [];
-  for (const bandId of Object.keys(bandColSets)) {
-    for (const colAlias of bandColSets[bandId]) {
-      const rawLabel = hdrMap[colAlias] || colAlias;
-      // Strip _band_N_ prefix if hdrMap returned an identity mapping for a band column
-      const label = rawLabel.startsWith('_band_') ? rawLabel.replace(/^_band_\d+_/, '') : rawLabel;
-      if (!allBandLabels.includes(label)) {
-        allBandLabels.push(label);
-      }
-    }
-  }
-
-  const headers = [matchLabel, ...allBandLabels];
-
-  // Compose band group transformations
-  let rows = dataRows;
-  for (const band of enabledBands) {
-    const bandColAliases = bandColSets[band.id] || [];
-    const bandMatchAlias = band.keyPairs?.[0]?.left || matchAlias || '';
-    rows = applyBandGroup(rows, band.id, bandMatchAlias, bandColAliases, allBandLabels, hdrMap);
-  }
-
-  // Extract output arrays
-  const cleanRows = rows.map(row => {
-    const out: Record<string, unknown> = {};
-    for (const h of headers) {
-      out[h] = row[h] ?? '';
-    }
-    return out;
-  });
-
-  const rowKinds = rows.map(row => {
-    if (row._rowKind != null) return row._rowKind as number;
-    if (row._isTotalsRow) return 3;
-    return 0;
-  });
-
-  const bandIds = rows.map(row => (row._band_id != null ? String(row._band_id) : ''));
-
-  return { cleanRows, rowKinds, headers, bandIds };
-}
-
-/**
  * Insert band section header rows when _band_id transitions and compute rowKinds.
  * Returns enriched rows and the parallel rowKinds array.
  * For CSV format (isCsv=true), no headers are inserted.
@@ -353,14 +125,169 @@ export function enrichRowsWithBandHeaders(
 }
 
 /**
+ * Build export layout from overlay descriptors.
+ * Produces parent-column-aligned output: parent rows pass through with all columns,
+ * band section headers relabel parent positions, band data rows have empty col 0 +
+ * band values. Replaces computeBandColSets() + buildBandColumnLayout() + applyBandGroup().
+ *
+ * @param descriptors - Ordered overlay descriptors from buildOverlayDescriptors().
+ * @param parentCols - Parent column aliases (determines base column count and order).
+ * @param hdrMap - Header label map from buildExportHeaderMap() (alias → display label).
+ * @param isCsv - When true, band section headers are skipped (CSV has no section styling).
+ * @returns Object with cleanRows (projected to headers), rowKinds, headers, and bandIds.
+ */
+export function buildExportFromDescriptors(
+  descriptors: OverlayDescriptor[],
+  parentCols: string[],
+  hdrMap: Record<string, string>,
+  isCsv?: boolean,
+): { cleanRows: Record<string, unknown>[]; rowKinds: number[]; headers: string[]; bandIds: string[] } {
+  // ── Header computation ──────────────────────────────────────────────
+  const parentLabels = parentCols.map(c => hdrMap[c] || c);
+  const headers = [...parentLabels];
+
+  // Find the widest BandSectionDescriptor.bandColumns array
+  let maxBandWidth = 0;
+  let widestBandCols: string[] = [];
+  let widestBandId = '';
+  for (const d of descriptors) {
+    if (d.type === 'band-section') {
+      if (d.bandColumns.length > maxBandWidth) {
+        maxBandWidth = d.bandColumns.length;
+        widestBandCols = d.bandColumns;
+        widestBandId = d.bandId;
+      }
+    }
+  }
+
+  // If any band is wider than P-1 parent positions, append extra columns
+  const P = parentLabels.length;
+  if (maxBandWidth > P - 1) {
+    for (let i = P - 1; i < widestBandCols.length; i++) {
+      const col = widestBandCols[i];
+      const prefixedKey = `_${widestBandId}_${col}`;
+      const rawLabel = hdrMap[prefixedKey] || prefixedKey;
+      const displayLabel = rawLabel.replace(/^_band_\d+_/, '');
+      headers.push(displayLabel);
+    }
+  }
+
+  // Edge case: empty descriptors → return empty output with computed headers
+  if (descriptors.length === 0) {
+    return { cleanRows: [], rowKinds: [], headers, bandIds: [] };
+  }
+
+  // ── Descriptor iteration ────────────────────────────────────────────
+  const rows: Record<string, unknown>[] = [];
+  const rowKinds: number[] = [];
+  const bandIds: string[] = [];
+
+  for (const descriptor of descriptors) {
+    if (descriptor.type === 'parent') {
+      const row: Record<string, unknown> = {};
+
+      // Remap data keys to header labels
+      for (const key of Object.keys(descriptor.data)) {
+        if (key.startsWith('_')) {
+          // Internal keys copy as-is
+          row[key] = descriptor.data[key];
+        } else {
+          // Column aliases remap via hdrMap
+          const label = hdrMap[key] || key;
+          row[label] = descriptor.data[key];
+        }
+      }
+
+      // Fill any header positions not covered with empty strings
+      for (const h of headers) {
+        if (row[h] == null) row[h] = '';
+      }
+
+      // Determine kind: totals row → 3, otherwise → 5
+      const kind = descriptor.data._isTotalsRow ? 3 : 5;
+
+      rows.push(row);
+      rowKinds.push(kind);
+      bandIds.push('');
+
+    } else if (descriptor.type === 'band-section') {
+      // CSV skips section headers entirely
+      if (isCsv) continue;
+
+      const row: Record<string, unknown> = {};
+
+      // Position 0: match value
+      row[headers[0]] = descriptor.matchValue;
+
+      // Positions 1+: band column display labels
+      for (let i = 0; i < descriptor.bandColumns.length; i++) {
+        const col = descriptor.bandColumns[i];
+        const prefixedKey = `_${descriptor.bandId}_${col}`;
+        const rawLabel = hdrMap[prefixedKey] || col;
+        const displayLabel = rawLabel.replace(/^_band_\d+_/, '');
+        if (i + 1 < headers.length) {
+          row[headers[i + 1]] = displayLabel;
+        }
+      }
+
+      // Fill remaining positions with empty strings
+      for (const h of headers) {
+        if (row[h] == null) row[h] = '';
+      }
+
+      rows.push(row);
+      rowKinds.push(4);
+      bandIds.push('');
+
+    } else if (descriptor.type === 'band-row') {
+      const row: Record<string, unknown> = {};
+
+      // Position 0: empty (col 0 blank for band data rows)
+      row[headers[0]] = '';
+
+      // Positions 1+: band data values via prefixed keys
+      for (let i = 0; i < descriptor.columns.length; i++) {
+        const col = descriptor.columns[i];
+        const prefixedKey = `_${descriptor.bandId}_${col}`;
+        if (i + 1 < headers.length) {
+          row[headers[i + 1]] = descriptor.data[prefixedKey] ?? '';
+        }
+      }
+
+      // Fill remaining positions with empty strings
+      for (const h of headers) {
+        if (row[h] == null) row[h] = '';
+      }
+
+      rows.push(row);
+      rowKinds.push(0);
+      bandIds.push(descriptor.bandId);
+    }
+  }
+
+  // ── Project to headers ──────────────────────────────────────────────
+  const cleanRows = rows.map(row => {
+    const out: Record<string, unknown> = {};
+    for (const h of headers) {
+      out[h] = row[h] ?? '';
+    }
+    return out;
+  });
+
+  return { cleanRows, rowKinds, headers, bandIds };
+}
+
+/**
  * Exports the current result set as XLSX or CSV.
  * Validates the report before export and applies merge/styling for XLSX.
  *
  * Dispatch paths:
- * 1. Band layout path — activates when `state.detailBands` has enabled bands with `rightId`.
- *    Calls `buildBandColumnLayout()` for compact match+band-cols output with band-specific
- *    headers, row kinds, and band IDs. Applies band-specific styling via `styleExportSheet()`.
- *    Early returns before the non-band path.
+ * 1. Band layout path — activates when `result.bandResult` is present (set by the
+ *    report execution engine when detail bands are enabled). Calls
+ *    `buildOverlayDescriptors()` + `buildExportFromDescriptors()` for parent-column-aligned
+ *    layout (parent rows pass through with all values, section headers relabel parent
+ *    positions), producing band-specific headers, row kinds, and band IDs. Applies
+ *    band-specific styling via `styleExportSheet()`. Early returns before the non-band path.
  * 2. Non-band path — existing enrichment via `enrichRowsWithBandHeaders()` + styling for
  *    reports without enabled detail bands.
  *
@@ -411,10 +338,21 @@ export async function exportAs(fmt: string): Promise<void> {
   const dataRows = totalsRow ? [...rows, { ...totalsRow, _isTotalsRow: true }] : [...rows];
 
   // ── Band layout path ────────────────────────────────────────────────
-  const enabledBands = (state.detailBands || []).filter(b => b.enabled !== false && b.rightId);
-  if (enabledBands.length > 0) {
+  const resultCast = result as { bandResult?: BandResultSet };
+  const bandResult = resultCast.bandResult;
+  if (bandResult) {
+    // Append totalsRow to parentRows if present (grouping layer handles totals as special ParentDescriptor)
+    const adjustedParentRows = totalsRow
+      ? [...bandResult.parentRows, { ...totalsRow, _isTotalsRow: true }]
+      : bandResult.parentRows;
+    const adjustedBandResult: BandResultSet = {
+      ...bandResult,
+      parentRows: adjustedParentRows,
+    };
+
+    const descriptors = buildOverlayDescriptors(adjustedBandResult, state.detailBands || []);
     const { cleanRows, rowKinds: bandRowKinds, headers: bandHeaders, bandIds } =
-      buildBandColumnLayout(dataRows, state.detailBands || [], cols || [], hdrMap || {});
+      buildExportFromDescriptors(descriptors, bandResult.parentCols, hdrMap || {}, isCsv);
 
     if (isCsv) {
       const ws = XLSX.utils.json_to_sheet(cleanRows, { header: bandHeaders, skipHeader: false });

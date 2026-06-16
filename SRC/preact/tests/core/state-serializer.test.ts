@@ -41,7 +41,6 @@ describe('buildPayload', () => {
     expect(payload.tableColors).toEqual({});
     expect(payload.columnLabels).toEqual({});
     expect(payload.detailBands).toEqual([]);
-    expect(payload.detailBandMode).toBe('separate');
   });
 
   it('should convert selCols Set to array', () => {

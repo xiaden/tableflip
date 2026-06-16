@@ -6,6 +6,7 @@
 **Design Name:** Live Chip-Table UI  
 
 **Related Documents:**
+
 - [ADR-002: Five-Layer Architecture](artifacts/decisions/ADR-002-five-layer-architecture.md) — Establishes the five-layer architecture. This redesign is UI-layer only — no changes to Core, Catalog, Query, or Report layers.
 - [DD-preact-rebuild-architecture](artifacts/designs/completed/DD-preact-rebuild-architecture.md) — The original Preact rebuild design. This redesign replaces the UI layer it specified (app.tsx, grid.tsx, cards/*, tabs.ts) while preserving all lower layers.
 - [DD-pipeline-preview](artifacts/designs/pending/DD-pipeline-preview.md) — Pipeline preview feature (currently pending). Parts of its preview-builder.ts may inform the auto-preview mechanism in the new UI, though the pivot grid's auto-preview uses runReport() not buildPreview().
@@ -18,6 +19,7 @@
 ## Scope
 
 **In scope:**
+
 - Complete UI layer rewrite: replace 3-tab card-based layout with single-screen pivot layout
 - Custom virtual-scrolling grid replacing AG Grid (grid.tsx deleted)
 - New component hierarchy: PivotLayout → PivotSidebar + PivotToolbar + PivotGrid
@@ -31,6 +33,7 @@
 - Component and unit tests for new components
 
 **Out of scope:**
+
 - Core layer changes (store, sqldb, utils, state) — *exceptions: `core/agg-state.ts` relocation from `ui/aggregation.ts` (fixes layer violation), and `core/state.ts` extension of `buildReportSpecFromState()` to produce a full `ReportSpec`*
 - Catalog layer changes (source-catalog, column-catalog)
 - Query layer changes (SQL generation, query plan)
@@ -131,6 +134,7 @@ The single-screen pivot layout replaces the 3-tab card-based UI with three persi
 **Rationale:** AG Grid provided virtualization out of the box. The replacement must match its scroll performance for 10K+ rows. Fixed row height eliminates the need for dynamic height measurement — the most complex part of virtual scrolling. IntersectionObserver is more efficient than scroll-event-based visibility detection because the browser batches intersection checks. The 5-row overscan prevents white-flash during fast scrolling. `transform: translateY` is GPU-accelerated and avoids layout thrashing.
 
 **Implementation approach:**
+
 - Container div with `overflow: auto` and known total height (`rowCount * 36px`)
 - Row elements absolutely positioned via `transform: translateY(rowIndex * 36 + 'px')`
 - IntersectionObserver watches a sentinel element at the scroll viewport edges
@@ -147,6 +151,7 @@ The single-screen pivot layout replaces the 3-tab card-based UI with three persi
 **Rationale:** AG Grid had built-in column resize. The replacement needs equivalent UX. A transparent document overlay during drag prevents iframe/scroll-container interference and ensures mouse events are captured even when the cursor moves outside the header.
 
 **Implementation approach:**
+
 - Each header cell renders a 6px-wide resize handle on its right edge (`position: absolute; right: 0; width: 6px; cursor: col-resize`)
 - `mousedown` on handle: record starting X, starting width, column alias
 - Create a transparent `div` overlay covering the entire viewport (`position: fixed; inset: 0; z-index: 9999; cursor: col-resize`)
@@ -159,6 +164,7 @@ The single-screen pivot layout replaces the 3-tab card-based UI with three persi
 **Decision:** Extend existing native HTML5 DragEvent from `column-chips.tsx`. Use `dataTransfer.setData/getData('text/plain')` for column alias. `effectAllowed: 'move'`. No new library.
 
 **Rationale:** The existing `column-chips.tsx` already implements native HTML5 DnD for chip reordering (lines 177-215). The same pattern extends to:
+
 1. Palette chip → grid header (add column)
 2. Grid header → header reorder
 3. Grid header → drop zone detection (agg key / add column / detail band)
@@ -174,6 +180,7 @@ Native DnD is sufficient for this use case — no cross-window drag, no complex 
 **Rationale:** Column headers serve triple duty: aggregation key assignment (top), column addition/reorder (middle), and detail band assignment (bottom). A 3-zone split is the simplest model that supports all three operations without additional UI chrome.
 
 **Implementation:**
+
 ```typescript
 function detectZone(e: DragEvent, headerEl: HTMLElement): 'top' | 'middle' | 'bottom' {
   const rect = headerEl.getBoundingClientRect();
@@ -186,11 +193,13 @@ function detectZone(e: DragEvent, headerEl: HTMLElement): 'top' | 'middle' | 'bo
 ```
 
 **Visual feedback during `dragover`:**
+
 - Top zone: `::before` pseudo-element, top border highlight (blue)
 - Middle zone: `::after` pseudo-element, full cell background tint
 - Bottom zone: `::before` pseudo-element, bottom border highlight (green)
 
 **Zone semantics:**
+
 - **Top (agg key):** In group/totals/subtotals mode, toggles column as group-by key. In 'none' mode, no-op.
 - **Middle (add/reorder):** Adds column to output if not present, or reorders if already present.
 - **Bottom (detail band):** In group mode, assigns column as band key pair. No-op in other modes.
@@ -202,6 +211,7 @@ function detectZone(e: DragEvent, headerEl: HTMLElement): 'top' | 'middle' | 'bo
 **Rationale:** The old UI required clicking "Run Report" to see results. The new UI auto-runs on every pipeline change with debouncing. The hash-based dirty check prevents redundant re-execution when state changes don't affect the report spec (e.g., sidebar collapse toggle). `buildReportSpecFromState()` is extended from its current pipeline-only output (`{ base, baseCols, stacks, lookups, calcStages, detailBands }`) to produce a full `ReportSpec` — including `outputColumns`, `filters`, `sorts`, `aggregation`, `mergeDisplay`, `publish`, `detailBandMode` — matching the shape that `runQuery()` in `run-bar.tsx` (lines 70–106) currently constructs inline. This ensures the auto-preview hash covers all report-affecting state and the spec passed to `executeReport()` is complete.
 
 **Implementation:**
+
 ```typescript
 let _debounceTimer: number | null = null;
 let _lastHash: string | null = null;
@@ -235,6 +245,7 @@ function schedulePreview() {
 **Rationale:** The calc builder is the most complex editor in the application — math steps, compare conditions, text operations, date operations. It needs maximum screen real estate. A modal provides focus isolation and doesn't compete with the grid for space. The existing `Modal` component already handles portal rendering, escape key, backdrop close, and focus management.
 
 **Interaction flow:**
+
 1. User clicks calc stage chip in sidebar → `setCalcEditorOpen(alias)`
 2. Modal opens with `<CalcBuilder>` content, pre-populated with existing calc config
 3. User edits calc configuration
@@ -248,6 +259,7 @@ function schedulePreview() {
 **Rationale:** Filters and sorts are frequently adjusted during report building. Putting them in the toolbar (always visible) eliminates the tab-switching required in the current UI. Chip representation is compact — a typical report has 2-5 filters and 1-3 sorts, fitting easily in the toolbar row.
 
 **Implementation:**
+
 - Each active filter renders as a `<Chip>` showing `"ColumnName op value"` with a close button
 - Each active sort renders as a `<Chip>` showing `"ColumnName ↑/↓"` with a close button
 - Click on chip: expands an inline editor panel below the toolbar (not a modal — keeps context visible)
@@ -272,6 +284,7 @@ function schedulePreview() {
 **Rationale:** The existing `style.css` (792 lines) contains styles for the current 3-tab layout that will be deleted. Shared component styles (`.btn`, `.chip`, `.modal`, `.ctx-menu`, `.tip`) must be preserved. New pivot-specific styles (grid layout, sidebar sections, toolbar, virtual rows) go in a separate file to keep concerns separated.
 
 **CSS custom properties reused from `:root`:**
+
 - `--bg`, `--bg2`, `--bg3` — backgrounds
 - `--border` — borders
 - `--text`, `--muted` — text colors
@@ -279,6 +292,7 @@ function schedulePreview() {
 - `--green`, `--red`, `--yellow` — status colors
 
 **New CSS custom properties for pivot:**
+
 - `--pivot-row-height: 36px` — fixed row height
 - `--pivot-header-height: 40px` — header cell height
 - `--pivot-sidebar-width: 270px` — sidebar width (matches existing)
@@ -293,18 +307,19 @@ function schedulePreview() {
 **Rationale:** The custom grid is the highest-risk component. Pure logic functions (detectZone, debounce hash, column width clamping) are trivially unit-testable. Component tests (jsdom) can verify DnD event handling, resize interaction, and context menu rendering. Grid scroll performance cannot be meaningfully tested in jsdom — it requires a real browser with real DOM layout.
 
 **Test breakdown:**
+
 - **Unit tests** (Vitest, no DOM):
   - `detectZone()` — all 3 zones, edge cases (top/bottom pixel)
   - `computeDebounceHash()` — spec changes → different hash, UI-only changes → same hash
   - `clampWidth()` — min 60, max 600, default 150
 - **Component tests** (Vitest + jsdom):
-   - `PivotGridHeader` — dragover events trigger zone highlights, drop triggers correct action
-   - `PivotGrid` — renders correct number of rows for viewport, scroll updates visible range
-   - `ColumnPalette` — dragstart sets dataTransfer, drop on header adds column
-   - `PivotContextMenu` — right-click opens menu, items trigger actions
-   - `PivotToolbar` — agg mode change updates store, filter chip close removes filter
-   - `PivotFilterRow` — chip rendering, inline editor expansion, chip close removes filter/sort
-   - `PivotLayout` — sidebar + toolbar + grid composition, store subscription wiring
+  - `PivotGridHeader` — dragover events trigger zone highlights, drop triggers correct action
+  - `PivotGrid` — renders correct number of rows for viewport, scroll updates visible range
+  - `ColumnPalette` — dragstart sets dataTransfer, drop on header adds column
+  - `PivotContextMenu` — right-click opens menu, items trigger actions
+  - `PivotToolbar` — agg mode change updates store, filter chip close removes filter
+  - `PivotFilterRow` — chip rendering, inline editor expansion, chip close removes filter/sort
+  - `PivotLayout` — sidebar + toolbar + grid composition, store subscription wiring
 - **Manual testing:**
   - Load 10K row dataset, verify scroll smoothness
   - Load 50K row dataset, verify no frame drops during scroll
@@ -485,7 +500,9 @@ interface AppState {
 ## 8. Implementation Phases
 
 ### Phase 1: Grid Foundation (32 hours)
+
 Build the custom virtual-scrolling grid — the highest-risk component.
+
 - `pivot-grid.tsx` — Container with virtual scroll logic
 - `pivot-grid-row.tsx` — Single row component
 - `pivot-grid-header.tsx` — Column header without drop zones (basic rendering only)
@@ -493,7 +510,9 @@ Build the custom virtual-scrolling grid — the highest-risk component.
 - Manual test: 10K rows, verify scroll smoothness
 
 ### Phase 2: Layout Shell (8 hours)
+
 Assemble the three-region layout.
+
 - `pivot-layout.tsx` — Root layout: sidebar + toolbar + grid
 - `pivot-sidebar.tsx` — Sidebar with file import + table list (migrate from `sidebar.tsx`)
 - `pivot-toolbar.tsx` — Toolbar with agg mode selector + export button + validation pill
@@ -501,14 +520,18 @@ Assemble the three-region layout.
 - Rewrite `app.tsx` to render `<PivotLayout>` instead of 3-tab shell
 
 ### Phase 3: Pipeline Sidebar (10 hours)
+
 Move pipeline configuration into collapsible sidebar sections.
+
 - `pivot-pipeline.tsx` — Collapsible pipeline config sections
 - Integrate existing stage components (base, stacks, lookups, bands, calcs)
 - `column-palette.tsx` — Draggable column chip list
 - Calc stage opens Modal with CalcBuilder
 
 ### Phase 4: Drag-and-Drop (12 hours)
+
 Implement all DnD interactions.
+
 - Header 3-zone drop detection
 - Palette chip → header (add column)
 - Header → header (reorder)
@@ -516,6 +539,7 @@ Implement all DnD interactions.
 - Zone-specific actions (agg key, add column, band key)
 
 ### Phase 5: Column Resize + Context Menu (8 hours)
+
 - Resize handle on header right edge
 - Document overlay during drag
 - Width persistence in `_ui.columnWidths`
@@ -526,6 +550,7 @@ Implement all DnD interactions.
   - Hide column
 
 ### Phase 6: Live Preview (8 hours)
+
 - Auto-preview debounce logic
 - Hash-based dirty check
 - Integration with `runReport()` from engine.ts
@@ -533,12 +558,14 @@ Implement all DnD interactions.
 - Validation pill integration
 
 ### Phase 7: Filter/Sort Toolbar (6 hours)
+
 - `pivot-filter-row.tsx` — Filter/sort chip row
 - Inline editor expansion
 - Chip close to remove
 - Horizontal overflow scroll
 
 ### Phase 8: Polish + Testing (10 hours)
+
 - Band row tinting in custom grid
 - Totals row rendering
 - Subtotal row rendering
@@ -657,6 +684,7 @@ This design is grounded in extensive research: Librarian briefing (architectural
 ## Requirements
 
 ### Functional Requirements
+
 1. **Single-screen layout** — Sidebar (270px) + toolbar row + custom grid, replacing 3-tab shell.
 2. **Custom virtual-scrolling grid** — Fixed 36px row height, IntersectionObserver-based viewport tracking, 5-row overscan buffer. Must handle 10K+ rows without frame drops.
 3. **Column header drop zones** — 3-zone detection (top=agg key, middle=add/reorder column, bottom=detail band). Visual feedback during dragover.
@@ -669,20 +697,22 @@ This design is grounded in extensive research: Librarian briefing (architectural
 10. **Validation pill** — Shows healthy/blocked status in toolbar. Reuses existing `getValidation()` logic.
 
 ### Preservation Requirements
+
 11. All pipeline stages work: base table, stacks, lookups, calculated columns, detail bands.
-12. All aggregation modes work: none (detail), group, totals, subtotals.
-13. All output features work: column selection, column ordering, column rename, column type override, merge display.
-14. All filter/sort features work: filter operators, sort direction, enabled/disabled toggles.
-15. Export works: XLSX with styling, CSV, band section headers, totals row, subtotal rows.
-16. Row exclusion works: right-click row → exclude from results.
-17. File loading works: drag-and-drop XLSX/CSV, sheet selector, table removal.
+2. All aggregation modes work: none (detail), group, totals, subtotals.
+3. All output features work: column selection, column ordering, column rename, column type override, merge display.
+4. All filter/sort features work: filter operators, sort direction, enabled/disabled toggles.
+5. Export works: XLSX with styling, CSV, band section headers, totals row, subtotal rows.
+6. Row exclusion works: right-click row → exclude from results.
+7. File loading works: drag-and-drop XLSX/CSV, sheet selector, table removal.
 
 ### Non-Functional Requirements
+
 18. No AG Grid dependency — `grid.tsx` deleted entirely.
-19. No new npm dependencies — native HTML5 DnD, no dnd-kit/react-dnd.
-20. No breaking changes to AppState serialization format.
-21. No changes to Core, Catalog, Query, or Report layers.
-22. All `npm run typecheck`, `npm run lint`, `npm test` pass with zero errors/warnings.
+2. No new npm dependencies — native HTML5 DnD, no dnd-kit/react-dnd.
+3. No breaking changes to AppState serialization format.
+4. No changes to Core, Catalog, Query, or Report layers.
+5. All `npm run typecheck`, `npm run lint`, `npm test` pass with zero errors/warnings.
 
 ---
 

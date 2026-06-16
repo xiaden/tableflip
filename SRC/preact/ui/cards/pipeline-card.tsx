@@ -22,7 +22,6 @@ import { LookupStage } from '../sections/lookup-stage';
 import { CalcStageSection } from '../sections/calc-stage';
 import { DetailBandStage } from '../sections/detail-band-stage';
 import { createDetailBandSpec } from '../../core/state';
-import { invalidateValidation } from '../../report/validation';
 import { Tip } from '../components/tip';
 import { buildPreview } from '../../report/preview-builder';
 import type { PreviewResult } from '../../report/preview-builder';
@@ -98,13 +97,6 @@ export function PipelineCard() {
     _afterCombineChange();
   }, []);
 
-  const setBandMode = useCallback((mode: 'separate' | 'stack') => {
-    getStore().update(draft => {
-      draft.detailBandMode = mode;
-    });
-    invalidateValidation();
-  }, []);
-
   const computePreview = useCallback((id: string) => {
     const currentState = getStore().getState();
     const result = buildPreview(id, currentState);
@@ -112,7 +104,6 @@ export function PipelineCard() {
   }, []);
 
   const hasBase = !!(base && tables[base]);
-  const enabledBandCount = detailBands.filter(b => b.enabled !== false).length;
 
   return (
     <div id="pipeline" class="pipeline">
@@ -164,34 +155,6 @@ export function PipelineCard() {
         </div>
       ))}
 
-      {/* Mode toggle — visible when 2+ bands are enabled */}
-      {enabledBandCount >= 2 && (
-        <div class="pl-band-mode-toggle" style="display:flex;align-items:center;gap:8px;padding:4px 8px;flex-wrap:wrap">
-          <span>Multiple bands:</span>
-          <label style="display:inline-flex;align-items:center;gap:2px;cursor:pointer">
-            <input
-              type="radio"
-              name="bandMode"
-              value="separate"
-              checked={state.detailBandMode === 'separate'}
-              onChange={() => setBandMode('separate')}
-            />
-            Separate bands (under each row)
-          </label>
-          <label style="display:inline-flex;align-items:center;gap:2px;cursor:pointer">
-            <input
-              type="radio"
-              name="bandMode"
-              value="stack"
-              checked={state.detailBandMode === 'stack'}
-              onChange={() => setBandMode('stack')}
-            />
-            Stack side-by-side (cross-product)
-          </label>
-          <Tip text={'Separate: each parent row is followed by its matching child rows from each band.\n\nStack: child rows from all bands are combined for each parent row (like a cross-product). Warning: this can produce many rows.'} />
-        </div>
-      )}
-
       {/* Detail band stages */}
       {detailBands.map((_band, i) => (
         <div key={`band-${i}`}>
@@ -210,13 +173,13 @@ export function PipelineCard() {
       {hasBase && (
         <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;padding:2px 0 8px">
           <div class="pl-add-btn" onClick={addLookup}>
-            {'＋'} Look up columns from another sheet
+            {'＋'} Add columns from another sheet
           </div>
           <div class="pl-add-btn" onClick={addCalcStage}>
-            {'＋'} Add a calculated column from existing sheets
+            {'＋'} Add a calculated column
           </div>
           <div class="pl-add-btn" onClick={addDetailBand}>
-            {'＋'} Add related details from another sheet
+            {'＋'} Add detail rows from another
           </div>
         </div>
       )}

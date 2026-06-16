@@ -1,21 +1,19 @@
-import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
+/**
+ * Tests for ui/export.ts — band export functions.
+ *
+ * Covers buildExportFromDescriptors() (parent rows, section headers, band data rows,
+ * row kind assignment, label resolution, CSV path, edge cases), filterExportCols(),
+ * buildBandLabels(), and styleExportSheet() (kind 4/5 band styling, tint styling).
+ */
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import {
   filterExportCols,
   buildBandLabels,
-  enrichRowsWithBandHeaders,
+  buildExportFromDescriptors,
   styleExportSheet,
-  computeBandColSets,
-  applyBandGroup,
-  buildBandColumnLayout,
-  exportAs,
 } from '../../ui/export';
-import { initStore, getStore } from '../../core/store';
-import type { DetailBandSpec, DbTable } from '../../types';
-
-// Mock validation to return healthy status so exportAs() doesn't block
-vi.mock('../../report/validation', () => ({
-  getValidation: vi.fn().mockReturnValue({ reportStatus: 'healthy', items: {} }),
-}));
+import { initStore } from '../../core/store';
+import type { DetailBandSpec, DbTable, OverlayDescriptor } from '../../types';
 
 // ── XLSX mock ──────────────────────────────────────────────────────────────
 // styleExportSheet uses XLSX.utils.encode_cell and XLSX.utils.decode_range.
@@ -177,118 +175,6 @@ describe('buildBandLabels', () => {
     ];
     const result = buildBandLabels(bands, undefined);
     expect(result['band_0']).toBe('band_0');
-  });
-});
-
-describe('enrichRowsWithBandHeaders', () => {
-  const exportCols = ['OrderId', 'Product', 'Amount'];
-  const bandLabels = { band_0: 'Line Items', band_1: 'Notes' };
-
-  it('inserts section header rows on _band_id transitions (XLSX)', () => {
-    const dataRows = [
-      { OrderId: 'ORD-1', Product: null, Amount: 100, _band_id: null },
-      { OrderId: null, Product: 'Widget', Amount: null, _band_id: 'band_0' },
-      { OrderId: null, Product: 'Gadget', Amount: null, _band_id: 'band_0' },
-      { OrderId: 'ORD-2', Product: null, Amount: 200, _band_id: null },
-    ];
-    const { enrichedRows } = enrichRowsWithBandHeaders(dataRows, exportCols, bandLabels, false);
-
-    // Expected: parent, header(band_0), band_row, band_row, parent
-    expect(enrichedRows).toHaveLength(5);
-    expect(enrichedRows[0]).toHaveProperty('OrderId', 'ORD-1');
-    expect(enrichedRows[1]).toHaveProperty('_isBandHeader', true);
-    expect(enrichedRows[1]).toHaveProperty(exportCols[0], 'Line Items');
-    expect(enrichedRows[2]).toHaveProperty('Product', 'Widget');
-    expect(enrichedRows[3]).toHaveProperty('Product', 'Gadget');
-    expect(enrichedRows[4]).toHaveProperty('OrderId', 'ORD-2');
-  });
-
-  it('inserts multiple section headers for different bands', () => {
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { OrderId: null, _band_id: 'band_0' },
-      { OrderId: null, _band_id: 'band_1' },
-    ];
-    const { enrichedRows } = enrichRowsWithBandHeaders(dataRows, exportCols, bandLabels, false);
-
-    // Expected: parent, header(band_0), band_0_row, header(band_1), band_1_row
-    expect(enrichedRows).toHaveLength(5);
-    expect((enrichedRows[1] as any)._isBandHeader).toBe(true);
-    expect(enrichedRows[1][exportCols[0]]).toBe('Line Items');
-    expect((enrichedRows[3] as any)._isBandHeader).toBe(true);
-    expect(enrichedRows[3][exportCols[0]]).toBe('Notes');
-  });
-
-  it('does NOT insert extra headers when same band continues', () => {
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null },       // parent row
-      { OrderId: null, _band_id: 'band_0' },      // first band row → header inserted
-      { OrderId: null, _band_id: 'band_0' },      // same band → no extra header
-      { OrderId: null, _band_id: 'band_0' },      // same band → no extra header
-    ];
-    const { enrichedRows } = enrichRowsWithBandHeaders(dataRows, exportCols, bandLabels, false);
-    // parent + 1 header + 3 band rows = 5
-    expect(enrichedRows).toHaveLength(5);
-    // Only one header (at index 1)
-    const headerCount = enrichedRows.filter(r => (r as any)._isBandHeader).length;
-    expect(headerCount).toBe(1);
-  });
-
-  it('does NOT insert headers in CSV mode', () => {
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { OrderId: null, _band_id: 'band_0' },
-    ];
-    const { enrichedRows } = enrichRowsWithBandHeaders(dataRows, exportCols, bandLabels, true);
-    expect(enrichedRows).toHaveLength(2);
-    expect(enrichedRows).toEqual(dataRows);
-  });
-
-  it('assigns row kind 4 to band header rows', () => {
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { OrderId: null, _band_id: 'band_0' },
-    ];
-    const { rowKinds } = enrichRowsWithBandHeaders(dataRows, exportCols, bandLabels, false);
-    // [parent(kind 0), header(kind 4), band_row(kind 0)]
-    expect(rowKinds).toEqual([0, 4, 0]);
-  });
-
-  it('assigns correct rowKinds for mixed row types', () => {
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null, _row_type: 0 },
-      { OrderId: null, _band_id: 'band_0', _row_type: 0 },
-      { _isTotalsRow: true, OrderId: 'TOTAL' },
-    ];
-    const { rowKinds } = enrichRowsWithBandHeaders(dataRows, exportCols, bandLabels, false);
-    // [parent(0), header(4), band_row(0), totals(3)]
-    expect(rowKinds).toEqual([0, 4, 0, 3]);
-  });
-
-  it('band header rows have empty strings in non-first columns', () => {
-    const dataRows = [
-      { OrderId: 'ORD-1', Product: null, Amount: 100, _band_id: null },
-      { OrderId: null, Product: 'Widget', Amount: null, _band_id: 'band_0' },
-    ];
-    const { enrichedRows } = enrichRowsWithBandHeaders(dataRows, exportCols, bandLabels, false);
-    const header = enrichedRows[1];
-    expect(header[exportCols[0]]).toBe('Line Items');
-    expect(header[exportCols[1]]).toBe('');
-    expect(header[exportCols[2]]).toBe('');
-  });
-
-  it('uses bandId as fallback when label not found', () => {
-    const dataRows = [
-      { OrderId: null, _band_id: 'unknown_band' },
-    ];
-    const { enrichedRows } = enrichRowsWithBandHeaders(dataRows, exportCols, {}, false);
-    expect(enrichedRows[0][exportCols[0]]).toBe('unknown_band');
-  });
-
-  it('handles empty dataRows', () => {
-    const { enrichedRows, rowKinds } = enrichRowsWithBandHeaders([], exportCols, bandLabels, false);
-    expect(enrichedRows).toEqual([]);
-    expect(rowKinds).toEqual([]);
   });
 });
 
@@ -461,124 +347,6 @@ describe('styleExportSheet — band header (kind 4) styling', () => {
     // Subtotal rows are bold but NOT italic
     expect(font.bold).toBe(true);
     expect(font.italic).toBeUndefined();
-  });
-});
-
-// ── CSV Export Tests ─────────────────────────────────────────────────────────
-
-describe('CSV export — _band_id column and no section headers', () => {
-  const exportColsCsv = ['OrderId', 'Product', 'Amount', '_band_id'];
-  const bandLabels = { band_0: 'Line Items', band_1: 'Notes' };
-
-  it('CSV enrichedRows pass through dataRows unchanged (no section headers)', () => {
-    const dataRows = [
-      { OrderId: 'ORD-1', Product: null, Amount: 100, _band_id: null },
-      { OrderId: null, Product: 'Widget', Amount: null, _band_id: 'band_0' },
-      { OrderId: null, Product: 'Gadget', Amount: null, _band_id: 'band_0' },
-      { OrderId: 'ORD-2', Product: null, Amount: 200, _band_id: null },
-      { OrderId: null, Product: 'Sprocket', Amount: null, _band_id: 'band_1' },
-    ];
-    const { enrichedRows } = enrichRowsWithBandHeaders(dataRows, exportColsCsv, bandLabels, true);
-
-    // CSV must have exactly the same number of rows — no headers inserted
-    expect(enrichedRows).toHaveLength(5);
-    expect(enrichedRows).toEqual(dataRows);
-  });
-
-  it('CSV enrichedRows contain _band_id values for downstream grouping', () => {
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { OrderId: null, _band_id: 'band_0' },
-      { OrderId: null, _band_id: 'band_1' },
-    ];
-    const { enrichedRows } = enrichRowsWithBandHeaders(dataRows, exportColsCsv, bandLabels, true);
-
-    // _band_id values must be preserved in CSV output
-    expect(enrichedRows[0]._band_id).toBeNull();
-    expect(enrichedRows[1]._band_id).toBe('band_0');
-    expect(enrichedRows[2]._band_id).toBe('band_1');
-  });
-
-  it('CSV enrichedRows have no _isBandHeader flags', () => {
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { OrderId: null, _band_id: 'band_0' },
-    ];
-    const { enrichedRows } = enrichRowsWithBandHeaders(dataRows, exportColsCsv, bandLabels, true);
-
-    for (const row of enrichedRows) {
-      expect((row as any)._isBandHeader).toBeUndefined();
-    }
-  });
-
-  it('CSV rowKinds are all 0 for detail rows (no kind 4)', () => {
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null, _row_type: 0 },
-      { OrderId: null, _band_id: 'band_0', _row_type: 0 },
-      { OrderId: null, _band_id: 'band_0', _row_type: 0 },
-    ];
-    const { rowKinds } = enrichRowsWithBandHeaders(dataRows, exportColsCsv, bandLabels, true);
-
-    // No band headers in CSV, so no kind 4
-    expect(rowKinds).toEqual([0, 0, 0]);
-    expect(rowKinds).not.toContain(4);
-  });
-
-  it('CSV rowKinds correctly identify totals rows', () => {
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null, _row_type: 0 },
-      { OrderId: null, _band_id: 'band_0', _row_type: 0 },
-      { _isTotalsRow: true, OrderId: 'TOTAL', _band_id: null },
-    ];
-    const { rowKinds } = enrichRowsWithBandHeaders(dataRows, exportColsCsv, bandLabels, true);
-
-    expect(rowKinds).toEqual([0, 0, 3]);
-  });
-
-  it('filterExportCols keeps _band_id for CSV but filters it for XLSX', () => {
-    const cols = ['OrderId', 'Product', '_band_id', '_rowno', '_row_type'];
-    const csvCols = filterExportCols(cols, true);
-    const xlsxCols = filterExportCols(cols, false);
-
-    expect(csvCols).toContain('_band_id');
-    expect(csvCols).not.toContain('_rowno');
-    expect(csvCols).not.toContain('_row_type');
-
-    expect(xlsxCols).not.toContain('_band_id');
-    expect(xlsxCols).not.toContain('_rowno');
-    expect(xlsxCols).not.toContain('_row_type');
-  });
-
-  it('CSV _band_id values survive remap for all band transitions', () => {
-    // Simulate the remap function from exportAs() for CSV
-    const exportCols = ['OrderId', 'Product', '_band_id'];
-    const hdrMap: Record<string, string> = { OrderId: 'Order ID', Product: 'Product', _band_id: '_band_id' };
-    const remap = (row: Record<string, unknown>): Record<string, unknown> => {
-      const out: Record<string, unknown> = {};
-      for (const c of exportCols) {
-        out[hdrMap[c] || c] = row[c];
-      }
-      return out;
-    };
-
-    const dataRows = [
-      { OrderId: 'ORD-1', Product: null, _band_id: null },
-      { OrderId: null, Product: 'Widget', _band_id: 'band_0' },
-      { OrderId: null, Product: 'Gadget', _band_id: 'band_0' },
-      { OrderId: 'ORD-2', Product: null, _band_id: null },
-      { OrderId: null, Product: 'Note A', _band_id: 'band_1' },
-    ];
-
-    const { enrichedRows } = enrichRowsWithBandHeaders(dataRows, exportCols, bandLabels, true);
-    const clean = enrichedRows.map(remap);
-
-    // Verify _band_id is present in remapped output
-    expect(clean).toHaveLength(5);
-    expect(clean[0]['_band_id']).toBeNull();
-    expect(clean[1]['_band_id']).toBe('band_0');
-    expect(clean[2]['_band_id']).toBe('band_0');
-    expect(clean[3]['_band_id']).toBeNull();
-    expect(clean[4]['_band_id']).toBe('band_1');
   });
 });
 
@@ -839,426 +607,6 @@ describe('styleExportSheet — band data row tint styling', () => {
   });
 });
 
-// ── computeBandColSets Tests ──────────────────────────────────────────────────
-
-describe('computeBandColSets', () => {
-  it('returns per-band column arrays with _{bandId}_ prefix', () => {
-    const bands: DetailBandSpec[] = [
-      { id: 'band_0', rightId: 'tbl', keyPairs: [], cols: ['Product', 'Qty'], enabled: true, sorts: [], label: '' },
-    ];
-    const allCols = ['OrderId', '_band_0_Product', '_band_0_Qty', '_band_1_Note'];
-    const result = computeBandColSets(bands, allCols);
-    expect(result['band_0']).toEqual(['_band_0_Product', '_band_0_Qty']);
-  });
-
-  it('preserves column order from band.cols', () => {
-    const bands: DetailBandSpec[] = [
-      { id: 'band_0', rightId: 'tbl', keyPairs: [], cols: ['Qty', 'Product'], enabled: true, sorts: [], label: '' },
-    ];
-    const allCols = ['_band_0_Product', '_band_0_Qty'];
-    const result = computeBandColSets(bands, allCols);
-    expect(result['band_0']).toEqual(['_band_0_Qty', '_band_0_Product']);
-  });
-
-  it('skips disabled bands', () => {
-    const bands: DetailBandSpec[] = [
-      { id: 'band_0', rightId: 'tbl', keyPairs: [], cols: ['Product'], enabled: true, sorts: [], label: '' },
-      { id: 'band_1', rightId: 'tbl2', keyPairs: [], cols: ['Note'], enabled: false, sorts: [], label: '' },
-    ];
-    const allCols = ['_band_0_Product', '_band_1_Note'];
-    const result = computeBandColSets(bands, allCols);
-    expect(result['band_0']).toBeDefined();
-    expect(result['band_1']).toBeUndefined();
-  });
-
-  it('handles empty cols array', () => {
-    const bands: DetailBandSpec[] = [
-      { id: 'band_0', rightId: 'tbl', keyPairs: [], cols: [], enabled: true, sorts: [], label: '' },
-    ];
-    const allCols = ['_band_0_Product', '_band_0_Qty'];
-    const result = computeBandColSets(bands, allCols);
-    // band.cols is empty, so ordered starts empty; defensive append adds the rest
-    expect(result['band_0']).toEqual(['_band_0_Product', '_band_0_Qty']);
-  });
-
-  it('returns empty object for undefined detailBands', () => {
-    expect(computeBandColSets(undefined, ['col1'])).toEqual({});
-  });
-});
-
-// ── applyBandGroup Tests ──────────────────────────────────────────────────────
-
-describe('applyBandGroup', () => {
-  const hdrMap: Record<string, string> = {
-    OrderId: 'Order ID',
-    _band_0_Product: 'Product',
-    _band_0_Qty: 'Qty',
-    _band_1_Note: 'Note',
-  };
-  const allBandLabels = ['Product', 'Qty', 'Note'];
-
-  it('single band single parent produces compact layout with section header', () => {
-    const rows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_0_Qty: 5, _band_id: 'band_0' },
-      { _band_0_Product: 'Gadget', _band_0_Qty: 2, _band_id: 'band_0' },
-    ];
-    const result = applyBandGroup(rows, 'band_0', 'OrderId', ['_band_0_Product', '_band_0_Qty'], allBandLabels, hdrMap);
-    // parent(kind 5) + section header(kind 4) + 2 data rows(kind 0) = 4
-    expect(result).toHaveLength(4);
-    expect(result[0]._rowKind).toBe(5);
-    expect(result[1]._rowKind).toBe(4);
-    expect(result[2]._rowKind).toBe(0);
-    expect(result[3]._rowKind).toBe(0);
-  });
-
-  it('multiple parents tracks match value changes', () => {
-    const rows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_id: 'band_0' },
-      { OrderId: 'ORD-2', _band_id: null },
-      { _band_0_Product: 'Sprocket', _band_id: 'band_0' },
-    ];
-    const result = applyBandGroup(rows, 'band_0', 'OrderId', ['_band_0_Product'], allBandLabels, hdrMap);
-    // parent1(5) + header(4) + data(0) + parent2(5) + header(4) + data(0) = 6
-    expect(result).toHaveLength(6);
-    expect(result[0]['Order ID']).toBe('ORD-1');
-    expect(result[3]['Order ID']).toBe('ORD-2');
-  });
-
-  it('only this band rows transformed — other band rows pass through', () => {
-    const rows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_id: 'band_0' },
-      { _band_1_Note: 'Rush', _band_id: 'band_1' },
-    ];
-    const result = applyBandGroup(rows, 'band_0', 'OrderId', ['_band_0_Product'], allBandLabels, hdrMap);
-    // parent(5) + section_header(4) + data(0) + band_1_row(pass through) = 4
-    const band1Row = result[result.length - 1];
-    expect(band1Row._band_id).toBe('band_1');
-    expect(band1Row._processed).toBeUndefined();
-  });
-
-  it('parent rows get _processed true, kind 5, match col populated, band cols empty', () => {
-    const rows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_id: 'band_0' },
-    ];
-    const result = applyBandGroup(rows, 'band_0', 'OrderId', ['_band_0_Product'], allBandLabels, hdrMap);
-    const parentRow = result[0];
-    expect(parentRow._processed).toBe(true);
-    expect(parentRow._rowKind).toBe(5);
-    expect(parentRow['Order ID']).toBe('ORD-1');
-    expect(parentRow['Product']).toBe('');
-    expect(parentRow['Qty']).toBe('');
-    expect(parentRow['Note']).toBe('');
-  });
-
-  it('section header has display names in correct allBandLabels positions', () => {
-    const rows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_0_Qty: 5, _band_id: 'band_0' },
-    ];
-    const result = applyBandGroup(rows, 'band_0', 'OrderId', ['_band_0_Product', '_band_0_Qty'], allBandLabels, hdrMap);
-    const headerRow = result[1];
-    expect(headerRow._rowKind).toBe(4);
-    expect(headerRow['Order ID']).toBe('ORD-1');
-    expect(headerRow['Product']).toBe('Product');
-    expect(headerRow['Qty']).toBe('Qty');
-    expect(headerRow['Note']).toBe(''); // not this band's column
-  });
-
-  it('band data rows have values in correct positions', () => {
-    const rows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_0_Qty: 5, _band_id: 'band_0' },
-    ];
-    const result = applyBandGroup(rows, 'band_0', 'OrderId', ['_band_0_Product', '_band_0_Qty'], allBandLabels, hdrMap);
-    const dataRow = result[2];
-    expect(dataRow['Order ID']).toBe('ORD-1');
-    expect(dataRow['Product']).toBe('Widget');
-    expect(dataRow['Qty']).toBe(5);
-    expect(dataRow['Note']).toBe(''); // not this band's column
-  });
-
-  it('match value propagates from parent to band rows (not null)', () => {
-    const rows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_id: 'band_0' },
-    ];
-    const result = applyBandGroup(rows, 'band_0', 'OrderId', ['_band_0_Product'], allBandLabels, hdrMap);
-    // Both parent and data row should have 'ORD-1' in match column
-    expect(result[0]['Order ID']).toBe('ORD-1');
-    expect(result[2]['Order ID']).toBe('ORD-1');
-  });
-
-  it('other band rows pass through unmodified', () => {
-    const otherRow = { _band_1_Note: 'Rush', _band_id: 'band_1' };
-    const rows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_id: 'band_0' },
-      otherRow,
-    ];
-    const result = applyBandGroup(rows, 'band_0', 'OrderId', ['_band_0_Product'], allBandLabels, hdrMap);
-    const passedThrough = result[result.length - 1];
-    expect(passedThrough).toBe(otherRow); // same reference
-  });
-
-  it('already-processed rows pass through', () => {
-    const processedRow = { _processed: true, _rowKind: 5, 'Order ID': 'ORD-1', 'Product': '' };
-    const rows = [
-      processedRow,
-      { _band_0_Product: 'Widget', _band_id: 'band_0' },
-    ];
-    const result = applyBandGroup(rows, 'band_0', 'OrderId', ['_band_0_Product'], allBandLabels, hdrMap);
-    expect(result[0]).toBe(processedRow); // same reference, not re-processed
-  });
-
-  it('empty band (no rows) emits no section header or data rows', () => {
-    const rows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { OrderId: 'ORD-2', _band_id: null },
-    ];
-    const result = applyBandGroup(rows, 'band_0', 'OrderId', ['_band_0_Product'], allBandLabels, hdrMap);
-    // Only parent rows, no section headers or data rows
-    expect(result).toHaveLength(2);
-    expect(result[0]._rowKind).toBe(5);
-    expect(result[1]._rowKind).toBe(5);
-  });
-
-  it('totals rows pass through unchanged and trigger flush', () => {
-    const rows = [
-      { OrderId: 'ORD-1', _band_id: null, _band_0_Product: null },
-      { OrderId: null, _band_id: 'band_0', _band_0_Product: 'Widget' },
-      { OrderId: 'TOTAL', _band_0_Product: null, _isTotalsRow: true },
-    ];
-    const result = applyBandGroup(rows, 'band_0', 'OrderId', ['_band_0_Product'], ['Product'], { OrderId: 'Order ID', _band_0_Product: 'Product' });
-
-    // Should have: parent (kind 5), section header (kind 4), data row (kind 0), totals row (isTotalsRow)
-    expect(result.length).toBe(4);
-    expect(result[0]).toHaveProperty('_rowKind', 5);
-    expect(result[1]).toHaveProperty('_rowKind', 4);
-    expect(result[2]).toHaveProperty('_rowKind', 0);
-    // Totals row should be passed through unchanged (not kind 5)
-    expect(result[3]).toHaveProperty('_isTotalsRow', true);
-    expect(result[3]).not.toHaveProperty('_rowKind', 5);
-  });
-
-  it('kind-5 processed row from previous band triggers flush and updates match value', () => {
-    const rows = [
-      { _processed: true, _rowKind: 5, 'Order ID': 'ORD-2' },
-      { _band_id: 'band_0', _band_0_Product: 'Gadget' },
-    ];
-    const result = applyBandGroup(rows, 'band_0', 'OrderId', ['_band_0_Product'], ['Product'], { OrderId: 'Order ID', _band_0_Product: 'Product' });
-
-    // The processed row should pass through unchanged
-    expect(result[0]).toHaveProperty('_processed', true);
-    expect(result[0]).toHaveProperty('_rowKind', 5);
-    // A section header should be emitted with match value 'ORD-2'
-    expect(result[1]).toHaveProperty('_rowKind', 4);
-    expect(result[1]['Order ID']).toBe('ORD-2');
-    // Data row should carry match value 'ORD-2'
-    expect(result[2]).toHaveProperty('_rowKind', 0);
-    expect(result[2]['Order ID']).toBe('ORD-2');
-  });
-
-  it('band row before first parent has null match value', () => {
-    const rows = [
-      { _band_id: 'band_0', _band_0_Product: 'Widget' },
-    ];
-    const result = applyBandGroup(rows, 'band_0', 'OrderId', ['_band_0_Product'], ['Product'], { OrderId: 'Order ID', _band_0_Product: 'Product' });
-    // Section header + 1 data row
-    expect(result.length).toBe(2);
-    expect(result[0]).toHaveProperty('_rowKind', 4);
-    expect(result[0]['Order ID']).toBeNull(); // match value is null since no parent preceded
-    expect(result[1]).toHaveProperty('_rowKind', 0);
-    expect(result[1]['Order ID']).toBeNull();
-  });
-
-  it('empty bandColAliases produces section header and data rows with only match column', () => {
-    const rows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_id: 'band_0' },
-    ];
-    const result = applyBandGroup(rows, 'band_0', 'OrderId', [], ['Product', 'Qty'], { OrderId: 'Order ID' });
-    // parent + section header + data row
-    expect(result.length).toBe(3);
-    // Section header: match value + empty strings
-    expect(result[1]).toHaveProperty('_rowKind', 4);
-    expect(result[1]['Order ID']).toBe('ORD-1');
-    expect(result[1]['Product']).toBe(''); // empty since no band col aliases
-    expect(result[1]['Qty']).toBe('');     // empty since no band col aliases
-    // Data row: match value + empty strings
-    expect(result[2]).toHaveProperty('_rowKind', 0);
-    expect(result[2]['Order ID']).toBe('ORD-1');
-    expect(result[2]['Product']).toBe('');
-    expect(result[2]['Qty']).toBe('');
-  });
-});
-
-// ── buildBandColumnLayout Tests ───────────────────────────────────────────────
-
-describe('buildBandColumnLayout', () => {
-  const makeBand = (id: string, rightId: string, cols: string[], matchCol: string, enabled = true): DetailBandSpec => ({
-    id, rightId, keyPairs: [{ left: matchCol, right: 'id' }], cols, enabled, sorts: [], label: '',
-  });
-
-  it('single band single parent produces correct column layout', () => {
-    const bands = [makeBand('band_0', 'tbl', ['Product', 'Qty'], 'OrderId')];
-    const allCols = ['OrderId', '_band_0_Product', '_band_0_Qty'];
-    const hdrMap: Record<string, string> = { OrderId: 'Order ID', _band_0_Product: 'Product', _band_0_Qty: 'Qty' };
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_0_Qty: 5, _band_id: 'band_0' },
-    ];
-    const { cleanRows, headers, rowKinds } = buildBandColumnLayout(dataRows, bands, allCols, hdrMap);
-    expect(headers).toEqual(['Order ID', 'Product', 'Qty']);
-    expect(cleanRows).toHaveLength(3); // parent(5) + section header(4) + 1 data(0)
-    expect(rowKinds).toEqual([5, 4, 0]);
-  });
-
-  it('multiple parents with match value changes', () => {
-    const bands = [makeBand('band_0', 'tbl', ['Product'], 'OrderId')];
-    const allCols = ['OrderId', '_band_0_Product'];
-    const hdrMap: Record<string, string> = { OrderId: 'Order ID', _band_0_Product: 'Product' };
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_id: 'band_0' },
-      { OrderId: 'ORD-2', _band_id: null },
-      { _band_0_Product: 'Sprocket', _band_id: 'band_0' },
-    ];
-    const { cleanRows, headers } = buildBandColumnLayout(dataRows, bands, allCols, hdrMap);
-    expect(headers).toEqual(['Order ID', 'Product']);
-    // parent1(5) + header(4) + data(0) + parent2(5) + header(4) + data(0) = 6
-    expect(cleanRows).toHaveLength(6);
-    expect(cleanRows[0]['Order ID']).toBe('ORD-1');
-    expect(cleanRows[3]['Order ID']).toBe('ORD-2');
-  });
-
-  it('multiple bands same parent produces section headers for each', () => {
-    const bands = [
-      makeBand('band_0', 'tbl1', ['Product'], 'OrderId'),
-      makeBand('band_1', 'tbl2', ['Note'], 'OrderId'),
-    ];
-    const allCols = ['OrderId', '_band_0_Product', '_band_1_Note'];
-    const hdrMap: Record<string, string> = { OrderId: 'Order ID', _band_0_Product: 'Product', _band_1_Note: 'Note' };
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_id: 'band_0' },
-      { _band_1_Note: 'Rush', _band_id: 'band_1' },
-    ];
-    const { cleanRows, rowKinds } = buildBandColumnLayout(dataRows, bands, allCols, hdrMap);
-    // parent(5) + band0_header(4) + band0_data(0) + band1_header(4) + band1_data(0) = 5
-    expect(cleanRows).toHaveLength(5);
-    expect(rowKinds).toEqual([5, 4, 0, 4, 0]);
-  });
-
-  it('variable band widths — sheet width = 1 + unique labels', () => {
-    const bands = [
-      makeBand('band_0', 'tbl1', ['Product', 'Qty', 'Price'], 'OrderId'),
-      makeBand('band_1', 'tbl2', ['Note'], 'OrderId'),
-    ];
-    const allCols = ['OrderId', '_band_0_Product', '_band_0_Qty', '_band_0_Price', '_band_1_Note'];
-    const hdrMap: Record<string, string> = {
-      OrderId: 'Order ID', _band_0_Product: 'Product', _band_0_Qty: 'Qty',
-      _band_0_Price: 'Price', _band_1_Note: 'Note',
-    };
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_0_Qty: 5, _band_0_Price: 10, _band_id: 'band_0' },
-      { _band_1_Note: 'Rush', _band_id: 'band_1' },
-    ];
-    const { headers } = buildBandColumnLayout(dataRows, bands, allCols, hdrMap);
-    // 1 match + 4 unique band labels = 5
-    expect(headers).toHaveLength(5);
-    expect(headers).toEqual(['Order ID', 'Product', 'Qty', 'Price', 'Note']);
-  });
-
-  it('parent rows have empty band columns', () => {
-    const bands = [makeBand('band_0', 'tbl', ['Product'], 'OrderId')];
-    const allCols = ['OrderId', '_band_0_Product'];
-    const hdrMap: Record<string, string> = { OrderId: 'Order ID', _band_0_Product: 'Product' };
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_id: 'band_0' },
-    ];
-    const { cleanRows } = buildBandColumnLayout(dataRows, bands, allCols, hdrMap);
-    const parentRow = cleanRows[0];
-    expect(parentRow['Order ID']).toBe('ORD-1');
-    expect(parentRow['Product']).toBe('');
-  });
-
-  it('section header has display names from hdrMap', () => {
-    const bands = [makeBand('band_0', 'tbl', ['Product'], 'OrderId')];
-    const allCols = ['OrderId', '_band_0_Product'];
-    const hdrMap: Record<string, string> = { OrderId: 'Order ID', _band_0_Product: 'Product Name' };
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_id: 'band_0' },
-    ];
-    const { cleanRows, headers } = buildBandColumnLayout(dataRows, bands, allCols, hdrMap);
-    expect(headers).toEqual(['Order ID', 'Product Name']);
-    const sectionHeader = cleanRows[1];
-    expect(sectionHeader['Order ID']).toBe('ORD-1');
-    expect(sectionHeader['Product Name']).toBe('Product Name');
-  });
-
-  it('band data rows have values', () => {
-    const bands = [makeBand('band_0', 'tbl', ['Product'], 'OrderId')];
-    const allCols = ['OrderId', '_band_0_Product'];
-    const hdrMap: Record<string, string> = { OrderId: 'Order ID', _band_0_Product: 'Product' };
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_id: 'band_0' },
-    ];
-    const { cleanRows } = buildBandColumnLayout(dataRows, bands, allCols, hdrMap);
-    const dataRow = cleanRows[2];
-    expect(dataRow['Order ID']).toBe('ORD-1');
-    expect(dataRow['Product']).toBe('Widget');
-  });
-
-  it('match value propagates to all band rows', () => {
-    const bands = [makeBand('band_0', 'tbl', ['Product'], 'OrderId')];
-    const allCols = ['OrderId', '_band_0_Product'];
-    const hdrMap: Record<string, string> = { OrderId: 'Order ID', _band_0_Product: 'Product' };
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_id: 'band_0' },
-      { _band_0_Product: 'Gadget', _band_id: 'band_0' },
-    ];
-    const { cleanRows } = buildBandColumnLayout(dataRows, bands, allCols, hdrMap);
-    // All rows should have 'ORD-1' in match column
-    for (const row of cleanRows) {
-      expect(row['Order ID']).toBe('ORD-1');
-    }
-  });
-
-  it('totals row gets kind 3', () => {
-    const bands = [makeBand('band_0', 'tbl', ['Product'], 'OrderId')];
-    const allCols = ['OrderId', '_band_0_Product'];
-    const hdrMap: Record<string, string> = { OrderId: 'Order ID', _band_0_Product: 'Product' };
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_id: 'band_0' },
-      { _isTotalsRow: true, OrderId: 'TOTAL' },
-    ];
-    const { rowKinds } = buildBandColumnLayout(dataRows, bands, allCols, hdrMap);
-    // Last row should be kind 3 (totals)
-    expect(rowKinds[rowKinds.length - 1]).toBe(3);
-  });
-
-  it('empty data rows produce empty output', () => {
-    const bands = [makeBand('band_0', 'tbl', ['Product'], 'OrderId')];
-    const allCols = ['OrderId', '_band_0_Product'];
-    const hdrMap: Record<string, string> = { OrderId: 'Order ID', _band_0_Product: 'Product' };
-    const { cleanRows, rowKinds, headers, bandIds } = buildBandColumnLayout([], bands, allCols, hdrMap);
-    expect(cleanRows).toEqual([]);
-    expect(rowKinds).toEqual([]);
-    expect(headers).toEqual(['Order ID', 'Product']);
-    expect(bandIds).toEqual([]);
-  });
-});
-
 // ── styleExportSheet — band parent (kind 5) styling ──────────────────────────
 
 describe('styleExportSheet — band parent (kind 5) styling', () => {
@@ -1422,232 +770,391 @@ describe('styleExportSheet — band parent (kind 5) styling', () => {
   });
 });
 
-// ── buildBandColumnLayout — integration scenarios ─────────────────────────────
+// ── buildExportFromDescriptors tests ─────────────────────────────────────────
 
-describe('buildBandColumnLayout — integration scenarios', () => {
-  const makeBand = (id: string, rightId: string, cols: string[], matchCol: string, enabled = true): DetailBandSpec => ({
-    id, rightId, keyPairs: [{ left: matchCol, right: 'id' }], cols, enabled, sorts: [], label: '',
+describe('buildExportFromDescriptors — parent rows', () => {
+  const parentCols = ['OrderId', 'Company'];
+  const hdrMap: Record<string, string> = { OrderId: 'Order ID', Company: 'Company Name' };
+
+  it('produces row with all parent columns populated', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme' }, columns: ['OrderId', 'Company'] },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    expect(result.cleanRows).toHaveLength(1);
+    expect(result.cleanRows[0]['Order ID']).toBe('ORD-1');
+    expect(result.cleanRows[0]['Company Name']).toBe('Acme');
   });
 
-  it('realistic band config with hdrMap produces compact layout', () => {
-    const bands = [
-      makeBand('band_0', 'tbl-items', ['Product', 'Qty', 'Price'], 'OrderId'),
-      makeBand('band_1', 'tbl-notes', ['Note'], 'OrderId'),
+  it('row kind is 5 (band parent row)', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme' }, columns: ['OrderId', 'Company'] },
     ];
-    const allCols = ['OrderId', 'Company', 'Date', '_band_0_Product', '_band_0_Qty', '_band_0_Price', '_band_1_Note'];
-    const hdrMap: Record<string, string> = {
-      OrderId: 'Order ID', Company: 'Company', Date: 'Date',
-      _band_0_Product: 'Product', _band_0_Qty: 'Qty', _band_0_Price: 'Price',
-      _band_1_Note: 'Note',
-    };
-    const dataRows = [
-      { OrderId: 'ORD-1', Company: 'Acme', Date: '2026-01-01', _band_id: null },
-      { _band_0_Product: 'Widget', _band_0_Qty: 5, _band_0_Price: 10, _band_id: 'band_0' },
-      { _band_0_Product: 'Gadget', _band_0_Qty: 2, _band_0_Price: 15, _band_id: 'band_0' },
-      { _band_1_Note: 'Rush', _band_id: 'band_1' },
-      { OrderId: 'ORD-2', Company: 'Beta', Date: '2026-01-02', _band_id: null },
-      { _band_0_Product: 'Sprocket', _band_0_Qty: 1, _band_0_Price: 22.5, _band_id: 'band_0' },
-      { _band_1_Note: 'Standard', _band_id: 'band_1' },
-    ];
-    const { cleanRows, headers, rowKinds, bandIds } = buildBandColumnLayout(dataRows, bands, allCols, hdrMap);
-
-    // Headers: match + 4 band labels
-    expect(headers).toEqual(['Order ID', 'Product', 'Qty', 'Price', 'Note']);
-
-    // Row structure: parent1(5) + header0(4) + data(0) + data(0) + header1(4) + data(0) + parent2(5) + header0(4) + data(0) + header1(4) + data(0) = 11
-    expect(cleanRows).toHaveLength(11);
-    expect(rowKinds[0]).toBe(5);   // parent 1
-    expect(rowKinds[1]).toBe(4);   // band_0 section header
-    expect(rowKinds[4]).toBe(4);   // band_1 section header
-    expect(rowKinds[6]).toBe(5);   // parent 2
-
-    // _band_id not in headers
-    expect(headers).not.toContain('_band_id');
-
-    // bandIds has entries for data rows
-    expect(bandIds[2]).toBe('band_0');
-    expect(bandIds[5]).toBe('band_1');
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    expect(result.rowKinds).toEqual([5]);
   });
 
-  it('CSV-equivalent output has same compact structure with no _band_id in headers', () => {
-    const bands = [makeBand('band_0', 'tbl', ['Product'], 'OrderId')];
-    const allCols = ['OrderId', '_band_0_Product'];
-    const hdrMap: Record<string, string> = { OrderId: 'Order ID', _band_0_Product: 'Product' };
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_id: 'band_0' },
+  it('parent data values match descriptor data', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-42', Company: 'Globex' }, columns: ['OrderId', 'Company'] },
     ];
-    const { cleanRows, headers } = buildBandColumnLayout(dataRows, bands, allCols, hdrMap);
-
-    expect(headers).not.toContain('_band_id');
-    // Verify cleanRows only have header keys
-    for (const row of cleanRows) {
-      const keys = Object.keys(row);
-      expect(keys).not.toContain('_band_id');
-      expect(keys).not.toContain('_processed');
-      expect(keys).not.toContain('_rowKind');
-    }
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    expect(result.cleanRows[0]['Order ID']).toBe('ORD-42');
+    expect(result.cleanRows[0]['Company Name']).toBe('Globex');
   });
 
-  it('all-disabled bands filter results in no transformation', () => {
-    const bands = [makeBand('band_0', 'tbl', ['Product'], 'OrderId', false)];
-    const allCols = ['OrderId', '_band_0_Product'];
-    const hdrMap: Record<string, string> = { OrderId: 'Order ID', _band_0_Product: 'Product' };
-    const dataRows = [
-      { OrderId: 'ORD-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_id: 'band_0' },
+  it('internal keys starting with _ pass through as-is', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', _row_type: 0, _isTotalsRow: false }, columns: ['OrderId'] },
     ];
-    const { cleanRows, headers } = buildBandColumnLayout(dataRows, bands, allCols, hdrMap);
-    // No enabled bands → data returned unchanged, empty headers
-    expect(cleanRows).toEqual(dataRows);
-    expect(headers).toEqual([]);
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    // Internal keys are copied to intermediate row but cleanRows is projected to headers.
+    // The key behavior: _isTotalsRow=false means kind 5 (not 3).
+    expect(result.rowKinds).toEqual([5]);
   });
 
-  it('two bands with different match columns both work independently', () => {
-    const bands = [
-      makeBand('band_0', 'tbl1', ['Product'], 'OrderId'),
-      makeBand('band_1', 'tbl2', ['Note'], 'CustomerId'),
+  it('totals row (_isTotalsRow: true) has kind 3', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'TOTAL', _isTotalsRow: true }, columns: ['OrderId'] },
     ];
-    const allCols = ['OrderId', 'CustomerId', '_band_0_Product', '_band_1_Note'];
-    const hdrMap: Record<string, string> = {
-      OrderId: 'Order ID', CustomerId: 'Customer ID',
-      _band_0_Product: 'Product', _band_1_Note: 'Note',
-    };
-    const dataRows = [
-      { OrderId: 'ORD-1', CustomerId: 'CUST-1', _band_id: null },
-      { _band_0_Product: 'Widget', _band_id: 'band_0' },
-      { _band_1_Note: 'Rush', _band_id: 'band_1' },
-    ];
-    const { cleanRows, headers, rowKinds } = buildBandColumnLayout(dataRows, bands, allCols, hdrMap);
-
-    // Header uses first band's match alias
-    expect(headers[0]).toBe('Order ID');
-    expect(headers).toContain('Product');
-    expect(headers).toContain('Note');
-
-    // Both bands produce section headers
-    const kind4Count = rowKinds.filter(k => k === 4).length;
-    expect(kind4Count).toBe(2);
-
-    // Parent row
-    expect(cleanRows[0]['Order ID']).toBe('ORD-1');
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    expect(result.rowKinds).toEqual([3]);
   });
 });
 
-// ── exportAs — band layout dispatch tests ─────────────────────────────────────
+describe('buildExportFromDescriptors — section headers', () => {
+  const parentCols = ['OrderId', 'Company', 'Amount'];
+  const hdrMap: Record<string, string> = {
+    OrderId: 'Order ID',
+    Company: 'Company',
+    Amount: 'Amount',
+    '_band_0_Product': '_band_0_Product',
+    '_band_0_Qty': '_band_0_Qty',
+  };
 
-describe('exportAs — band layout dispatch', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
+  it('produces section header row with match value in col 0 and band column display names', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme', Amount: 100 }, columns: ['OrderId', 'Company', 'Amount'] },
+      { type: 'band-section', bandId: 'band_0', bandLabel: 'Items', bandColumns: ['Product', 'Qty'], matchValue: 'Acme', depth: 0 },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    // Section header is the second row (index 1)
+    expect(result.cleanRows).toHaveLength(2);
+    expect(result.cleanRows[1]['Order ID']).toBe('Acme');
+    expect(result.cleanRows[1]['Company']).toBe('Product');
+    expect(result.cleanRows[1]['Amount']).toBe('Qty');
   });
 
-  it('band path activates for valid band config and produces compact layout', async () => {
-    initStore();
-    getStore().update(draft => {
-      draft.result = {
-        rows: [
-          { OrderId: 'ORD-1', _band_id: null, Company: 'Acme' },
-          { OrderId: null, _band_id: 'band_0', _band_0_Product: 'Widget', _band_0_Qty: 5 },
-        ],
-        cols: ['OrderId', 'Company', '_band_0_Product', '_band_0_Qty'],
-      };
-      draft.detailBands = [
-        { id: 'band_0', rightId: 'tbl-items', keyPairs: [{ left: 'OrderId', right: 'OrderId' }], cols: ['Product', 'Qty'], enabled: true, sorts: [], label: 'Items' },
-      ];
-      draft.tables = {};
-    });
-
-    const jsonToSheetSpy = vi.spyOn((globalThis as any).XLSX.utils, 'json_to_sheet');
-    await exportAs('xlsx');
-
-    expect(jsonToSheetSpy).toHaveBeenCalled();
-    const firstCall = jsonToSheetSpy.mock.calls[0];
-    const headers = (firstCall[1] as Record<string, unknown> | undefined)?.header as string[] | undefined;
-    // Headers should be band-compact labels, not raw _band_0 aliases
-    expect(headers).toBeDefined();
-    expect(Array.isArray(headers)).toBe(true);
-    // Should NOT contain raw band alias prefixes
-    for (const h of headers!) {
-      expect(h).not.toMatch(/^_band_/);
-    }
+  it('row kind is 4', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme', Amount: 100 }, columns: ['OrderId', 'Company', 'Amount'] },
+      { type: 'band-section', bandId: 'band_0', bandLabel: 'Items', bandColumns: ['Product'], matchValue: 'Acme', depth: 0 },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    expect(result.rowKinds).toEqual([5, 4]);
   });
 
-  it('CSV band layout produces same compact structure with no _band_id in headers', async () => {
-    initStore();
-    getStore().update(draft => {
-      draft.result = {
-        rows: [
-          { OrderId: 'ORD-1', _band_id: null, _band_0_Product: null },
-          { OrderId: null, _band_id: 'band_0', _band_0_Product: 'Widget' },
-        ],
-        cols: ['OrderId', '_band_0_Product'],
-      };
-      draft.detailBands = [
-        { id: 'band_0', rightId: 'tbl-items', keyPairs: [{ left: 'OrderId', right: 'OrderId' }], cols: ['Product'], enabled: true, sorts: [], label: 'Items' },
-      ];
-      draft.tables = {};
-    });
-
-    const jsonToSheetSpy = vi.spyOn((globalThis as any).XLSX.utils, 'json_to_sheet');
-    await exportAs('csv');
-
-    expect(jsonToSheetSpy).toHaveBeenCalled();
-    const firstCall = jsonToSheetSpy.mock.calls[0];
-    const headers = (firstCall[1] as Record<string, unknown> | undefined)?.header as string[] | undefined;
-    // Headers must not contain _band_id
-    expect(headers).toBeDefined();
-    expect(headers).not.toContain('_band_id');
+  it('_band_id is NOT set on section header row (bandIds entry is empty)', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme', Amount: 100 }, columns: ['OrderId', 'Company', 'Amount'] },
+      { type: 'band-section', bandId: 'band_0', bandLabel: 'Items', bandColumns: ['Product'], matchValue: 'Acme', depth: 0 },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    expect(result.bandIds[1]).toBe('');
   });
 
-  it('non-band path for no bands uses existing headers', async () => {
-    initStore();
-    getStore().update(draft => {
-      draft.result = {
-        rows: [
-          { OrderId: 'ORD-1', Company: 'Acme', _band_id: null },
-        ],
-        cols: ['OrderId', 'Company'],
-      };
-      draft.detailBands = [];
-      draft.tables = {};
-    });
-
-    const jsonToSheetSpy = vi.spyOn((globalThis as any).XLSX.utils, 'json_to_sheet');
-    await exportAs('xlsx');
-
-    expect(jsonToSheetSpy).toHaveBeenCalled();
-    const firstCall = jsonToSheetSpy.mock.calls[0];
-    const headers = (firstCall[1] as Record<string, unknown> | undefined)?.header as string[] | undefined;
-    // Non-band path uses original superset column display names
-    expect(headers).toBeDefined();
+  it('band column prefix stripping: _band_0_Product → Product via hdrMap lookup at prefixed key', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme', Amount: 100 }, columns: ['OrderId', 'Company', 'Amount'] },
+      { type: 'band-section', bandId: 'band_0', bandLabel: 'Items', bandColumns: ['Product'], matchValue: 'Acme', depth: 0 },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    // hdrMap['_band_0_Product'] = '_band_0_Product', then strip _band_\d+_ → 'Product'
+    expect(result.cleanRows[1]['Company']).toBe('Product');
   });
 
-  it('band layout with multiple bands produces headers from both bands', async () => {
-    initStore();
-    getStore().update(draft => {
-      draft.result = {
-        rows: [
-          { OrderId: 'ORD-1', _band_id: null, Company: 'Acme', _band_0_Product: null, _band_1_Note: null },
-          { OrderId: null, _band_id: 'band_0', _band_0_Product: 'Widget', _band_1_Note: null },
-          { OrderId: null, _band_id: 'band_1', _band_0_Product: null, _band_1_Note: 'Urgent' },
-        ],
-        cols: ['OrderId', 'Company', '_band_0_Product', '_band_1_Note'],
-      };
-      draft.detailBands = [
-        { id: 'band_0', rightId: 'tbl-items', keyPairs: [{ left: 'OrderId', right: 'OrderId' }], cols: ['Product'], enabled: true, sorts: [], label: 'Items' },
-        { id: 'band_1', rightId: 'tbl-notes', keyPairs: [{ left: 'OrderId', right: 'OrderId' }], cols: ['Note'], enabled: true, sorts: [], label: 'Notes' },
-      ];
-      draft.tables = {};
-    });
+  it('section header skipped for CSV (isCsv=true)', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme', Amount: 100 }, columns: ['OrderId', 'Company', 'Amount'] },
+      { type: 'band-section', bandId: 'band_0', bandLabel: 'Items', bandColumns: ['Product'], matchValue: 'Acme', depth: 0 },
+      { type: 'band-row', bandId: 'band_0', data: { _band_0_Product: 'Widget' }, columns: ['Product'], depth: 0 },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap, true);
+    // CSV skips section headers: parent + band-row = 2 rows
+    expect(result.cleanRows).toHaveLength(2);
+    expect(result.rowKinds).toEqual([5, 0]);
+  });
+});
 
-    const jsonToSheetSpy = vi.spyOn((globalThis as any).XLSX.utils, 'json_to_sheet');
-    await exportAs('xlsx');
+describe('buildExportFromDescriptors — band data rows', () => {
+  const parentCols = ['OrderId', 'Company', 'Amount'];
+  const hdrMap: Record<string, string> = {
+    OrderId: 'Order ID',
+    Company: 'Company',
+    Amount: 'Amount',
+  };
 
-    expect(jsonToSheetSpy).toHaveBeenCalled();
-    const firstCall = jsonToSheetSpy.mock.calls[0];
-    const headers = (firstCall[1] as Record<string, unknown> | undefined)?.header as string[] | undefined;
-    expect(headers).toBeDefined();
-    // Headers should include columns from both bands
-    expect(headers!.length).toBeGreaterThanOrEqual(2);
+  it('produces row with empty column 0 and band values in parent column positions', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme', Amount: 100 }, columns: ['OrderId', 'Company', 'Amount'] },
+      { type: 'band-row', bandId: 'band_0', data: { _band_0_Product: 'Widget', _band_0_Qty: 5 }, columns: ['Product', 'Qty'], depth: 0 },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    expect(result.cleanRows[1]['Order ID']).toBe('');
+    expect(result.cleanRows[1]['Company']).toBe('Widget');
+    expect(result.cleanRows[1]['Amount']).toBe(5);
+  });
+
+  it('row kind is 0', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme', Amount: 100 }, columns: ['OrderId', 'Company', 'Amount'] },
+      { type: 'band-row', bandId: 'band_0', data: { _band_0_Product: 'Widget' }, columns: ['Product'], depth: 0 },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    expect(result.rowKinds[1]).toBe(0);
+  });
+
+  it('bandIds entry contains the band bandId for tint styling tracking', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme', Amount: 100 }, columns: ['OrderId', 'Company', 'Amount'] },
+      { type: 'band-row', bandId: 'band_0', data: { _band_0_Product: 'Widget' }, columns: ['Product'], depth: 0 },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    expect(result.bandIds[1]).toBe('band_0');
+  });
+
+  it('band values populated from prefixed keys in descriptor.data', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme', Amount: 100 }, columns: ['OrderId', 'Company', 'Amount'] },
+      { type: 'band-row', bandId: 'band_0', data: { _band_0_Product: 'Gadget', _band_0_Qty: 10 }, columns: ['Product', 'Qty'], depth: 0 },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    expect(result.cleanRows[1]['Company']).toBe('Gadget');
+    expect(result.cleanRows[1]['Amount']).toBe(10);
+  });
+
+  it('band data row fills remaining positions with empty strings', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme', Amount: 100 }, columns: ['OrderId', 'Company', 'Amount'] },
+      { type: 'band-row', bandId: 'band_0', data: { _band_0_Product: 'Widget' }, columns: ['Product'], depth: 0 },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    // Only 1 band column (Product → Company position), Amount position should be empty
+    expect(result.cleanRows[1]['Amount']).toBe('');
+  });
+});
+
+describe('buildExportFromDescriptors — row kind assignment', () => {
+  const parentCols = ['OrderId', 'Company'];
+  const hdrMap: Record<string, string> = { OrderId: 'Order ID', Company: 'Company' };
+
+  it('ParentDescriptor produces kind 5', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme' }, columns: ['OrderId', 'Company'] },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    expect(result.rowKinds).toEqual([5]);
+  });
+
+  it('BandSectionDescriptor produces kind 4', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme' }, columns: ['OrderId', 'Company'] },
+      { type: 'band-section', bandId: 'band_0', bandLabel: 'Items', bandColumns: [], matchValue: 'Acme', depth: 0 },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    expect(result.rowKinds[1]).toBe(4);
+  });
+
+  it('BandRowDescriptor produces kind 0', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme' }, columns: ['OrderId', 'Company'] },
+      { type: 'band-row', bandId: 'band_0', data: {}, columns: [], depth: 0 },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    expect(result.rowKinds[1]).toBe(0);
+  });
+
+  it('mixed descriptor sequence produces correct rowKinds array', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme' }, columns: ['OrderId', 'Company'] },
+      { type: 'band-section', bandId: 'band_0', bandLabel: 'Items', bandColumns: [], matchValue: 'Acme', depth: 0 },
+      { type: 'band-row', bandId: 'band_0', data: {}, columns: [], depth: 0 },
+      { type: 'band-row', bandId: 'band_0', data: {}, columns: [], depth: 0 },
+      { type: 'parent', data: { OrderId: 'ORD-2', Company: 'Globex' }, columns: ['OrderId', 'Company'] },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    expect(result.rowKinds).toEqual([5, 4, 0, 0, 5]);
+  });
+});
+
+describe('buildExportFromDescriptors — label resolution', () => {
+  const parentCols = ['OrderId', 'Company'];
+
+  it('hdrMap lookup resolves raw aliases to display labels for headers', () => {
+    const hdrMap: Record<string, string> = { OrderId: 'Order ID', Company: 'Company Name' };
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme' }, columns: ['OrderId', 'Company'] },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    expect(result.headers).toEqual(['Order ID', 'Company Name']);
+  });
+
+  it('prefix stripped from prefixed keys for section header display labels', () => {
+    const hdrMap: Record<string, string> = {
+      OrderId: 'Order ID',
+      Company: 'Company',
+      '_band_0_Product': '_band_0_Product',
+    };
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme' }, columns: ['OrderId', 'Company'] },
+      { type: 'band-section', bandId: 'band_0', bandLabel: 'Items', bandColumns: ['Product'], matchValue: 'Acme', depth: 0 },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    // hdrMap['_band_0_Product'] = '_band_0_Product', strip _band_\d+_ → 'Product'
+    expect(result.cleanRows[1]['Company']).toBe('Product');
+  });
+
+  it('missing hdrMap entry falls back to raw column name', () => {
+    const hdrMap: Record<string, string> = {
+      OrderId: 'Order ID',
+      Company: 'Company',
+      // No entry for '_band_0_Product'
+    };
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme' }, columns: ['OrderId', 'Company'] },
+      { type: 'band-section', bandId: 'band_0', bandLabel: 'Items', bandColumns: ['Product'], matchValue: 'Acme', depth: 0 },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    // Fallback: rawLabel = col = 'Product', strip → 'Product'
+    expect(result.cleanRows[1]['Company']).toBe('Product');
+  });
+});
+
+describe('buildExportFromDescriptors — CSV path', () => {
+  const parentCols = ['OrderId', 'Company'];
+  const hdrMap: Record<string, string> = { OrderId: 'Order ID', Company: 'Company' };
+
+  it('CSV format skips section header insertion', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme' }, columns: ['OrderId', 'Company'] },
+      { type: 'band-section', bandId: 'band_0', bandLabel: 'Items', bandColumns: [], matchValue: 'Acme', depth: 0 },
+      { type: 'band-row', bandId: 'band_0', data: {}, columns: [], depth: 0 },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap, true);
+    // CSV skips section headers: parent + band-row = 2 rows
+    expect(result.cleanRows).toHaveLength(2);
+    expect(result.rowKinds).not.toContain(4);
+  });
+
+  it('CSV still produces correct parent and band data rows', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme' }, columns: ['OrderId', 'Company'] },
+      { type: 'band-row', bandId: 'band_0', data: { _band_0_Product: 'Widget' }, columns: ['Product'], depth: 0 },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap, true);
+    expect(result.cleanRows).toHaveLength(2);
+    expect(result.cleanRows[0]['Order ID']).toBe('ORD-1');
+    expect(result.cleanRows[1]['Order ID']).toBe('');
+  });
+
+  it('CSV rowKinds are all 5 for parents, 0 for band rows (no 4)', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme' }, columns: ['OrderId', 'Company'] },
+      { type: 'band-section', bandId: 'band_0', bandLabel: 'Items', bandColumns: [], matchValue: 'Acme', depth: 0 },
+      { type: 'band-row', bandId: 'band_0', data: {}, columns: [], depth: 0 },
+      { type: 'parent', data: { OrderId: 'ORD-2', Company: 'Globex' }, columns: ['OrderId', 'Company'] },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap, true);
+    expect(result.rowKinds).toEqual([5, 0, 5]);
+  });
+});
+
+describe('buildExportFromDescriptors — output structure', () => {
+  const parentCols = ['OrderId', 'Company'];
+  const hdrMap: Record<string, string> = { OrderId: 'Order ID', Company: 'Company' };
+
+  it('returned object has cleanRows, rowKinds, headers, bandIds fields', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme' }, columns: ['OrderId', 'Company'] },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    expect(result).toHaveProperty('cleanRows');
+    expect(result).toHaveProperty('rowKinds');
+    expect(result).toHaveProperty('headers');
+    expect(result).toHaveProperty('bandIds');
+    expect(Array.isArray(result.cleanRows)).toBe(true);
+    expect(Array.isArray(result.rowKinds)).toBe(true);
+    expect(Array.isArray(result.headers)).toBe(true);
+    expect(Array.isArray(result.bandIds)).toBe(true);
+  });
+
+  it('headers array contains resolved display labels from hdrMap', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme' }, columns: ['OrderId', 'Company'] },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    expect(result.headers).toEqual(['Order ID', 'Company']);
+  });
+
+  it('bandIds array tracks band transitions for tint styling', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme' }, columns: ['OrderId', 'Company'] },
+      { type: 'band-section', bandId: 'band_0', bandLabel: 'Items', bandColumns: [], matchValue: 'Acme', depth: 0 },
+      { type: 'band-row', bandId: 'band_0', data: {}, columns: [], depth: 0 },
+      { type: 'band-row', bandId: 'band_0', data: {}, columns: [], depth: 0 },
+      { type: 'parent', data: { OrderId: 'ORD-2', Company: 'Globex' }, columns: ['OrderId', 'Company'] },
+      { type: 'band-section', bandId: 'band_1', bandLabel: 'Notes', bandColumns: [], matchValue: 'Globex', depth: 0 },
+      { type: 'band-row', bandId: 'band_1', data: {}, columns: [], depth: 0 },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    // parent(''), section(''), band_0, band_0, parent(''), section(''), band_1
+    expect(result.bandIds).toEqual(['', '', 'band_0', 'band_0', '', '', 'band_1']);
+  });
+});
+
+describe('buildExportFromDescriptors — edge cases', () => {
+  const parentCols = ['OrderId', 'Company'];
+  const hdrMap: Record<string, string> = { OrderId: 'Order ID', Company: 'Company' };
+
+  it('empty descriptor array', () => {
+    const result = buildExportFromDescriptors([], parentCols, hdrMap);
+    expect(result.cleanRows).toEqual([]);
+    expect(result.rowKinds).toEqual([]);
+    expect(result.bandIds).toEqual([]);
+    // Headers should still be computed from parentCols
+    expect(result.headers).toEqual(['Order ID', 'Company']);
+  });
+
+  it('descriptors with only parent rows (no bands)', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme' }, columns: ['OrderId', 'Company'] },
+      { type: 'parent', data: { OrderId: 'ORD-2', Company: 'Globex' }, columns: ['OrderId', 'Company'] },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    expect(result.cleanRows).toHaveLength(2);
+    expect(result.rowKinds).toEqual([5, 5]);
+    expect(result.bandIds).toEqual(['', '']);
+  });
+
+  it('section header with unknown band ID (fallback to raw column name)', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme' }, columns: ['OrderId', 'Company'] },
+      { type: 'band-section', bandId: 'unknown_band', bandLabel: 'Unknown', bandColumns: ['Foo'], matchValue: 'Acme', depth: 0 },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    // hdrMap doesn't have '_unknown_band_Foo', so rawLabel = col = 'Foo'
+    // 'Foo'.replace(/^_band_\d+_/, '') = 'Foo' (no prefix to strip)
+    expect(result.cleanRows[1]['Company']).toBe('Foo');
+  });
+
+  it('band columns wider than P-1 positions (extra headers appended)', () => {
+    const descriptors: OverlayDescriptor[] = [
+      { type: 'parent', data: { OrderId: 'ORD-1', Company: 'Acme' }, columns: ['OrderId', 'Company'] },
+      { type: 'band-section', bandId: 'band_0', bandLabel: 'Items', bandColumns: ['Product', 'Qty', 'Price'], matchValue: 'Acme', depth: 0 },
+    ];
+    const result = buildExportFromDescriptors(descriptors, parentCols, hdrMap);
+    // P = 2, maxBandWidth = 3, P-1 = 1, so 3 > 1 → extra headers appended
+    // headers = ['Order ID', 'Company', 'Qty', 'Price']
+    expect(result.headers).toEqual(['Order ID', 'Company', 'Qty', 'Price']);
   });
 });

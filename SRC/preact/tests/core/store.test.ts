@@ -14,7 +14,6 @@ describe('Store', () => {
       expect(state.filters).toEqual([]);
       expect(state.sorts).toEqual([]);
       expect(state.detailBands).toEqual([]);
-      expect(state.detailBandMode).toBe('separate');
     });
 
     it('should apply partial initial state', () => {

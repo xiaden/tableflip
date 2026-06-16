@@ -1,14 +1,16 @@
 import { createPortal } from 'preact/compat';
 import { useEffect, useRef } from 'preact/hooks';
 
-/** A single item in a context menu. */
+/** A single item in a context menu. `separator: true` renders a divider (label/action/checked are ignored). */
 export interface CtxMenuItem {
-  /** Display text for the menu item. */
-  label: string;
-  /** Callback invoked when the item is selected. */
-  action: () => void;
+  /** Display text for the menu item (optional for separators). */
+  label?: string;
+  /** Callback invoked when the item is selected (optional for separators). */
+  action?: () => void;
   /** When true, a checkmark indicator is shown before the label. */
   checked?: boolean;
+  /** When true, renders as a horizontal divider instead of a clickable item. */
+  separator?: boolean;
 }
 
 export interface ContextMenuProps {
@@ -49,15 +51,14 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
 
   return createPortal(
     <div class="ctx-menu" ref={menuRef} style={{ left: x + 'px', top: y + 'px' }}>
-      {items.map((item, i) => (
-        <button
-          key={i}
-          class="ctx-menu-item"
-          onClick={() => { onClose(); item.action(); }}
-        >
-          {item.checked ? '✓ ' + item.label : item.label}
-        </button>
-      ))}
+      {items.map((item, i) => {
+        if (item.separator) return <div key={i} class="ctx-menu-sep" />;
+        return (
+          <button key={i} class="ctx-menu-item" onClick={() => { onClose(); item.action!(); }}>
+            {item.checked ? '✓ ' + item.label : item.label}
+          </button>
+        );
+      })}
     </div>,
     document.body
   );

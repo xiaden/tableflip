@@ -57,9 +57,21 @@ interface XLSXSheet {
 
 /** AG Grid Community runtime (loaded via js/vendor/ag-grid-community.min.js) */
 declare const agGrid: {
+  /**
+   * Create an AG Grid instance.
+   * Supported full-width row option keys passed via opts:
+   * - isFullWidthRow
+   * - fullWidthCellRenderer
+   * - embedFullWidthRows
+   */
   createGrid(el: HTMLElement, opts: Record<string, unknown>): AGridApi;
 };
 
+/**
+ * Full-width row options (isFullWidthRow, fullWidthCellRenderer, embedFullWidthRows)
+ * are passed via the options bag to agGrid.createGrid(), not as API methods.
+ * See the createGrid JSDoc for the full list of supported option keys.
+ */
 interface AGridApi {
   setGridOption(key: string, value: unknown): void;
   updateGridOption(key: string, value: unknown): void;

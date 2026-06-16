@@ -163,9 +163,8 @@ export interface AggregateSpec {
  * @property colState - Per-column UI state (selection, expansion, etc.)
  * @property sorts - Array of sort specifications
  * @property result - Last query result set (null if not yet run)
- * @property detailBands - Array of detail band specifications for 1:N child row fan-out
- * @property detailBandMode - How detail band rows are rendered ('separate' = interleaved, 'stack' = stacked)
- */
+  * @property detailBands - Array of detail band specifications for 1:N child row fan-out
+  */
 export interface AppState {
   tables: Record<string, DbTable>;
   excludedRows: Record<string, Set<number>>;
@@ -198,7 +197,6 @@ export interface AppState {
   activeTab: string;
   previewTableId: string | null;
   detailBands: DetailBandSpec[];
-  detailBandMode: 'separate' | 'stack';
   columnTypeOverrides: Record<string, Record<string, ColumnType>>;
 }
 
@@ -215,9 +213,8 @@ export interface AppState {
  * @property mergeDisplay - Merged column display configuration
  * @property outputDefinition - Full output column definitions (null = auto)
  * @property publish - Publish settings for table export
- * @property pipeline.detailBands - Optional detail band specifications for 1:N child row fan-out
- * @property detailBandMode - How detail band rows are rendered ('separate' = interleaved, 'stack' = stacked)
- */
+  * @property pipeline.detailBands - Optional detail band specifications for 1:N child row fan-out
+  */
 export interface ReportSpec {
   id: string | null;
   name: string;
@@ -254,7 +251,6 @@ export interface ReportSpec {
     enabled: boolean;
     tableName: string;
   };
-  detailBandMode?: 'separate' | 'stack';
 }
 
 /**
@@ -315,3 +311,96 @@ export type ColSourceEntry =
   | { kind?: never; tid: string; col: string }
   | { kind: 'calc'; idx: number; alias?: string }
   | { kind: 'band'; tid: string; col: string };
+
+/**
+ * Intermediate result for a single detail band query.
+ * Produced by the engine's band execution loop and consumed by the
+ * overlay grouping layer to build rendering descriptors.
+ * @property band - The detail band specification this result belongs to.
+ * @property rows - Child rows returned by the band query.
+ * @property cols - Column names in the band query result.
+ * @property parentKeyAliases - Parent-side key column aliases used for matching.
+ * @property childKeyCols - Child-side key column names used for matching.
+ */
+export interface BandResult {
+  band: DetailBandSpec;
+  rows: Record<string, unknown>[];
+  cols: string[];
+  parentKeyAliases: string[];
+  childKeyCols: string[];
+}
+
+/**
+ * Structured engine output for detail-band reports.
+ * Contains flat parent rows plus per-band child result sets.
+ * The engine returns this via `ResultSet.bandResult` when detail bands are active.
+ * Downstream consumers (grouping layer, grid, export) use this instead of
+ * interleaved rows — bands are rendering overlays, not data.
+ * @property parentRows - Parent query result rows (flat, no interleaving).
+ * @property parentCols - Column names from the parent query.
+ * @property bandResults - Per-band child row results.
+ * @property bandLabels - Human-readable label per band ID (for section headers).
+ */
+export interface BandResultSet {
+  parentRows: Record<string, unknown>[];
+  parentCols: string[];
+  bandResults: BandResult[];
+  bandLabels: Record<string, string>;
+}
+
+/**
+ * Overlay descriptor for a parent row.
+ * Represents a single parent row in the flat overlay output.
+ * @property type - Discriminant tag.
+ * @property data - Parent row data keyed by column name.
+ * @property columns - Column names present in the parent data.
+ */
+export interface ParentDescriptor {
+  type: 'parent';
+  data: Record<string, unknown>;
+  columns: string[];
+}
+
+/**
+ * Overlay descriptor for a band section header.
+ * Emitted once per group boundary — marks the start of a band's child rows
+ * for a particular match-value group.
+ * @property type - Discriminant tag.
+ * @property bandId - The detail band ID this section belongs to.
+ * @property bandLabel - Human-readable label for the section header.
+ * @property bandColumns - Column names in this band's result set.
+ * @property matchValue - The key value that defines this group boundary.
+ * @property depth - Nesting depth (0-based) for multi-band indentation.
+ */
+export interface BandSectionDescriptor {
+  type: 'band-section';
+  bandId: string;
+  bandLabel: string;
+  bandColumns: string[];
+  matchValue: unknown;
+  depth: number;
+}
+
+/**
+ * Overlay descriptor for a single band child row.
+ * Represents one child row within a band section.
+ * @property type - Discriminant tag.
+ * @property bandId - The detail band ID this row belongs to.
+ * @property data - Child row data keyed by column name.
+ * @property columns - Column names present in the child data.
+ * @property depth - Nesting depth (0-based) for multi-band indentation.
+ */
+export interface BandRowDescriptor {
+  type: 'band-row';
+  bandId: string;
+  data: Record<string, unknown>;
+  columns: string[];
+  depth: number;
+}
+
+/**
+ * Union of all overlay descriptor types.
+ * Single source of truth for rendered output structure — the grouping layer
+ * produces an ordered array of these, and grid/export consume them identically.
+ */
+export type OverlayDescriptor = ParentDescriptor | BandSectionDescriptor | BandRowDescriptor;

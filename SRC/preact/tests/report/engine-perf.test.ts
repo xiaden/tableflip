@@ -1,268 +1,15 @@
 /**
- * Performance profiling tests for interleaveRows() and crossProductRows().
+ * Performance profiling tests for buildBandChildIndex() and buildOverlayDescriptors().
  *
- * These tests exercise the stitching functions with large datasets
- * (5,000+ parent rows, 3 bands) and assert that execution completes
- * within acceptable time bounds.
- *
- * Profiling targets (measured on CI-class hardware):
- * - interleaveRows: 5,000 parents × 3 bands × ~5 children each < 500ms
- * - crossProductRows: 5,000 parents × 3 bands × ~3 children each < 500ms
- * - crossProductRows (stress): 1,000 parents × 3 bands × ~10 children each < 500ms
+ * These tests exercise the index-building and overlay descriptor functions with
+ * large datasets to ensure they complete within acceptable time bounds.
  */
 import { describe, it, expect } from 'vitest';
 import {
-  interleaveRows,
-  crossProductRows,
   buildBandChildIndex,
 } from '../../report/engine';
-import type { BandResult } from '../../report/engine';
-import type { DetailBandSpec } from '../../types';
-
-// ── Test Data Generators ──────────────────────────────────────────────────────
-
-function makeBandSpec(id: string): DetailBandSpec {
-  return {
-    id,
-    rightId: `table_${id}`,
-    keyPairs: [{ left: 'ParentKey', right: 'ParentKey' }],
-    cols: [`_${id}_col0`, `_${id}_col1`],
-    enabled: true,
-    sorts: [],
-    label: `Band ${id}`,
-  };
-}
-
-/**
- * Generate parent rows with sequential keys.
- */
-function makeParentRows(count: number): Record<string, unknown>[] {
-  return Array.from({ length: count }, (_, i) => ({
-    ParentKey: `PK-${i}`,
-    ParentName: `Parent ${i}`,
-    ParentValue: i * 100,
-  }));
-}
-
-/**
- * Generate band results where each parent key has `childrenPerParent` matching children.
- * Keys are distributed round-robin so each parent gets exactly childrenPerParent rows.
- */
-function makeBandResult(
-  bandId: string,
-  parentCount: number,
-  childrenPerParent: number,
-): BandResult {
-  const spec = makeBandSpec(bandId);
-  const rows: Record<string, unknown>[] = [];
-  for (let p = 0; p < parentCount; p++) {
-    for (let c = 0; c < childrenPerParent; c++) {
-      rows.push({
-        ParentKey: `PK-${p}`,
-        [`_${bandId}_col0`]: `val_${p}_${c}`,
-        [`_${bandId}_col1`]: p * childrenPerParent + c,
-      });
-    }
-  }
-  return {
-    band: spec,
-    rows,
-    cols: spec.cols ?? [],
-    parentKeyAliases: ['ParentKey'],
-    childKeyCols: ['ParentKey'],
-  };
-}
-
-// ── Profiling Tests ───────────────────────────────────────────────────────────
-
-describe('interleaveRows() performance', () => {
-  it('should handle 5,000 parents × 3 bands × 5 children each within 500ms', () => {
-    const parentCount = 5_000;
-    const childrenPerParent = 5;
-    const parentRows = makeParentRows(parentCount);
-    const bandResults: BandResult[] = [
-      makeBandResult('band_0', parentCount, childrenPerParent),
-      makeBandResult('band_1', parentCount, childrenPerParent),
-      makeBandResult('band_2', parentCount, childrenPerParent),
-    ];
-    const supersetCols = [
-      'ParentKey', 'ParentName', 'ParentValue',
-      '_band_0_col0', '_band_0_col1',
-      '_band_1_col0', '_band_1_col1',
-      '_band_2_col0', '_band_2_col1',
-      '_band_id',
-    ];
-
-    const start = performance.now();
-    const result = interleaveRows(parentRows, bandResults, supersetCols);
-    const elapsed = performance.now() - start;
-
-    // Expected: 5000 parents + 5000 × 3 × 5 children = 80,000 rows
-    expect(result.length).toBe(parentCount + parentCount * 3 * childrenPerParent);
-
-    // Performance assertion: should complete well under 500ms
-    // Map-based indexing makes this O(n) — expected ~50-150ms
-    expect(elapsed).toBeLessThan(500);
-  });
-
-  it('should handle 10,000 parents × 1 band × 10 children each within 500ms', () => {
-    const parentCount = 10_000;
-    const childrenPerParent = 10;
-    const parentRows = makeParentRows(parentCount);
-    const bandResults: BandResult[] = [
-      makeBandResult('band_0', parentCount, childrenPerParent),
-    ];
-    const supersetCols = [
-      'ParentKey', 'ParentName', 'ParentValue',
-      '_band_0_col0', '_band_0_col1',
-      '_band_id',
-    ];
-
-    const start = performance.now();
-    const result = interleaveRows(parentRows, bandResults, supersetCols);
-    const elapsed = performance.now() - start;
-
-    // Expected: 10000 + 10000 × 10 = 110,000 rows
-    expect(result.length).toBe(parentCount + parentCount * childrenPerParent);
-    expect(elapsed).toBeLessThan(500);
-  });
-});
-
-describe('crossProductRows() performance', () => {
-  it('should handle 5,000 parents × 3 bands × 3 children each within 500ms (with index)', () => {
-    const parentCount = 5_000;
-    const childrenPerParent = 3;
-    const parentRows = makeParentRows(parentCount);
-    const bandResults: BandResult[] = [
-      makeBandResult('band_0', parentCount, childrenPerParent),
-      makeBandResult('band_1', parentCount, childrenPerParent),
-      makeBandResult('band_2', parentCount, childrenPerParent),
-    ];
-    const supersetCols = [
-      'ParentKey', 'ParentName', 'ParentValue',
-      '_band_0_col0', '_band_0_col1',
-      '_band_1_col0', '_band_1_col1',
-      '_band_2_col0', '_band_2_col1',
-      '_band_id',
-    ];
-
-    // Build index once (as runDetailBandsMode does)
-    const childIndex = buildBandChildIndex(bandResults);
-
-    const start = performance.now();
-    const resultRows: Record<string, unknown>[] = [];
-    for (const parentRow of parentRows) {
-      const combos = crossProductRows(parentRow, bandResults, supersetCols, 10_000, childIndex);
-      resultRows.push(...combos);
-    }
-    const elapsed = performance.now() - start;
-
-    // Expected: 5000 × (3 × 3 × 3) = 5000 × 27 = 135,000 rows
-    expect(resultRows.length).toBe(parentCount * Math.pow(childrenPerParent, 3));
-    // With Map-based index, child lookup is O(1) per band per parent
-    expect(elapsed).toBeLessThan(500);
-  });
-
-  it('should handle 1,000 parents × 3 bands × 10 children each within 500ms (with index)', () => {
-    const parentCount = 1_000;
-    const childrenPerParent = 10;
-    const parentRows = makeParentRows(parentCount);
-    const bandResults: BandResult[] = [
-      makeBandResult('band_0', parentCount, childrenPerParent),
-      makeBandResult('band_1', parentCount, childrenPerParent),
-      makeBandResult('band_2', parentCount, childrenPerParent),
-    ];
-    const supersetCols = [
-      'ParentKey', 'ParentName', 'ParentValue',
-      '_band_0_col0', '_band_0_col1',
-      '_band_1_col0', '_band_1_col1',
-      '_band_2_col0', '_band_2_col1',
-      '_band_id',
-    ];
-
-    const childIndex = buildBandChildIndex(bandResults);
-
-    const start = performance.now();
-    let totalRows = 0;
-    for (const parentRow of parentRows) {
-      const combos = crossProductRows(parentRow, bandResults, supersetCols, 2_000_000, childIndex);
-      totalRows += combos.length;
-    }
-    const elapsed = performance.now() - start;
-
-    // Expected: 1000 × (10 × 10 × 10) = 1,000,000 rows
-    expect(totalRows).toBe(parentCount * Math.pow(childrenPerParent, 3));
-    // This is a stress test — 1M object allocations is inherently heavy.
-    // The index optimizes lookup from O(n) to O(1), but object spread is the
-    // remaining bottleneck. Allow 1000ms for this extreme workload.
-    expect(elapsed).toBeLessThan(1000);
-  });
-
-  it('should handle single parent with many children across 3 bands within 500ms (with index)', () => {
-    const parentRow = { ParentKey: 'PK-0', ParentName: 'Root', ParentValue: 0 };
-    const childrenPerBand = 50;
-    const bandResults: BandResult[] = [
-      makeBandResult('band_0', 1, childrenPerBand),
-      makeBandResult('band_1', 1, childrenPerBand),
-      makeBandResult('band_2', 1, childrenPerBand),
-    ];
-    const supersetCols = [
-      'ParentKey', 'ParentName', 'ParentValue',
-      '_band_0_col0', '_band_0_col1',
-      '_band_1_col0', '_band_1_col1',
-      '_band_2_col0', '_band_2_col1',
-      '_band_id',
-    ];
-
-    const childIndex = buildBandChildIndex(bandResults);
-
-    const start = performance.now();
-    const result = crossProductRows(parentRow, bandResults, supersetCols, 200_000, childIndex);
-    const elapsed = performance.now() - start;
-
-    // 50 × 50 × 50 = 125,000 rows for a single parent
-    expect(result.length).toBe(Math.pow(childrenPerBand, 3));
-    expect(elapsed).toBeLessThan(500);
-  });
-
-  it('should show significant speedup with index vs without index (5K parents)', () => {
-    const parentCount = 5_000;
-    const childrenPerParent = 3;
-    const parentRows = makeParentRows(parentCount);
-    const bandResults: BandResult[] = [
-      makeBandResult('band_0', parentCount, childrenPerParent),
-      makeBandResult('band_1', parentCount, childrenPerParent),
-      makeBandResult('band_2', parentCount, childrenPerParent),
-    ];
-    const supersetCols = [
-      'ParentKey', 'ParentName', 'ParentValue',
-      '_band_0_col0', '_band_0_col1',
-      '_band_1_col0', '_band_1_col1',
-      '_band_2_col0', '_band_2_col1',
-      '_band_id',
-    ];
-
-    // Without index (O(n) filter per parent per band)
-    const startNoIndex = performance.now();
-    for (const parentRow of parentRows) {
-      crossProductRows(parentRow, bandResults, supersetCols, 10_000);
-    }
-    const elapsedNoIndex = performance.now() - startNoIndex;
-
-    // With index (O(1) lookup per parent per band)
-    const childIndex = buildBandChildIndex(bandResults);
-    const startWithIndex = performance.now();
-    for (const parentRow of parentRows) {
-      crossProductRows(parentRow, bandResults, supersetCols, 10_000, childIndex);
-    }
-    const elapsedWithIndex = performance.now() - startWithIndex;
-
-    // The indexed version should be at least 3x faster
-    // (typically 10-50x faster for large datasets)
-    const speedup = elapsedNoIndex / elapsedWithIndex;
-    expect(speedup).toBeGreaterThan(3);
-  });
-});
+import { buildOverlayDescriptors } from '../../report/overlay-grouping';
+import type { BandResult, BandResultSet, DetailBandSpec } from '../../types';
 
 // ── buildBandChildIndex correctness ───────────────────────────────────────────
 
@@ -339,66 +86,164 @@ describe('buildBandChildIndex()', () => {
   });
 });
 
-describe('crossProductRows() indexed vs non-indexed equivalence', () => {
-  it('should produce identical results with and without index', () => {
-    const parentRow = { OrderId: 'ORD-001', Company: 'Acme' };
-    const bandResults: BandResult[] = [{
-      band: { id: 'band_0' } as DetailBandSpec,
-      rows: [
-        { OrderId: 'ORD-001', _band_0_Product: 'Widget' },
-        { OrderId: 'ORD-001', _band_0_Product: 'Gadget' },
-        { OrderId: 'ORD-002', _band_0_Product: 'Other' },
-      ],
-      cols: ['_band_0_Product'],
-      parentKeyAliases: ['OrderId'],
-      childKeyCols: ['OrderId'],
-    }, {
-      band: { id: 'band_1' } as DetailBandSpec,
-      rows: [
-        { OrderId: 'ORD-001', _band_1_Note: 'Rush' },
-        { OrderId: 'ORD-001', _band_1_Note: 'Priority' },
-      ],
-      cols: ['_band_1_Note'],
-      parentKeyAliases: ['OrderId'],
-      childKeyCols: ['OrderId'],
-    }];
-    const superset = ['OrderId', 'Company', '_band_0_Product', '_band_1_Note', '_band_id'];
+// ── buildOverlayDescriptors() performance ─────────────────────────────────────
 
-    // Without index
-    const resultNoIndex = crossProductRows(parentRow, bandResults, superset);
+describe('buildOverlayDescriptors() performance', () => {
+  /**
+   * Helper: generate a BandResultSet fixture programmatically.
+   * Creates parentRows with sequential key values, and bandResults with
+   * children distributed across parent groups.
+   *
+   * @param matchKeyField - The parent column used for group matching (e.g. 'Company' or 'OrderId')
+   */
+  function makeLargeBandResultSet(
+    parentCount: number,
+    bands: Array<{ id: string; childrenPerParent: number; cols: string[] }>,
+    groupSize: number,
+    matchKeyField: string = 'OrderId',
+  ): BandResultSet {
+    const parentRows: Record<string, unknown>[] = [];
+    const parentCols = ['OrderId', 'Company', 'Amount'];
 
-    // With index
-    const childIndex = buildBandChildIndex(bandResults);
-    const resultWithIndex = crossProductRows(parentRow, bandResults, superset, 10_000, childIndex);
-
-    // Same number of rows
-    expect(resultWithIndex.length).toBe(resultNoIndex.length);
-
-    // Same content in each row
-    for (let i = 0; i < resultNoIndex.length; i++) {
-      for (const col of superset) {
-        expect(resultWithIndex[i][col]).toEqual(resultNoIndex[i][col]);
-      }
+    for (let i = 0; i < parentCount; i++) {
+      parentRows.push({
+        OrderId: `ORD-${String(i).padStart(5, '0')}`,
+        Company: `Company-${Math.floor(i / groupSize)}`,
+        Amount: (i + 1) * 10,
+      });
     }
+
+    const bandResults: BandResult[] = [];
+    for (const bandDef of bands) {
+      const rows: Record<string, unknown>[] = [];
+      for (let p = 0; p < parentCount; p++) {
+        const parentRow = parentRows[p];
+        const matchValue = parentRow[matchKeyField] as string;
+        for (let c = 0; c < bandDef.childrenPerParent; c++) {
+          const row: Record<string, unknown> = { [matchKeyField]: matchValue };
+          for (const col of bandDef.cols) {
+            row[`_${bandDef.id}_${col}`] = `${col}-${p}-${c}`;
+          }
+          rows.push(row);
+        }
+      }
+      bandResults.push({
+        band: {
+          id: bandDef.id,
+          rightId: 'Items',
+          keyPairs: [{ left: matchKeyField, right: matchKeyField }],
+          cols: bandDef.cols.map(c => `_${bandDef.id}_${c}`),
+          enabled: true,
+          sorts: [],
+          label: bandDef.id,
+        } as DetailBandSpec,
+        rows,
+        cols: bandDef.cols.map(c => `_${bandDef.id}_${c}`),
+        parentKeyAliases: [matchKeyField],
+        childKeyCols: [matchKeyField],
+      });
+    }
+
+    const bandLabels: Record<string, string> = {};
+    for (const bandDef of bands) {
+      bandLabels[bandDef.id] = bandDef.id;
+    }
+
+    return { parentRows, parentCols, bandResults, bandLabels };
+  }
+
+  function makeDetailBands(bandIds: string[], matchKeyField: string = 'OrderId'): DetailBandSpec[] {
+    return bandIds.map(id => ({
+      id,
+      rightId: 'Items',
+      keyPairs: [{ left: matchKeyField, right: matchKeyField }],
+      cols: [],
+      enabled: true,
+      sorts: [],
+      label: id,
+    }));
+  }
+
+  it('5,000 parents × 3 bands × 5 children each within 500ms', () => {
+    const bandResult = makeLargeBandResultSet(
+      5000,
+      [
+        { id: 'band_0', childrenPerParent: 5, cols: ['Product', 'Qty'] },
+        { id: 'band_1', childrenPerParent: 5, cols: ['Note', 'Date'] },
+        { id: 'band_2', childrenPerParent: 5, cols: ['Attachment', 'Size'] },
+      ],
+      10, // group size: 10 parents per group = 500 groups
+    );
+    const detailBands = makeDetailBands(['band_0', 'band_1', 'band_2']);
+
+    const start = performance.now();
+    const descriptors = buildOverlayDescriptors(bandResult, detailBands);
+    const elapsed = performance.now() - start;
+
+    expect(elapsed).toBeLessThan(500);
+    // Verify we got descriptors back
+    expect(descriptors.length).toBeGreaterThan(0);
   });
 
-  it('should handle no matching children identically', () => {
-    const parentRow = { OrderId: 'ORD-999' };
-    const bandResults: BandResult[] = [{
-      band: { id: 'band_0' } as DetailBandSpec,
-      rows: [{ OrderId: 'ORD-001', col: 'x' }],
-      cols: ['col'],
-      parentKeyAliases: ['OrderId'],
-      childKeyCols: ['OrderId'],
-    }];
-    const superset = ['OrderId', 'col', '_band_id'];
+  it('10,000 parents × 1 band × 10 children each within 500ms', () => {
+    const bandResult = makeLargeBandResultSet(
+      10000,
+      [
+        { id: 'band_0', childrenPerParent: 10, cols: ['Product', 'Qty', 'Price'] },
+      ],
+      20, // group size: 20 parents per group = 500 groups
+    );
+    const detailBands = makeDetailBands(['band_0']);
 
-    const childIndex = buildBandChildIndex(bandResults);
-    const resultNoIndex = crossProductRows(parentRow, bandResults, superset);
-    const resultWithIndex = crossProductRows(parentRow, bandResults, superset, 10_000, childIndex);
+    const start = performance.now();
+    const descriptors = buildOverlayDescriptors(bandResult, detailBands);
+    const elapsed = performance.now() - start;
 
-    expect(resultWithIndex.length).toBe(resultNoIndex.length);
-    expect(resultWithIndex.length).toBe(1);
-    expect(resultWithIndex[0]['OrderId']).toBe('ORD-999');
+    expect(elapsed).toBeLessThan(500);
+    expect(descriptors.length).toBeGreaterThan(0);
+  });
+
+  it('descriptor count assertions: parentCount + groupCount × bandCount + totalChildren', () => {
+    const parentCount = 100;
+    const groupSize = 10; // 10 parents per group → 10 groups
+    const bandCount = 2;
+    const childrenPerParent = 3;
+
+    // Use Company as the match key so that parents in the same group share
+    // the same match value (OrderId is unique per parent → every row = new group).
+    const bandResult = makeLargeBandResultSet(
+      parentCount,
+      [
+        { id: 'band_0', childrenPerParent, cols: ['Product'] },
+        { id: 'band_1', childrenPerParent, cols: ['Note'] },
+      ],
+      groupSize,
+      'Company',
+    );
+    const detailBands = makeDetailBands(['band_0', 'band_1'], 'Company');
+
+    const descriptors = buildOverlayDescriptors(bandResult, detailBands);
+
+    // Count descriptor types
+    const parentDescs = descriptors.filter(d => d.type === 'parent');
+    const sectionDescs = descriptors.filter(d => d.type === 'band-section');
+    const rowDescs = descriptors.filter(d => d.type === 'band-row');
+
+    // Parent descriptors: one per parent row
+    expect(parentDescs.length).toBe(parentCount);
+
+    // Group count = parentCount / groupSize
+    const groupCount = parentCount / groupSize;
+
+    // Band section descriptors: one per group per band
+    expect(sectionDescs.length).toBe(groupCount * bandCount);
+
+    // Band row descriptors: one per child row total
+    const totalChildren = parentCount * childrenPerParent * bandCount;
+    expect(rowDescs.length).toBe(totalChildren);
+
+    // Total descriptor count = parents + sections + rows
+    const expectedTotal = parentCount + (groupCount * bandCount) + totalChildren;
+    expect(descriptors.length).toBe(expectedTotal);
   });
 });

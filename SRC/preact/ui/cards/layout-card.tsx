@@ -12,7 +12,7 @@
 import { useState, useEffect, useCallback } from 'preact/hooks';
 import { getStore } from '../../core/store';
 import { buildReportSpecFromState } from '../../core/state';
-import { colUserLabel, tableShortName, defaultAggAlias } from '../../core/utils';
+import { colLabel, defaultAggAlias } from '../../core/utils';
 import { buildColSourceMap, projectedCols } from '../../catalog/column-catalog';
 import { buildSourceCatalog } from '../../catalog/source-catalog';
 import {
@@ -48,7 +48,7 @@ function _syncColDisplayLabel(alias: string, colMap: Map<string, ColMapEntry>): 
     const calc = getStore().getState().calcStages?.[src.idx];
     return (calc?.alias || '').trim() || alias;
   }
-  return tableShortName(src.tid) + ' → ' + colUserLabel(src.tid, src.col);
+  return colLabel(src.tid, src.col);
 }
 
 // ── Hint text per mode ────────────────────────────────────────────────────────

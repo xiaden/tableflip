@@ -193,6 +193,18 @@ export function colUserLabel(tid: string, physCol: string): string {
 }
 
 /**
+ * Returns a standardized display label for a physical column: "SheetName:ColumnLabel".
+ * Combines the table short name with the column label using a colon separator,
+ * so users can always identify which sheet a column comes from.
+ * @param tid - Table ID
+ * @param physCol - Physical column name
+ * @returns Standardized label string in "Sheet:Column" format
+ */
+export function colLabel(tid: string, physCol: string): string {
+  return tableShortName(tid) + ':' + colUserLabel(tid, physCol);
+}
+
+/**
  * Sets or clears a user-defined display label for a column.
  * If the label matches the physical name or is empty, the label is removed.
  * Persists the change to the store.
@@ -247,7 +259,7 @@ export async function renameProjectedColumn(alias: string): Promise<boolean> {
 
 /**
  * Returns the display label for a column alias.
- * For physical columns, formats as "TableName → ColumnLabel".
+ * For physical columns, formats as "SheetName:ColumnLabel".
  * For calculated columns, returns the calc alias or falls back to the alias.
  * @param alias - The column alias
  * @param map - Optional pre-built column source map (avoids re-importing)
@@ -260,7 +272,7 @@ export async function colDisplayLabel(alias: string, map?: Map<string, ColSource
     const calc = getStore().getState().calcStages?.[src.idx];
     return (calc?.alias || '').trim() || alias;
   }
-  return tableShortName(src.tid) + ' → ' + colUserLabel(src.tid, src.col);
+  return colLabel(src.tid, src.col);
 }
 
 /**

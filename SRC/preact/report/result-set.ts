@@ -9,6 +9,8 @@
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
+import type { BandResultSet } from '../types';
+
 /**
  * Metadata attached to every result set.
  * @property rowCount - Number of data rows in the result
@@ -40,11 +42,13 @@ export interface ResultSetMetadata {
  * @property columns - Column names in display order
  * @property rows - Array of row objects keyed by column name
  * @property metadata - Result metadata (row count, timestamp, aggregation mode, etc.)
+ * @property bandResult - Present when detail bands are active. When present, columns and rows contain only parent data.
  */
 export interface ResultSet {
   columns: string[];
   rows: Record<string, unknown>[];
   metadata: ResultSetMetadata;
+  bandResult?: BandResultSet;
 }
 
 // ── Builder ────────────────────────────────────────────────────────────────────

@@ -11,7 +11,7 @@
 import { useState, useEffect, useCallback } from 'preact/hooks';
 import { getStore } from '../../core/store';
 import { buildReportSpecFromState } from '../../core/state';
-import { colUserLabel } from '../../core/utils';
+import { colLabel } from '../../core/utils';
 import { buildColSourceMap, projectedCols } from '../../catalog/column-catalog';
 import { buildSourceCatalog } from '../../catalog/source-catalog';
 import {
@@ -232,7 +232,7 @@ export function CalcStageSection({ i }: CalcStageProps) {
     .filter(c => c !== alias)
     .map(c => {
       const src = colMap.get(c);
-      const label = src && src.kind !== 'calc' ? colUserLabel(src.tid, src.col) : c;
+      const label = src && src.kind !== 'calc' ? colLabel(src.tid, src.col) : c;
       return { value: c, label, selected: sel === c };
     }), [cols, alias, colMap]);
 
@@ -274,7 +274,7 @@ export function CalcStageSection({ i }: CalcStageProps) {
             <Tip text="This chip represents your new calculated column. Double-click it to show or hide it in the report. Right-click to rename it — the name field above will update too." />
             <Chip
               col={alias}
-              label={(() => { const src = colMap.get(alias); return src && src.kind !== 'calc' ? colUserLabel(src.tid, src.col) : alias; })()}
+              label={(() => { const src = colMap.get(alias); return src && src.kind !== 'calc' ? colLabel(src.tid, src.col) : alias; })()}
               selected={_isAliasVisibleInLayout(alias, aggMode)}
               draggable={false}
               chipClass="pl-col-chip"

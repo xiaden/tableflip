@@ -384,10 +384,6 @@ export function hydrateState(
       });
     }
   }
-  // ── Detail band mode ───────────────────────────────────────────────────────────
-
-  next.detailBandMode = payload.detailBandMode === 'stack' ? 'stack' : 'separate';
-
   // ── Column type overrides ─────────────────────────────────────────
   next.columnTypeOverrides = {};
   if (payload.columnTypeOverrides && typeof payload.columnTypeOverrides === 'object') {

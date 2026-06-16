@@ -4,7 +4,7 @@ import {
   buildPublishedOutputCatalog,
 } from '../../report/report-output';
 import type { ResultSet } from '../../report/result-set';
-import type { WorkspaceState } from '../../types';
+import type { WorkspaceState, BandResultSet } from '../../types';
 import { createReportSpec, createWorkspaceState } from '../../core/state';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -119,175 +119,128 @@ describe('report-output', () => {
     });
   });
 
-  // ── Published output with detail band rows ─────────────────────────────
+  // ── Published output with detail bands (overlay model) ────────────────
 
   describe('publishReportOutput() with detail bands', () => {
-    it('should include band rows in published output (band rows have no _row_type)', () => {
-      const spec = createReportSpec({ id: 'r1', name: 'Report' });
-      const resultSet = makeResultSet({
-        columns: ['OrderID', 'Customer', '_band_0_Product', '_band_0_Qty', '_band_id'],
-        rows: [
-          { OrderID: 1, Customer: 'Alice', _band_0_Product: null, _band_0_Qty: null, _band_id: null },
-          { OrderID: null, Customer: null, _band_0_Product: 'Widget', _band_0_Qty: 5, _band_id: 'band_0' },
-          { OrderID: null, Customer: null, _band_0_Product: 'Gadget', _band_0_Qty: 3, _band_id: 'band_0' },
-          { OrderID: 2, Customer: 'Bob', _band_0_Product: null, _band_0_Qty: null, _band_id: null },
+    function makeBandResultSet(): BandResultSet {
+      return {
+        parentRows: [
+          { OrderID: 1, Customer: 'Alice' },
+          { OrderID: 2, Customer: 'Bob' },
         ],
+        parentCols: ['OrderID', 'Customer'],
+        bandResults: [
+          {
+            band: {
+              id: 'band_0',
+              rightId: 'products',
+              keyPairs: [{ left: 'OrderID', right: 'OrderID' }],
+              cols: ['Product', 'Qty'],
+              enabled: true,
+              sorts: [],
+              label: 'Products',
+            },
+            rows: [
+              { OrderID: 1, Product: 'Widget', Qty: 5 },
+              { OrderID: 1, Product: 'Gadget', Qty: 3 },
+              { OrderID: 2, Product: 'Doohickey', Qty: 1 },
+            ],
+            cols: ['OrderID', 'Product', 'Qty'],
+            parentKeyAliases: ['OrderID'],
+            childKeyCols: ['OrderID'],
+          },
+        ],
+        bandLabels: { band_0: 'Products' },
+      };
+    }
+
+    it('should include bandResult when ResultSet has bandResult', () => {
+      const spec = createReportSpec({ id: 'r1', name: 'Report' });
+      const bandResult = makeBandResultSet();
+      const resultSet = makeResultSet({
+        columns: ['OrderID', 'Customer'],
+        rows: bandResult.parentRows,
       });
+      resultSet.bandResult = bandResult;
+
       const output = publishReportOutput(spec, resultSet);
-      expect(output.rows).toHaveLength(4);
-      // Parent rows have _band_id = null
-      expect(output.rows[0]._band_id).toBeNull();
-      expect(output.rows[0].OrderID).toBe(1);
-      // Band rows have _band_id set
-      expect(output.rows[1]._band_id).toBe('band_0');
-      expect(output.rows[1]._band_0_Product).toBe('Widget');
-      expect(output.rows[2]._band_id).toBe('band_0');
-      expect(output.rows[3]._band_id).toBeNull();
-      expect(output.rows[3].OrderID).toBe(2);
+      expect(output.bandResult).toBeDefined();
+      expect(output.bandResult).toBe(bandResult);
     });
 
-    it('should include _band_id in published columns when displayCols omits it', () => {
+    it('should not include bandResult when ResultSet has no bandResult', () => {
       const spec = createReportSpec({ id: 'r1', name: 'Report' });
-      // displayCols typically excludes _band_id (it's filtered from grid display)
-      const resultSet = makeResultSet({
-        columns: ['OrderID', '_band_0_Product', '_band_id'],
-        metadata: {
-          rowCount: 2,
-          generatedAt: Date.now(),
-          aggMode: 'none',
-          displayCols: ['OrderID', '_band_0_Product'],  // _band_id omitted
-        },
-      });
+      const resultSet = makeResultSet();
       const output = publishReportOutput(spec, resultSet);
-      // _band_id should be appended for downstream consumers
-      expect(output.columns).toEqual(['OrderID', '_band_0_Product', '_band_id']);
+      expect(output.bandResult).toBeUndefined();
     });
 
-    it('should not duplicate _band_id when already present in displayCols', () => {
+    it('should contain only parent columns (no _band_id injection)', () => {
       const spec = createReportSpec({ id: 'r1', name: 'Report' });
+      const bandResult = makeBandResultSet();
       const resultSet = makeResultSet({
-        columns: ['OrderID', '_band_id'],
-        metadata: {
-          rowCount: 1,
-          generatedAt: Date.now(),
-          aggMode: 'none',
-          displayCols: ['OrderID', '_band_id'],  // _band_id already present
-        },
+        columns: ['OrderID', 'Customer'],
+        rows: bandResult.parentRows,
       });
-      const output = publishReportOutput(spec, resultSet);
-      expect(output.columns).toEqual(['OrderID', '_band_id']);
-      // No duplicate
-      expect(output.columns.filter(c => c === '_band_id')).toHaveLength(1);
-    });
+      resultSet.bandResult = bandResult;
 
-    it('should not add _band_id when result set has no band data', () => {
-      const spec = createReportSpec({ id: 'r1', name: 'Report' });
-      const resultSet = makeResultSet({
-        columns: ['A', 'B'],
-        metadata: {
-          rowCount: 1,
-          generatedAt: Date.now(),
-          aggMode: 'none',
-          displayCols: ['A', 'B'],
-        },
-      });
       const output = publishReportOutput(spec, resultSet);
-      expect(output.columns).toEqual(['A', 'B']);
+      expect(output.columns).toEqual(['OrderID', 'Customer']);
       expect(output.columns).not.toContain('_band_id');
     });
 
-    it('should preserve _band_id when displayCols is null (falls back to columns)', () => {
+    it('should contain only parent rows (no interleaved band rows)', () => {
       const spec = createReportSpec({ id: 'r1', name: 'Report' });
+      const bandResult = makeBandResultSet();
       const resultSet = makeResultSet({
-        columns: ['OrderID', '_band_0_Product', '_band_id'],
-        metadata: {
-          rowCount: 1,
-          generatedAt: Date.now(),
-          aggMode: 'none',
-          displayCols: [],  // falls back to columns
-        },
+        columns: ['OrderID', 'Customer'],
+        rows: bandResult.parentRows,
       });
+      resultSet.bandResult = bandResult;
+
       const output = publishReportOutput(spec, resultSet);
-      expect(output.columns).toContain('_band_id');
-      expect(output.columns).toEqual(['OrderID', '_band_0_Product', '_band_id']);
+      expect(output.rows).toHaveLength(2);
+      expect(output.rows[0]).toEqual({ OrderID: 1, Customer: 'Alice' });
+      expect(output.rows[1]).toEqual({ OrderID: 2, Customer: 'Bob' });
     });
 
-    it('should not exclude band rows via _row_type filter (band rows have _row_type undefined)', () => {
+    it('should preserve bandResult structure (parentRows, parentCols, bandResults, bandLabels)', () => {
       const spec = createReportSpec({ id: 'r1', name: 'Report' });
+      const bandResult = makeBandResultSet();
       const resultSet = makeResultSet({
-        columns: ['A', '_band_id'],
-        rows: [
-          { A: 1, _band_id: null },             // parent row, no _row_type
-          { A: null, _band_id: 'band_0' },       // band row, no _row_type
-          { A: 2, _band_id: null, _row_type: 0 }, // parent row, explicit _row_type=0
-          { A: null, _band_id: 'band_1', _row_type: 0 }, // band row, explicit _row_type=0
-        ],
+        columns: bandResult.parentCols,
+        rows: bandResult.parentRows,
       });
+      resultSet.bandResult = bandResult;
+
       const output = publishReportOutput(spec, resultSet);
-      // All 4 rows should pass — none have _row_type > 0
-      expect(output.rows).toHaveLength(4);
+      const br = output.bandResult!;
+      expect(br.parentRows).toEqual(bandResult.parentRows);
+      expect(br.parentCols).toEqual(bandResult.parentCols);
+      expect(br.bandResults).toHaveLength(1);
+      expect(br.bandResults[0].band.id).toBe('band_0');
+      expect(br.bandResults[0].rows).toHaveLength(3);
+      expect(br.bandLabels).toEqual({ band_0: 'Products' });
     });
 
-    it('should still exclude subtotal rows when mixed with band rows', () => {
+    it('should still filter _row_type for parent rows when bandResult is present', () => {
       const spec = createReportSpec({ id: 'r1', name: 'Report' });
+      const bandResult = makeBandResultSet();
       const resultSet = makeResultSet({
-        columns: ['A', '_band_id'],
+        columns: ['OrderID', 'Customer'],
         rows: [
-          { A: 1, _band_id: null, _row_type: null },     // parent — keep
-          { A: null, _band_id: 'band_0', _row_type: undefined }, // band — keep
-          { A: 'TOTAL', _band_id: null, _row_type: 1 },  // subtotal — exclude
-          { A: 'SUB', _band_id: null, _row_type: 2 },    // spacer — exclude
-          { A: 2, _band_id: null },                       // parent (no _row_type) — keep
+          { OrderID: 1, Customer: 'Alice', _row_type: null },
+          { OrderID: 'TOTAL', Customer: '', _row_type: 1 },     // subtotal — exclude
+          { OrderID: 2, Customer: 'Bob', _row_type: 0 },        // parent — keep
+          { OrderID: 'SUB', Customer: '', _row_type: 2 },       // spacer — exclude
         ],
       });
-      const output = publishReportOutput(spec, resultSet);
-      expect(output.rows).toHaveLength(3);
-      expect(output.rows[0].A).toBe(1);
-      expect(output.rows[1]._band_id).toBe('band_0');
-      expect(output.rows[2].A).toBe(2);
-    });
+      resultSet.bandResult = bandResult;
 
-    it('should handle multiple bands with distinct _band_id values', () => {
-      const spec = createReportSpec({ id: 'r1', name: 'Report' });
-      const resultSet = makeResultSet({
-        columns: ['OrderID', '_band_0_Product', '_band_1_Payment', '_band_id'],
-        rows: [
-          { OrderID: 1, _band_0_Product: null, _band_1_Payment: null, _band_id: null },
-          { OrderID: null, _band_0_Product: 'Widget', _band_1_Payment: null, _band_id: 'band_0' },
-          { OrderID: null, _band_0_Product: null, _band_1_Payment: '$100', _band_id: 'band_1' },
-          { OrderID: 2, _band_0_Product: null, _band_1_Payment: null, _band_id: null },
-        ],
-      });
       const output = publishReportOutput(spec, resultSet);
-      expect(output.rows).toHaveLength(4);
-      expect(output.columns).toContain('_band_id');
-      // Verify band identity is preserved
-      const band0Rows = output.rows.filter(r => r._band_id === 'band_0');
-      const band1Rows = output.rows.filter(r => r._band_id === 'band_1');
-      const parentRows = output.rows.filter(r => r._band_id === null);
-      expect(band0Rows).toHaveLength(1);
-      expect(band1Rows).toHaveLength(1);
-      expect(parentRows).toHaveLength(2);
-    });
-
-    it('should handle stacking mode rows where _band_id is last contributing band', () => {
-      const spec = createReportSpec({ id: 'r1', name: 'Report' });
-      // In stacking mode, cross-product rows have _band_id set to the last contributing band
-      const resultSet = makeResultSet({
-        columns: ['OrderID', '_band_0_Product', '_band_1_Payment', '_band_id'],
-        rows: [
-          { OrderID: 1, _band_0_Product: 'Widget', _band_1_Payment: '$100', _band_id: 'band_1' },
-          { OrderID: 1, _band_0_Product: 'Gadget', _band_1_Payment: '$100', _band_id: 'band_1' },
-          { OrderID: 1, _band_0_Product: 'Widget', _band_1_Payment: '$200', _band_id: 'band_1' },
-        ],
-      });
-      const output = publishReportOutput(spec, resultSet);
-      expect(output.rows).toHaveLength(3);
-      // All rows are cross-product rows — all have _band_id set
-      for (const row of output.rows) {
-        expect(row._band_id).toBe('band_1');
-        expect(row.OrderID).toBe(1);
-      }
+      expect(output.rows).toHaveLength(2);
+      expect(output.rows[0].OrderID).toBe(1);
+      expect(output.rows[1].OrderID).toBe(2);
     });
   });
 
@@ -403,21 +356,51 @@ describe('report-output', () => {
       });
       const ws = createWorkspaceState({ reports: [spec] });
       const cache = new Map<string, ResultSet>();
-      cache.set('r1', makeResultSet({
-        columns: ['OrderID', '_band_0_Product', '_band_id'],
-        rows: [
-          { OrderID: 1, _band_0_Product: null, _band_id: null },
-          { OrderID: null, _band_0_Product: 'Widget', _band_id: 'band_0' },
+      const bandResult: BandResultSet = {
+        parentRows: [
+          { OrderID: 1, Customer: 'Alice' },
+          { OrderID: 2, Customer: 'Bob' },
         ],
-      }));
+        parentCols: ['OrderID', 'Customer'],
+        bandResults: [
+          {
+            band: {
+              id: 'band_0',
+              rightId: 'products',
+              keyPairs: [{ left: 'OrderID', right: 'OrderID' }],
+              cols: ['Product', 'Qty'],
+              enabled: true,
+              sorts: [],
+              label: 'Products',
+            },
+            rows: [
+              { OrderID: 1, Product: 'Widget', Qty: 5 },
+            ],
+            cols: ['OrderID', 'Product', 'Qty'],
+            parentKeyAliases: ['OrderID'],
+            childKeyCols: ['OrderID'],
+          },
+        ],
+        bandLabels: { band_0: 'Products' },
+      };
+      const rs = makeResultSet({
+        columns: ['OrderID', 'Customer'],
+        rows: bandResult.parentRows,
+      });
+      rs.bandResult = bandResult;
+      cache.set('r1', rs);
 
       const catalog = buildPublishedOutputCatalog(ws, cache);
       expect(catalog.size).toBe(1);
       const output = catalog.get('r1_output')!;
+      expect(output.columns).toEqual(['OrderID', 'Customer']);
+      expect(output.columns).not.toContain('_band_id');
       expect(output.rows).toHaveLength(2);
-      expect(output.columns).toContain('_band_id');
-      expect(output.rows[0]._band_id).toBeNull();
-      expect(output.rows[1]._band_id).toBe('band_0');
+      expect(output.bandResult).toBeDefined();
+      expect(output.bandResult!.parentRows).toEqual(bandResult.parentRows);
+      expect(output.bandResult!.parentCols).toEqual(bandResult.parentCols);
+      expect(output.bandResult!.bandResults).toHaveLength(1);
+      expect(output.bandResult!.bandLabels).toEqual({ band_0: 'Products' });
     });
   });
 });

@@ -88,7 +88,6 @@ export function makeReportSpec(overrides: Partial<ReportSpec> = {}): ReportSpec 
     mergeDisplay: { mergedCols: [], mergeGroupUnderline: false },
     outputDefinition: null,
     publish: { enabled: false, tableName: '' },
-    detailBandMode: 'separate',
     ...overrides,
   };
 }

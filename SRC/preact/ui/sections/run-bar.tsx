@@ -11,9 +11,8 @@ import { useState, useEffect, useCallback } from 'preact/hooks';
 import { getStore } from '../../core/store';
 import { toast } from '../../core/utils';
 import { Tip } from '../components/tip';
-import { RowExplosionDialog } from '../components/row-explosion-dialog';
 import { getValidation, invalidateValidation } from '../../report/validation';
-import { runReport as executeReport, RowExplosionError } from '../../report/engine';
+import { runReport as executeReport } from '../../report/engine';
 import type { AppState, ReportSpec } from '../../types';
 
 export interface RunBarProps {
@@ -24,7 +23,6 @@ export interface RunBarProps {
 export function RunBar({ onResult }: RunBarProps) {
   const [state, setState] = useState<AppState>(getStore().getState());
   const [runStatus, setRunStatus] = useState<string>('');
-  const [explosionDialog, setExplosionDialog] = useState<{ projectedCount: number; limit: number } | null>(null);
 
   useEffect(() => getStore().subscribe(s => setState(s)), []);
 
@@ -44,7 +42,7 @@ export function RunBar({ onResult }: RunBarProps) {
 
   const runDisabled = blocked;
 
-  const runQuery = useCallback((overrideLimit?: number) => {
+  const runQuery = useCallback(() => {
     const currentState = getStore().getState();
     if (!currentState.base || !currentState.tables[currentState.base]) return;
 
@@ -102,12 +100,9 @@ export function RunBar({ onResult }: RunBarProps) {
           },
           outputDefinition: null,
           publish: { enabled: false, tableName: '' },
-          detailBandMode: currentState.detailBandMode || 'separate',
         };
 
-        const resultSet = overrideLimit != null
-          ? executeReport(reportSpec, currentState.tables, overrideLimit)
-          : executeReport(reportSpec, currentState.tables);
+        const resultSet = executeReport(reportSpec, currentState.tables);
         if (!resultSet) throw new Error('No result set returned');
 
         const displayRows = resultSet.rows.filter((r: Record<string, unknown>) => !r._row_type);
@@ -119,6 +114,7 @@ export function RunBar({ onResult }: RunBarProps) {
           totalsRow: resultSet.metadata.totalsRow || null,
           cols: resultSet.columns,
           hasSubtotals: hasSubs,
+          bandResult: resultSet.bandResult,
         };
 
         getStore().update(draft => { draft.result = result; });
@@ -130,28 +126,11 @@ export function RunBar({ onResult }: RunBarProps) {
 
         if (onResult) onResult(result);
       } catch (ex: unknown) {
-        if (ex instanceof RowExplosionError) {
-          setExplosionDialog({ projectedCount: ex.projectedCount, limit: ex.limit });
-          setRunStatus('Row limit exceeded');
-          return;
-        }
         setRunStatus('Error');
         toast('Query error: ' + (ex as Error).message, 'err');
       }
     }, 20);
   }, [onResult]);
-
-  const handleExplosionProceed = useCallback(() => {
-    setExplosionDialog(null);
-    // Re-run with an elevated limit: at least 50,000 or 2× the projected count
-    const elevated = Math.max(50_000, Math.ceil((explosionDialog?.projectedCount ?? 50_000) * 2));
-    runQuery(elevated);
-  }, [runQuery, explosionDialog]);
-
-  const handleExplosionCancel = useCallback(() => {
-    setExplosionDialog(null);
-    setRunStatus('Cancelled');
-  }, []);
 
   return (
     <div id="runRow" style="display:flex;align-items:center;gap:8px;padding:8px 0">
@@ -172,14 +151,6 @@ export function RunBar({ onResult }: RunBarProps) {
         Run Report <Tip text={"Generate your report. This applies all your:\n• Sheet combinations and lookups\n• Calculated columns\n• Filters and sort order\n• Summary settings\n\nto produce the final output."} />
       </button>
       <span id="runStatus" style="font-size:0.72rem;color:var(--muted)">{runStatus}</span>
-      {explosionDialog && (
-        <RowExplosionDialog
-          projectedCount={explosionDialog.projectedCount}
-          limit={explosionDialog.limit}
-          onProceed={handleExplosionProceed}
-          onCancel={handleExplosionCancel}
-        />
-      )}
     </div>
   );
 }

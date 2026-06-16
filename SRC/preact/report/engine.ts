@@ -6,14 +6,15 @@
  * Pure function — no global state dependency.
  *
  * Dispatches to mode-specific handlers based on aggregation mode:
- * - **detail bands** (none + enabled bands): parent query + per-band queries + JS stitching
+ * - **detail bands** (none + enabled bands): parent query + per-band queries + BandResultSet
  * - **detail** (none): simple SELECT with WHERE, JOINs, ORDER BY
  * - **totals**: detail rows + a single aggregate totals row
  * - **subtotals**: detail rows interleaved with subtotal/spacing/grand-total rows
  * - **group**: GROUP BY with aggregate expressions
  */
 
-import type { ReportSpec, DbTable, AggMode, DetailBandSpec } from '../types';
+import type { ReportSpec, DbTable, AggMode, BandResult, BandResultSet } from '../types';
+export type { BandResult } from '../types';
 import type { ColMapEntry } from '../catalog/column-catalog';
 import type { BuiltQueryPlan } from '../query/query-plan';
 import { buildQueryPlan } from '../query/query-plan';
@@ -125,146 +126,14 @@ function runGroupedMode(plan: BuiltQueryPlan): ResultSet {
   return buildResultSet(plan.cols, rows, { aggMode: 'group' });
 }
 
-// ── Stacking Mode Constants & Error ─────────────────────────────────────────────
-
-/** Hard limit on rows produced by stacking mode cross-product. */
-export const STACK_ROW_LIMIT = 10_000;
-
-/**
- * Error thrown when stacking mode cross-product exceeds STACK_ROW_LIMIT.
- * Carries the projected row count and the limit that was exceeded.
- */
-export class RowExplosionError extends Error {
-  /** The projected number of rows that would be produced. */
-  readonly projectedCount: number;
-  /** The limit that was exceeded. */
-  readonly limit: number;
-
-  constructor(projectedCount: number, limit: number) {
-    super(
-      `Detail band cross-product would produce ${projectedCount} rows, exceeding limit of ${limit}.`,
-    );
-    this.name = 'RowExplosionError';
-    this.projectedCount = projectedCount;
-    this.limit = limit;
-  }
-}
-
 // ── Detail Bands Helpers ────────────────────────────────────────────────────────
-
-/**
- * Intermediate result for a single detail band query.
- *
- * @property band             - The detail band specification this result belongs to.
- * @property rows             - Child rows returned by the band query.
- * @property cols             - Column names in the band query result.
- * @property parentKeyAliases - Parent-side key column aliases used for matching.
- * @property childKeyCols     - Child-side key column names used for matching.
- */
-export interface BandResult {
-  band: DetailBandSpec;
-  rows: Record<string, unknown>[];
-  cols: string[];
-  parentKeyAliases: string[];
-  childKeyCols: string[];
-}
-
-/**
- * Compute the superset column list: union of parent columns and all band
- * columns, plus the internal _band_id tagging column.
- */
-export function computeSupersetCols(
-  parentCols: string[],
-  bandResults: Array<{ cols: string[] }>,
-): string[] {
-  const superset = [...parentCols];
-  const seen = new Set(parentCols);
-  for (const br of bandResults) {
-    for (const col of br.cols) {
-      if (!seen.has(col)) {
-        superset.push(col);
-        seen.add(col);
-      }
-    }
-  }
-  if (!seen.has('_band_id')) superset.push('_band_id');
-  return superset;
-}
-
-/**
- * Null-pad a parent row for all band columns and set _band_id = null.
- */
-export function padParentRow(
-  row: Record<string, unknown>,
-  supersetCols: string[],
-): Record<string, unknown> {
-  const padded = { ...row };
-  for (const col of supersetCols) {
-    if (!(col in padded)) padded[col] = null;
-  }
-  padded._band_id = null;
-  return padded;
-}
-
-/**
- * Null-pad a band row for all parent/other-band columns and set _band_id.
- */
-export function padBandRow(
-  row: Record<string, unknown>,
-  supersetCols: string[],
-  bandId: string,
-): Record<string, unknown> {
-  const padded: Record<string, unknown> = {};
-  for (const col of supersetCols) {
-    padded[col] = col in row ? row[col] : null;
-  }
-  padded._band_id = bandId;
-  return padded;
-}
-
-/**
- * Interleave parent rows with their matching child rows from each band.
- *
- * For each parent row, inserts matching child rows from each band immediately
- * after it. Uses a Map-based index for O(1) lookup of child rows by key value.
- */
-export function interleaveRows(
-  parentRows: Record<string, unknown>[],
-  bandResults: BandResult[],
-  supersetCols: string[],
-): Record<string, unknown>[] {
-  // Build per-band index: bandId → Map<keyValue, rows[]>
-  const bandIndex = new Map<string, Map<string, Record<string, unknown>[]>>();
-  for (const br of bandResults) {
-    const idx = new Map<string, Record<string, unknown>[]>();
-    for (const row of br.rows) {
-      const key = makeKeyValue(row, br.childKeyCols);
-      if (!idx.has(key)) idx.set(key, []);
-      idx.get(key)!.push(row);
-    }
-    bandIndex.set(br.band.id, idx);
-  }
-
-  const result: Record<string, unknown>[] = [];
-  for (const parentRow of parentRows) {
-    result.push(padParentRow(parentRow, supersetCols));
-    for (const br of bandResults) {
-      const key = makeKeyValue(parentRow, br.parentKeyAliases);
-      const children = bandIndex.get(br.band.id)?.get(key) || [];
-      for (const child of children) {
-        result.push(padBandRow(child, supersetCols, br.band.id));
-      }
-    }
-  }
-  return result;
-}
 
 /**
  * Build a composite key string from a row using the given key columns.
  * For single-key, returns the raw value (as string). For multi-key,
  * concatenates values with the ||| separator (matching sql-joins.ts pattern).
  */
-function makeKeyValue(row: Record<string, unknown>, keyCols: string[]): string {
+export function makeKeyValue(row: Record<string, unknown>, keyCols: string[]): string {
   if (keyCols.length === 1) return String(row[keyCols[0]] ?? '');
   return keyCols.map(k => String(row[k] ?? '')).join('|||');
 }
@@ -273,17 +142,16 @@ function makeKeyValue(row: Record<string, unknown>, keyCols: string[]): string {
  * Pre-built index for O(1) child row lookup by key value.
  * Maps bandId → Map<compositeKeyValue, matchingRows[]>.
  *
- * Built once per set of band results and reused across all parent rows,
- * eliminating the O(n) filter() per parent per band in crossProductRows().
+ * Built once per set of band results and reused across all parent rows
+ * by the overlay grouping layer (Part B).
  */
 export type BandChildIndex = Map<string, Map<string, Record<string, unknown>[]>>;
 
 /**
  * Build a Map-based index of band rows keyed by their child key values.
  *
- * This is the same indexing strategy used by interleaveRows() internally,
- * but extracted so it can be shared with crossProductRows() for stacking mode.
  * Building the index is O(totalBandRows); each subsequent lookup is O(1).
+ * Reused by the overlay grouping layer (Part B) for efficient child row matching.
  *
  * @param bandResults - Array of band query results to index.
  * @returns A BandChildIndex for O(1) child row lookup by parent key value.
@@ -306,75 +174,6 @@ export function buildBandChildIndex(bandResults: BandResult[]): BandChildIndex {
   return index;
 }
 
-/**
- * Compute the Cartesian cross-product of a single parent row with matching
- * child rows from all enabled bands.
- *
- * For each band, finds child rows whose key matches the parent row's key,
- * then computes the Cartesian product across all bands. Each output row
- * merges parent data with one child row per band, with _band_id set to
- * the last band that contributed children.
- *
- * When a pre-built BandChildIndex is provided, child lookup is O(1) per band
- * instead of O(bandRows). The index should be built once via buildBandChildIndex()
- * and reused across all parent rows in a stacking-mode run.
- *
- * Throws RowExplosionError if the product for this parent exceeds the limit.
- * Rows are null-padded for all superset columns.
- *
- * @param parentRow    - A single parent row to compute cross-product for.
- * @param bandResults  - Array of band query results (each with rows, key columns, and band metadata).
- * @param supersetCols - Union of all column names across parent and bands (used for null-padding).
- * @param limit        - Maximum rows allowed before throwing RowExplosionError (default: STACK_ROW_LIMIT).
- * @param childIndex   - Optional pre-built index for O(1) child lookup. When omitted, falls back to O(n) filter.
- * @returns Array of cross-product rows, null-padded for superset columns.
- * @throws {RowExplosionError} If the cross-product for this parent exceeds the limit.
- */
-export function crossProductRows(
-  parentRow: Record<string, unknown>,
-  bandResults: BandResult[],
-  supersetCols: string[],
-  limit: number = STACK_ROW_LIMIT,
-  childIndex?: BandChildIndex,
-): Record<string, unknown>[] {
-  let combinations: Record<string, unknown>[] = [parentRow];
-
-  for (const br of bandResults) {
-    const parentKey = makeKeyValue(parentRow, br.parentKeyAliases);
-
-    // O(1) lookup from pre-built index, or O(n) filter fallback
-    let children: Record<string, unknown>[];
-    if (childIndex) {
-      children = childIndex.get(br.band.id)?.get(parentKey) || [];
-    } else {
-      children = br.rows.filter(
-        r => makeKeyValue(r, br.childKeyCols) === parentKey,
-      );
-    }
-    if (children.length === 0) continue;
-
-    const next: Record<string, unknown>[] = [];
-    for (const combo of combinations) {
-      for (const child of children) {
-        next.push({ ...combo, ...child, _band_id: br.band.id });
-      }
-    }
-    if (next.length > limit) {
-      throw new RowExplosionError(next.length, limit);
-    }
-    combinations = next;
-  }
-
-  // Null-pad each combination row for superset columns
-  return combinations.map(row => {
-    const padded: Record<string, unknown> = {};
-    for (const col of supersetCols) {
-      padded[col] = col in row ? row[col] : null;
-    }
-    return padded;
-  });
-}
-
 // ── Detail Bands Mode ───────────────────────────────────────────────────────────
 
 /**
@@ -382,30 +181,18 @@ export function crossProductRows(
  *
  * Executes the parent query (detail SQL), then for each enabled band, extracts
  * parent key values and runs a batched WHERE IN query to fetch all child rows
- * at once. Rows are stitched in JavaScript based on detailBandMode:
- *
- * - **'separate'** (default): parent rows interleaved with matching child rows
- *   from each band. Each parent row is followed by its children.
- * - **'stack'**: Cartesian cross-product of matching child rows across all bands
- *   per parent row. Capped at STACK_ROW_LIMIT total rows.
- *
- * Parent rows are null-padded for band columns, band rows are null-padded for
- * parent/other-band columns. All rows carry a _band_id tag (null for parent
- * rows in separate mode; last contributing band in stack mode).
+ * at once. Returns a {@link ResultSet} with `bandResult` populated — columns
+ * and rows contain only parent data; band data is in `bandResult.bandResults`.
  *
  * @param plan           - The built query plan (contains parent SQL, params, and column list).
- * @param reportSpec     - The typed report specification (contains detailBands, detailBandMode, pipeline).
+ * @param reportSpec     - The typed report specification (contains detailBands, pipeline).
  * @param tables         - Raw table definitions keyed by table ID.
- * @param stackRowLimit  - Override for the maximum number of stacking-mode rows allowed
- *                         (defaults to STACK_ROW_LIMIT).
- * @returns A {@link ResultSet} with stitched parent+child rows and band metadata.
- * @throws {RowExplosionError} If stacking mode total rows exceed stackRowLimit.
+ * @returns A {@link ResultSet} with parent-only columns/rows and `bandResult` populated.
  */
 export function runDetailBandsMode(
   plan: BuiltQueryPlan,
   reportSpec: ReportSpec,
   tables: Record<string, DbTable>,
-  stackRowLimit: number = STACK_ROW_LIMIT,
 ): ResultSet {
   // 1. Execute parent query (same as detail mode)
   const parentRows = execQuery(plan.sql, plan.params);
@@ -485,42 +272,28 @@ export function runDetailBandsMode(
     });
   }
 
-  // 5. Compute superset columns and stitch rows based on mode
-  const supersetCols = computeSupersetCols(parentCols, bandResults);
-  const mode = reportSpec.detailBandMode || 'separate';
-
-  let resultRows: Record<string, unknown>[];
-  if (mode === 'stack') {
-    // Stacking mode: Cartesian cross-product per parent row.
-    // Build the band index ONCE for O(1) child lookup per parent per band,
-    // instead of O(bandRows) filter() per parent per band.
-    const childIndex = buildBandChildIndex(bandResults);
-    resultRows = [];
-    for (const parentRow of parentRows) {
-      const combos = crossProductRows(parentRow, bandResults, supersetCols, stackRowLimit, childIndex);
-      resultRows.push(...combos);
-      if (resultRows.length > stackRowLimit) {
-        throw new RowExplosionError(resultRows.length, stackRowLimit);
-      }
-    }
-  } else {
-    // Separate mode: interleave parent rows with matching child rows
-    resultRows = interleaveRows(parentRows, bandResults, supersetCols);
-  }
-
-  // 6. Build band labels map
+  // 5. Build band labels map
   const bandLabels: Record<string, string> = {};
   for (const br of bandResults) {
     bandLabels[br.band.id] = br.band.label || br.band.id;
   }
 
-  // 7. Build result set
-  return buildResultSet(supersetCols, resultRows, {
+  // 6. Build BandResultSet and attach to ResultSet
+  const brs: BandResultSet = {
+    parentRows,
+    parentCols,
+    bandResults,
+    bandLabels,
+  };
+
+  const result = buildResultSet(parentCols, parentRows, {
     aggMode: 'none',
     bandCount: bandResults.length,
     bandIds: bandResults.map(br => br.band.id),
     bandLabels,
   });
+  result.bandResult = brs;
+  return result;
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -552,25 +325,21 @@ export function runPreviewQuery(sql: string, params?: unknown[]): Record<string,
  *                         filters, sorts, aggregation config, and output columns).
  * @param tables         - Raw table definitions keyed by table ID. Each entry
  *                         contains id, name, cols, and rowCount.
- * @param stackRowLimit  - Optional override for the maximum number of rows allowed
- *                         in stacking-mode cross-product (defaults to STACK_ROW_LIMIT).
  * @returns A {@link ResultSet} with columns, rows, and metadata.
  * @throws If the reportSpec has no base table defined or the aggregation
  *         mode produces no output.
- * @throws {RowExplosionError} If stacking mode total rows exceed stackRowLimit.
  */
 export function runReport(
   reportSpec: ReportSpec,
   tables: Record<string, DbTable>,
-  stackRowLimit?: number,
 ): ResultSet {
   const plan = buildQueryPlan(reportSpec, tables);
 
   // Detail bands dispatch: when enabled bands exist and aggMode is 'none',
-  // use the detail bands stitching mode (separate or stack, per detailBandMode).
+  // use the detail bands mode (returns ResultSet with bandResult populated).
   const enabledBands = (reportSpec.pipeline.detailBands || []).filter(b => b.enabled !== false && b.rightId);
   if (enabledBands.length > 0 && plan.aggMode === 'none') {
-    return runDetailBandsMode(plan, reportSpec, tables, stackRowLimit);
+    return runDetailBandsMode(plan, reportSpec, tables);
   }
 
   switch (plan.aggMode as AggMode) {

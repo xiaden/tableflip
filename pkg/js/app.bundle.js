@@ -1976,6 +1976,9 @@
     const state = getStore().getState();
     return state.columnLabels?.[tid]?.[physCol] ?? physCol;
   }
+  function colLabel(tid, physCol) {
+    return tableShortName(tid) + ":" + colUserLabel(tid, physCol);
+  }
   function setColLabel(tid, physCol, label) {
     const state = getStore().getState();
     const columnLabels = { ...state.columnLabels };
@@ -2017,38 +2020,38 @@
     if (/amount|total|value|price|cost|\bqty\b|quantity|\bnum\b|number|units|sales|revenue|weight|volume/.test(n2)) return "SUM";
     return "FIRST";
   }
-  function defaultAggAlias(fn, colLabel) {
+  function defaultAggAlias(fn, colLabel2) {
     switch (fn) {
       case "SUM":
-        return `Total ${colLabel}`;
+        return `Total ${colLabel2}`;
       case "AVG":
-        return `Avg ${colLabel}`;
+        return `Avg ${colLabel2}`;
       case "COUNT ROWS":
         return "Row Count";
       case "COUNT NON-EMPTY":
-        return `# ${colLabel}`;
+        return `# ${colLabel2}`;
       case "COUNT DISTINCT":
-        return `Unique ${colLabel}`;
+        return `Unique ${colLabel2}`;
       case "MIN":
-        return `Min ${colLabel}`;
+        return `Min ${colLabel2}`;
       case "MAX":
-        return `Max ${colLabel}`;
+        return `Max ${colLabel2}`;
       case "FIRST":
-        return `${colLabel} (first)`;
+        return `${colLabel2} (first)`;
       case "LAST":
-        return `${colLabel} (last)`;
+        return `${colLabel2} (last)`;
       case "DATE RANGE":
-        return `${colLabel} Range`;
+        return `${colLabel2} Range`;
       case "DATE SPAN":
-        return `${colLabel} Span (days)`;
+        return `${colLabel2} Span (days)`;
       case "NUMERIC RANGE":
-        return `${colLabel} Range`;
+        return `${colLabel2} Range`;
       case "NUMERIC SPAN":
-        return `${colLabel} Span`;
+        return `${colLabel2} Span`;
       case "LIST":
-        return `${colLabel} (list)`;
+        return `${colLabel2} (list)`;
       default:
-        return `${fn}(${colLabel})`;
+        return `${fn}(${colLabel2})`;
     }
   }
 
@@ -2643,6 +2646,7 @@
       draft.tableColors[id] = color;
       if (!draft.base) draft.base = id;
     });
+    _afterCombineChange();
     if (suggested.size) {
       const previews = [...suggestedPreviews.values()];
       const previewStr = previews.length === 1 ? `"${previews[0]}"` : previews.map((p3) => `"${p3}"`).join(", ");
@@ -3776,7 +3780,7 @@ Row contents → ${previewStr}`,
               Chip,
               {
                 col: c3,
-                label: colUserLabel(base, c3),
+                label: colLabel(base, c3),
                 selected: true,
                 draggable: false,
                 chipClass: "pl-col-chip",
@@ -4132,7 +4136,7 @@ Row contents → ${previewStr}`,
               ] }),
               leftCols.map((c3) => {
                 const src = lkColMap.get(c3);
-                const label = src && src.kind !== "calc" ? colUserLabel(src.tid, src.col) : c3;
+                const label = src && src.kind !== "calc" ? colLabel(src.tid, src.col) : c3;
                 return /* @__PURE__ */ u3("option", { value: c3, children: label }, c3);
               })
             ] }),
@@ -4143,7 +4147,7 @@ Row contents → ${previewStr}`,
                 " column ",
                 "—"
               ] }),
-              rightCols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: `${tables[lk.rightId]?.name || lk.rightId} → ${colUserLabel(lk.rightId, c3)}` }, c3))
+              rightCols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: colLabel(lk.rightId, c3) }, c3))
             ] }),
             pairs.length > 1 && /* @__PURE__ */ u3("button", { class: "pl-rm-kp", title: "Remove this condition", onClick: () => removeKeyPair(pi), children: "✕" })
           ] }, pi)),
@@ -4186,7 +4190,7 @@ Row contents → ${previewStr}`,
               Chip,
               {
                 col: c3,
-                label: colUserLabel(lk.rightId, c3),
+                label: colLabel(lk.rightId, c3),
                 selected: true,
                 draggable: false,
                 chipClass: "pl-col-chip",
@@ -4822,7 +4826,7 @@ Row contents → ${previewStr}`,
     }, [i3]);
     const colOptsFor = q2((sel) => cols.filter((c3) => c3 !== alias).map((c3) => {
       const src = colMap.get(c3);
-      const label = src && src.kind !== "calc" ? colUserLabel(src.tid, src.col) : c3;
+      const label = src && src.kind !== "calc" ? colLabel(src.tid, src.col) : c3;
       return { value: c3, label, selected: sel === c3 };
     }), [cols, alias, colMap]);
     const Builder = calcModeComponents[mode];
@@ -4868,7 +4872,7 @@ Row contents → ${previewStr}`,
               col: alias,
               label: (() => {
                 const src = colMap.get(alias);
-                return src && src.kind !== "calc" ? colUserLabel(src.tid, src.col) : alias;
+                return src && src.kind !== "calc" ? colLabel(src.tid, src.col) : alias;
               })(),
               selected: _isAliasVisibleInLayout(alias, aggMode),
               draggable: false,
@@ -5066,7 +5070,7 @@ Row contents → ${previewStr}`,
       /* @__PURE__ */ u3("div", { class: stageClasses, children: [
         /* @__PURE__ */ u3("div", { class: "pl-stage-label", children: [
           "Related Details from ",
-          /* @__PURE__ */ u3(Tip, { text: "Add related rows from another sheet beneath each parent row — like sub-report details.\n\nFor example: show each Order followed by its Line Items. Use '+ AND' to match on multiple columns at once." }),
+          /* @__PURE__ */ u3(Tip, { text: "Add related rows from another sheet beneath each parent row — like sub-report details.\n\nFor example: show each Order followed by its Line Items. Use '+ AND' to match on multiple columns at once.\n\nExported spreadsheets cannot be re-sorted after detail bands are inserted — apply all desired sorts in the report's Sorting stage before export." }),
           /* @__PURE__ */ u3("label", { class: "pl-enable-toggle", title: bandEnabled ? "Disable this detail band (won't block report)" : "Enable this detail band", children: [
             /* @__PURE__ */ u3("input", { type: "checkbox", checked: bandEnabled, onChange: (e3) => handleEnabledChange(e3.target.checked) }),
             /* @__PURE__ */ u3("span", { class: "pl-enable-label", children: bandEnabled ? "Enabled" : "Disabled" })
@@ -5101,7 +5105,7 @@ Row contents → ${previewStr}`,
               ] }),
               leftCols.map((c3) => {
                 const src = lkColMap.get(c3);
-                const label = src && src.kind !== "calc" ? colUserLabel(src.tid, src.col) : c3;
+                const label = src && src.kind !== "calc" ? colLabel(src.tid, src.col) : c3;
                 return /* @__PURE__ */ u3("option", { value: c3, children: label }, c3);
               })
             ] }),
@@ -5112,7 +5116,7 @@ Row contents → ${previewStr}`,
                 " column ",
                 "—"
               ] }),
-              rightCols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: `${tables[band.rightId]?.name || band.rightId} → ${colUserLabel(band.rightId, c3)}` }, c3))
+              rightCols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: colLabel(band.rightId, c3) }, c3))
             ] }),
             pairs.length > 1 && /* @__PURE__ */ u3("button", { class: "pl-rm-kp", title: "Remove this condition", onClick: () => removeKeyPair(pi), children: "✕" })
           ] }, pi)),
@@ -5131,7 +5135,7 @@ Row contents → ${previewStr}`,
               Chip,
               {
                 col: c3,
-                label: colUserLabel(band.rightId, c3),
+                label: colLabel(band.rightId, c3),
                 selected: isSelected,
                 draggable: false,
                 chipClass: "pl-col-chip",
@@ -5196,7 +5200,7 @@ Row contents → ${previewStr}`,
                       " column ",
                       "—"
                     ] }),
-                    rightCols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: colUserLabel(band.rightId, c3) }, c3))
+                    rightCols.map((c3) => /* @__PURE__ */ u3("option", { value: c3, children: colLabel(band.rightId, c3) }, c3))
                   ]
                 }
               ),
@@ -5793,8 +5797,8 @@ FROM ${fromClause}`;
         colAliases.push(alias);
       }
       for (const agg of aggregates) {
-        const colLabel = agg.col && agg.col !== "*" ? agg.col : "all rows";
-        const outName = agg.alias?.trim() || defaultAggAlias(agg.fn, colLabel);
+        const colLabel2 = agg.col && agg.col !== "*" ? agg.col : "all rows";
+        const outName = agg.alias?.trim() || defaultAggAlias(agg.fn, colLabel2);
         if (selColSet && !selColSet.has(outName)) continue;
         if (isBand(outName)) continue;
         const calcExpr = agg.col ? calcExprs.get(agg.col) : void 0;
@@ -6574,7 +6578,7 @@ ORDER BY ${sortParts.join(", ")}`;
       return { headers: [], rows: [], error: "No base table selected" };
     }
     const baseTable = state.tables[base];
-    const baseCols = baseTable.cols;
+    const baseCols = state.selCols instanceof Set && state.selCols.size > 0 ? baseTable.cols.filter((c3) => state.selCols.has(c3)) : baseTable.cols;
     if (!baseCols.length) {
       return { headers: [], rows: [], error: "Base table has no columns" };
     }
@@ -6608,7 +6612,7 @@ ORDER BY ${sortParts.join(", ")}`;
         calculatedColumns: slicedCalcs,
         detailBands: []
       },
-      outputColumns: [],
+      outputColumns: state.selCols instanceof Set ? (state.colOrder || []).filter((c3) => state.selCols.has(c3)) : state.colOrder || [],
       filters: [],
       sorts: [],
       aggregation: {
@@ -6818,15 +6822,15 @@ ORDER BY ${sortParts.join(", ")}`;
       hasBase && /* @__PURE__ */ u3("div", { style: "display:flex;justify-content:center;gap:8px;flex-wrap:wrap;padding:2px 0 8px", children: [
         /* @__PURE__ */ u3("div", { class: "pl-add-btn", onClick: addLookup, children: [
           "＋",
-          " Look up columns from another sheet"
+          " Add columns from another sheet"
         ] }),
         /* @__PURE__ */ u3("div", { class: "pl-add-btn", onClick: addCalcStage, children: [
           "＋",
-          " Add a calculated column from existing sheets"
+          " Add a calculated column"
         ] }),
         /* @__PURE__ */ u3("div", { class: "pl-add-btn", onClick: addDetailBand, children: [
           "＋",
-          " Add related details from another sheet"
+          " Add detail rows from another"
         ] })
       ] })
     ] });
@@ -6896,23 +6900,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     const [renameTarget, setRenameTarget] = d2(null);
     y2(() => getStore().subscribe((s3) => setState(s3)), []);
     y2(() => {
-      const st = getStore().getState();
-      const reportSpec = buildReportSpecFromState(st);
-      const sourceCatalog = buildSourceCatalog(st.tables);
-      const currentCols = projectedCols(reportSpec, sourceCatalog);
-      const colSet = new Set(currentCols);
-      const needsSync = st.colOrder.some((c3) => !colSet.has(c3)) || currentCols.some((c3) => !st.colOrder.includes(c3));
-      if (needsSync) {
-        getStore().update((draft) => {
-          const cs = projectedCols(reportSpec, sourceCatalog);
-          const currentSet = new Set(cs);
-          draft.colOrder = [
-            ...draft.colOrder.filter((c3) => currentSet.has(c3)),
-            ...cs.filter((c3) => !draft.colOrder.includes(c3))
-          ];
-        });
-      }
-      _syncSubtotalByToLayout();
+      _afterCombineChange();
     }, [state.base, state.lookups.length, state.calcStages.length]);
     const base = state.base;
     if (!base) return null;
@@ -7017,7 +7005,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
           children: colOrder.map((c3) => {
             const src = colMap.get(c3);
             const colorCls = src && src.kind !== "calc" ? getTableColorClass(src.tid) : "";
-            const label = src && src.kind !== "calc" ? colUserLabel(src.tid, src.col) : c3;
+            const label = src && src.kind !== "calc" ? colLabel(src.tid, src.col) : c3;
             if (selSet && !selSet.has(c3)) return null;
             const tip = _buildTooltip(c3, src, state);
             if (mode === "group") {
@@ -7136,7 +7124,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     }, []);
     return /* @__PURE__ */ u3("div", { id: "mergeToggles", children: displayCols.map((c3) => {
       const src = colMap.get(c3);
-      const label = src && src.kind !== "calc" ? colUserLabel(src.tid, src.col) : c3;
+      const label = src && src.kind !== "calc" ? colLabel(src.tid, src.col) : c3;
       return /* @__PURE__ */ u3("label", { style: "display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.76rem;font-weight:normal;margin-top:4px", children: [
         /* @__PURE__ */ u3(
           "input",
@@ -7164,7 +7152,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
       const calc = getStore().getState().calcStages?.[src.idx];
       return (calc?.alias || "").trim() || alias;
     }
-    return tableShortName(src.tid) + " → " + colUserLabel(src.tid, src.col);
+    return colLabel(src.tid, src.col);
   }
   function getHint(mode, state) {
     if (mode === "none") return null;
@@ -7311,8 +7299,8 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     }, []);
     return /* @__PURE__ */ u3(S, { children: aggregates.map((agg, i3) => {
       const needsCol = AGG_NEEDS_COL(agg.fn);
-      const colLabel = needsCol ? agg.col ? _syncColDisplayLabel(agg.col, colMap) : "" : "all rows";
-      const placeholder = defaultAggAlias(agg.fn, colLabel);
+      const colLabel2 = needsCol ? agg.col ? _syncColDisplayLabel(agg.col, colMap) : "" : "all rows";
+      const placeholder = defaultAggAlias(agg.fn, colLabel2);
       const isAuto = agg.auto;
       return /* @__PURE__ */ u3("div", { class: `agg-row${isAuto ? " agg-row-auto" : ""}`, children: [
         isAuto && /* @__PURE__ */ u3("span", { class: "agg-auto-badge", title: "Auto-added — edit or delete to customize.", children: "auto" }),
@@ -7567,7 +7555,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
         /* @__PURE__ */ u3("option", { value: "", children: "Column…" }),
         cols.map((c3) => {
           const src = colMap.get(c3);
-          const label = src && src.kind !== "calc" ? colUserLabel(src.tid, src.col) : c3;
+          const label = src && src.kind !== "calc" ? colLabel(src.tid, src.col) : c3;
           return /* @__PURE__ */ u3("option", { value: c3, children: label }, c3);
         })
       ] }),
@@ -7682,7 +7670,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
         ] }),
         cols.map((c3) => {
           const src = colMap.get(c3);
-          const label = src && src.kind !== "calc" ? colUserLabel(src.tid, src.col) : c3;
+          const label = src && src.kind !== "calc" ? colLabel(src.tid, src.col) : c3;
           return /* @__PURE__ */ u3("option", { value: c3, children: label }, c3);
         })
       ] }),
@@ -7981,7 +7969,7 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
       const calc = getStore().getState().calcStages?.[src.idx];
       return (calc?.alias || "").trim() || alias;
     }
-    return tableShortName(src.tid) + " → " + colUserLabel(src.tid, src.col);
+    return colLabel(src.tid, src.col);
   }
   var BAND_ROW_TINTS = [
     "rgba(148, 163, 184, 0.08)",
@@ -8163,7 +8151,6 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
       if (!tableId || !state2.tables[tableId]) return;
       const t4 = state2.tables[tableId];
       const cap2 = 1e4;
-      const excluded2 = state2.excludedRows[tableId] || /* @__PURE__ */ new Set();
       let rows;
       try {
         rows = execQuery(`SELECT "_rowno", ${t4.cols.map((c3) => quoteId(c3)).join(", ")} FROM ${quoteId(tableId)} LIMIT ${cap2}`);
@@ -8182,7 +8169,9 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
         floatingFilter: false,
         cellRenderer: (params) => {
           const rowno = params.value;
-          const isExcl = excluded2.has(rowno);
+          const st = getStore().getState();
+          const excludedSet = st.excludedRows[tableId] || /* @__PURE__ */ new Set();
+          const isExcl = excludedSet.has(rowno);
           const btn = document.createElement("button");
           const rowData = params.data;
           const preview = t4.cols.filter((c3) => c3 !== "_rowno").map((c3) => rowData[c3] == null ? "" : String(rowData[c3])).filter((v3) => v3 !== "").slice(0, 6).join(" · ");
@@ -8198,6 +8187,10 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
               if (set.has(rowno)) set.delete(rowno);
               else set.add(rowno);
             });
+            if (gridPreview) {
+              gridPreview.refreshCells({ force: true });
+              gridPreview.redrawRows?.();
+            }
           });
           return btn;
         }
@@ -8222,7 +8215,9 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
         multiSortKey: "ctrl",
         getRowStyle: (params) => {
           const rowno = params.data && params.data._rowno;
-          if (excluded2.has(rowno)) {
+          const st = getStore().getState();
+          const excludedSet = st.excludedRows[tableId] || /* @__PURE__ */ new Set();
+          if (excludedSet.has(rowno)) {
             return {
               color: "#c0392b",
               textDecoration: "line-through",
@@ -8277,6 +8272,10 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
               getStore().update((draft) => {
                 draft.excludedRows[tableId] = /* @__PURE__ */ new Set();
               });
+              if (gridPreview) {
+                gridPreview.refreshCells({ force: true });
+                gridPreview.redrawRows?.();
+              }
             },
             children: "Clear all"
           }
@@ -8470,6 +8469,144 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     "FFFDF4FF"
     // purple-50
   ];
+  function computeBandColSets(detailBands, allCols) {
+    const result = {};
+    if (!detailBands) return result;
+    for (const band of detailBands) {
+      if (band.enabled === false) continue;
+      const prefix = "_" + band.id + "_";
+      const bandCols = allCols.filter((c3) => c3.startsWith(prefix));
+      const ordered = band.cols.map((c3) => prefix + c3).filter((c3) => bandCols.includes(c3));
+      for (const c3 of bandCols) {
+        if (!ordered.includes(c3)) ordered.push(c3);
+      }
+      result[band.id] = ordered;
+    }
+    return result;
+  }
+  function applyBandGroup(rows, bandId, matchAlias, bandColAliases, allHeaders, hdrMap) {
+    const matchLabel = allHeaders[0];
+    const result = [];
+    let currentMatchValue = null;
+    let collectedBandRows = [];
+    function flushCollected() {
+      if (collectedBandRows.length === 0) return;
+      const headerRow = { _processed: true, _rowKind: 4 };
+      headerRow[matchLabel] = currentMatchValue;
+      for (let i3 = 0; i3 < bandColAliases.length; i3++) {
+        const headerPosition = i3 + 1;
+        if (headerPosition < allHeaders.length) {
+          const colAlias = bandColAliases[i3];
+          const rawLabel = hdrMap[colAlias] || colAlias;
+          const displayLabel = rawLabel.startsWith("_band_") ? rawLabel.replace(/^_band_\d+_/, "") : rawLabel;
+          headerRow[allHeaders[headerPosition]] = displayLabel;
+        }
+      }
+      result.push(headerRow);
+      for (const row of collectedBandRows) {
+        const dataRow = { _processed: true, _rowKind: 0, _band_id: bandId };
+        dataRow[matchLabel] = "";
+        for (let i3 = 0; i3 < bandColAliases.length; i3++) {
+          const headerPosition = i3 + 1;
+          if (headerPosition < allHeaders.length) {
+            dataRow[allHeaders[headerPosition]] = row[bandColAliases[i3]] ?? "";
+          }
+        }
+        result.push(dataRow);
+      }
+      collectedBandRows = [];
+    }
+    for (const row of rows) {
+      if (row._processed) {
+        if (row._rowKind === 5) {
+          flushCollected();
+          const val = row[matchLabel] ?? row[matchAlias];
+          if (val != null) currentMatchValue = val;
+        }
+        result.push(row);
+        continue;
+      }
+      if (row._isTotalsRow) {
+        flushCollected();
+        result.push(row);
+        continue;
+      }
+      if (row._band_id == null) {
+        flushCollected();
+        currentMatchValue = row[matchAlias];
+        row._processed = true;
+        row._rowKind = 5;
+        for (const h4 of allHeaders) {
+          if (row[h4] == null) row[h4] = "";
+        }
+        result.push(row);
+      } else if (String(row._band_id) === bandId) {
+        collectedBandRows.push(row);
+      } else {
+        flushCollected();
+        result.push(row);
+      }
+    }
+    flushCollected();
+    return result;
+  }
+  function buildBandColumnLayout(dataRows, detailBands, allCols, hdrMap) {
+    const enabledBands = (detailBands || []).filter((b2) => b2.enabled !== false);
+    if (enabledBands.length === 0) {
+      const rowKinds2 = dataRows.map(() => 0);
+      const bandIds2 = dataRows.map(() => "");
+      const headers2 = [];
+      return { cleanRows: dataRows, rowKinds: rowKinds2, headers: headers2, bandIds: bandIds2 };
+    }
+    const bandColSets = computeBandColSets(detailBands, allCols);
+    const bandPrefixes = enabledBands.map((b2) => "_" + b2.id + "_");
+    const internalCols = /* @__PURE__ */ new Set(["_rowno", "_row_type", "_isTotalsRow", "_band_id", "_sort_row_type"]);
+    const parentColAliases = allCols.filter(
+      (c3) => !bandPrefixes.some((p3) => c3.startsWith(p3)) && !internalCols.has(c3) && !c3.startsWith("_sort_group_")
+    );
+    const parentLabels = parentColAliases.map((c3) => hdrMap[c3] || c3);
+    const headers = [...parentLabels];
+    const P4 = parentLabels.length;
+    let maxBandWidth = 0;
+    let widestBandId = null;
+    for (const band of enabledBands) {
+      const w3 = (bandColSets[band.id] || []).length;
+      if (w3 > maxBandWidth) {
+        maxBandWidth = w3;
+        widestBandId = band.id;
+      }
+    }
+    if (maxBandWidth > P4 - 1 && widestBandId != null) {
+      const widestBandCols = bandColSets[widestBandId] || [];
+      for (let i3 = P4 - 1; i3 < widestBandCols.length; i3++) {
+        const colAlias = widestBandCols[i3];
+        const rawLabel = hdrMap[colAlias] || colAlias;
+        const label = rawLabel.startsWith("_band_") ? rawLabel.replace(/^_band_\d+_/, "") : rawLabel;
+        headers.push(label);
+      }
+    }
+    const matchAlias = enabledBands[0]?.keyPairs?.[0]?.left;
+    let rows = dataRows;
+    for (const band of enabledBands) {
+      const bandColAliases = bandColSets[band.id] || [];
+      const bandMatchAlias = band.keyPairs?.[0]?.left || matchAlias || "";
+      rows = applyBandGroup(rows, band.id, bandMatchAlias, bandColAliases, headers, hdrMap);
+    }
+    const cleanRows = rows.map((row) => {
+      const out = {};
+      for (const h4 of headers) {
+        out[h4] = row[h4] ?? "";
+      }
+      return out;
+    });
+    const rowKinds = rows.map((row) => {
+      if (row._rowKind != null) return row._rowKind;
+      if (row._isTotalsRow) return 3;
+      return 0;
+    });
+    const bandIds = rows.map((row) => row._band_id != null ? String(row._band_id) : "");
+    return { cleanRows, rowKinds, headers, bandIds };
+  }
   function enrichRowsWithBandHeaders(dataRows, exportCols, bandLabels, isCsv) {
     let enrichedRows;
     if (!isCsv) {
@@ -8530,6 +8667,25 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
       return out;
     };
     const dataRows = totalsRow ? [...rows, { ...totalsRow, _isTotalsRow: true }] : [...rows];
+    const enabledBands = (state.detailBands || []).filter((b2) => b2.enabled !== false && b2.rightId);
+    if (enabledBands.length > 0) {
+      const { cleanRows, rowKinds: bandRowKinds, headers: bandHeaders, bandIds } = buildBandColumnLayout(dataRows, state.detailBands || [], cols || [], hdrMap || {});
+      if (isCsv) {
+        const ws = XLSX.utils.json_to_sheet(cleanRows, { header: bandHeaders, skipHeader: false });
+        const csv = XLSX.utils.sheet_to_csv(ws);
+        const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+        dl(blob, fn + ".csv");
+      } else {
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(cleanRows, { header: bandHeaders, skipHeader: false });
+        applyExportMerges(ws, cleanRows, bandRowKinds, bandHeaders, mergeHeaderSet);
+        styleExportSheet(ws, cleanRows, bandRowKinds, mergeHeaderSet, bandIds);
+        XLSX.utils.book_append_sheet(wb, ws, "Results");
+        XLSX.writeFile(wb, fn + ".xlsx");
+      }
+      toast("Exported " + cleanRows.length.toLocaleString() + " rows as " + fmt.toUpperCase(), "ok");
+      return;
+    }
     const bandLabels = buildBandLabels(state.detailBands, state.tables);
     const { enrichedRows, rowKinds } = enrichRowsWithBandHeaders(dataRows, exportCols, bandLabels, isCsv);
     const clean = enrichedRows.map(remap);
@@ -8672,6 +8828,23 @@ Sample values: ${vals.map((v3) => String(v3)).join(" · ")}` : `${from}
     }
     for (let r3 = 1; r3 <= range.e.r; r3++) {
       const rowType = rowKinds[r3 - 1] ?? 0;
+      if (rowType === 5) {
+        for (let c3 = range.s.c; c3 <= range.e.c; c3++) {
+          const addr = XLSX.utils.encode_cell({ r: r3, c: c3 });
+          let cell = ws[addr];
+          if (!cell) {
+            cell = { t: "s", v: "" };
+            ws[addr] = cell;
+          }
+          cell.s = {
+            font: { ...fontBase, bold: true, color: { rgb: "FF111827" } },
+            fill: { fgColor: { rgb: "FFF8FAFC" } },
+            alignment: { horizontal: "left", vertical: "center" },
+            border: { bottom: { style: "thin", color: borderColor } }
+          };
+        }
+        continue;
+      }
       if (rowType === 4) {
         for (let c3 = range.s.c; c3 <= range.e.c; c3++) {
           const addr = XLSX.utils.encode_cell({ r: r3, c: c3 });

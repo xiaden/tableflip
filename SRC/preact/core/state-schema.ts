@@ -12,7 +12,7 @@ export const RECOGNIZABLE_KEYS = [
   'base', 'baseCols', 'stacks', 'lookups', 'calcStages',
   'filters', 'sorts', 'colOrder', 'selCols', 'aggMode',
   'aggregates', 'colTotals', 'subtotalBy', 'subtotalFns', 'subtotalStrategy',
-  'detailBands', 'detailBandMode',
+  'detailBands',
 ];
 
 /**

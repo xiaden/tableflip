@@ -44,7 +44,6 @@ describe('State Constructors', () => {
       expect(state.sorts).toEqual([]);
       expect(state.result).toBeNull();
       expect(state.detailBands).toEqual([]);
-      expect(state.detailBandMode).toBe('separate');
     });
 
     it('should apply overrides', () => {
@@ -109,7 +108,6 @@ describe('State Constructors', () => {
       expect(rpt.mergeDisplay.mergedCols).toEqual([]);
       expect(rpt.mergeDisplay.mergeGroupUnderline).toBe(false);
       expect(rpt.publish.enabled).toBe(false);
-      expect(rpt.detailBandMode).toBe('separate');
     });
 
     it('should apply overrides', () => {

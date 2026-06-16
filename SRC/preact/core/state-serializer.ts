@@ -85,7 +85,6 @@ export function buildPayload(state: AppState): Record<string, unknown> {
       sorts:     (b.sorts || []).map(s => ({ col: s.col || '', dir: s.dir === 'DESC' ? 'DESC' : 'ASC', enabled: s.enabled !== false })),
       label:     typeof b.label === 'string' ? b.label : '',
     })),
-    detailBandMode: state.detailBandMode || 'separate',
     columnTypeOverrides: JSON.parse(JSON.stringify(state.columnTypeOverrides || {})),
   };
 }

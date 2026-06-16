@@ -19,7 +19,7 @@ import { useState, useEffect, useCallback } from 'preact/hooks';
 import { getStore } from '../../core/store';
 import { buildReportSpecFromState } from '../../core/state';
 import {
-  colUserLabel,
+  colLabel,
   getTableColorClass,
 } from '../../core/utils';
 import {
@@ -272,14 +272,14 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
                 <option value="">{'\u2014'} column {'\u2014'}</option>
                 {leftCols.map(c => {
                   const src = lkColMap.get(c);
-                  const label = src && src.kind !== 'calc' ? colUserLabel(src.tid, src.col) : c;
+                  const label = src && src.kind !== 'calc' ? colLabel(src.tid, src.col) : c;
                   return <option key={c} value={c}>{label}</option>;
                 })}
               </select>
               <span class="pl-lookup-eq">=</span>
               <select value={pair.right || ''} onChange={e => handleKpRightChange(pi, (e.target as HTMLSelectElement).value)}>
                 <option value="">{'\u2014'} column {'\u2014'}</option>
-                {rightCols.map(c => <option key={c} value={c}>{`${tables[band.rightId]?.name || band.rightId} \u2192 ${colUserLabel(band.rightId, c)}`}</option>)}
+                {rightCols.map(c => <option key={c} value={c}>{colLabel(band.rightId, c)}</option>)}
               </select>
               {pairs.length > 1 && (
                 <button class="pl-rm-kp" title="Remove this condition" onClick={() => removeKeyPair(pi)}>{'\u2715'}</button>
@@ -299,7 +299,7 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
               <Chip
                 key={c}
                 col={c}
-                label={colUserLabel(band.rightId, c)}
+                label={colLabel(band.rightId, c)}
                 selected={isSelected}
                 draggable={false}
                 chipClass="pl-col-chip"
@@ -310,10 +310,8 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
                 onContextMenu={e => {
                   e.preventDefault();
                   if (!band.rightId) return;
-                  const colMap2 = buildColSourceMap();
                   const bandPrefix = `_${band.id}_`;
                   const alias = bandPrefix + c;
-                  if (!colMap2.has(alias)) return;
                   setCtxMenu({
                     x: e.clientX,
                     y: e.clientY,
@@ -357,7 +355,7 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
                 >
                   <option value="">{'\u2014'} column {'\u2014'}</option>
                   {rightCols.map(c => (
-                    <option key={c} value={c}>{colUserLabel(band.rightId, c)}</option>
+                    <option key={c} value={c}>{colLabel(band.rightId, c)}</option>
                   ))}
                 </select>
                 <select

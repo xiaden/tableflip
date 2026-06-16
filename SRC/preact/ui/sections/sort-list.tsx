@@ -11,7 +11,7 @@
 import { useState, useEffect, useCallback } from 'preact/hooks';
 import { getStore } from '../../core/store';
 import { buildReportSpecFromState } from '../../core/state';
-import { colUserLabel } from '../../core/utils';
+import { colLabel } from '../../core/utils';
 import { buildColSourceMap, projectedCols } from '../../catalog/column-catalog';
 import { buildSourceCatalog } from '../../catalog/source-catalog';
 import { invalidateValidation } from '../../report/validation';
@@ -67,7 +67,7 @@ function SortRow({ s, i, cols, colMap }: SortRowProps) {
         <option value="">{'—'} column {'—'}</option>
         {cols.map(c => {
           const src = colMap.get(c);
-          const label = src && src.kind !== 'calc' ? colUserLabel(src.tid, src.col) : c;
+          const label = src && src.kind !== 'calc' ? colLabel(src.tid, src.col) : c;
           return <option key={c} value={c}>{label}</option>;
         })}
       </select>

@@ -46,12 +46,11 @@ function validPayload(overrides: Record<string, unknown> = {}): Record<string, a
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 describe('hydrateState — detail bands', () => {
-  it('should default detailBands to empty array and mode to separate when absent', () => {
+  it('should default detailBands to empty array when absent', () => {
     const payload = validPayload();
     const { next, brokenRefs } = hydrateState(payload, loadedTables());
 
     expect(next.detailBands).toEqual([]);
-    expect(next.detailBandMode).toBe('separate');
     // No broken refs related to detail bands
     expect(brokenRefs.filter(r => r.includes('detail') || r.includes('Related'))).toEqual([]);
   });
@@ -61,7 +60,6 @@ describe('hydrateState — detail bands', () => {
     const { next } = hydrateState(payload, loadedTables());
 
     expect(next.detailBands).toEqual([]);
-    expect(next.detailBandMode).toBe('separate');
   });
 
   it('should hydrate a valid detail band with all fields', () => {
@@ -75,7 +73,6 @@ describe('hydrateState — detail bands', () => {
         sorts: [{ col: 'ProductName', dir: 'ASC', enabled: true }],
         label: 'Line Items',
       }],
-      detailBandMode: 'separate',
     });
     const { next, brokenRefs } = hydrateState(payload, loadedTables());
 
@@ -181,28 +178,6 @@ describe('hydrateState — detail bands', () => {
     expect(brokenRefs.some(r => r.includes('FakeSortCol') && r.includes('Line Items'))).toBe(true);
   });
 
-  it('should accept detailBandMode "stack"', () => {
-    const payload = validPayload({ detailBandMode: 'stack' });
-    const { next } = hydrateState(payload, loadedTables());
-
-    expect(next.detailBandMode).toBe('stack');
-  });
-
-  it('should default detailBandMode to "separate" for unknown values', () => {
-    const payload = validPayload({ detailBandMode: 'invalid_mode' });
-    const { next } = hydrateState(payload, loadedTables());
-
-    expect(next.detailBandMode).toBe('separate');
-  });
-
-  it('should default detailBandMode to "separate" when absent', () => {
-    const payload = validPayload();
-    delete payload.detailBandMode;
-    const { next } = hydrateState(payload, loadedTables());
-
-    expect(next.detailBandMode).toBe('separate');
-  });
-
   it('should normalize sort directions during hydration', () => {
     const payload = validPayload({
       detailBands: [{
@@ -306,7 +281,6 @@ describe('hydrateState — detail bands', () => {
     const state = createAppState({
       base: 'Orders',
       detailBands: [band],
-      detailBandMode: 'stack',
     });
 
     // Serialize
@@ -316,7 +290,6 @@ describe('hydrateState — detail bands', () => {
     const { next, brokenRefs } = hydrateState(payload as Record<string, any>, loadedTables());
 
     expect(brokenRefs).toEqual([]);
-    expect(next.detailBandMode).toBe('stack');
     expect(next.detailBands).toHaveLength(1);
 
     const hydratedBand = (next.detailBands as any[])[0];

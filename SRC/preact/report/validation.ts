@@ -323,11 +323,11 @@ export function deriveValidation(
       // Validate key pairs
       for (let pi = 0; pi < (band.keyPairs || []).length; pi++) {
         const p = band.keyPairs[pi];
-        if (p.left && !projected.has(p.left)) {
+        if (p.left && !colMap.has(p.left)) {
           resolved = false;
           issues.push(mkIssue(
             `detailband_${i}_kp${pi}_left`, 'detailBand', 'pipeline', `detailband_${i}`,
-            `Match column "${p.left}" is not available`,
+            `Match column "${p.left}" does not exist in parent data`,
             { missingColumn: p.left },
           ));
         }

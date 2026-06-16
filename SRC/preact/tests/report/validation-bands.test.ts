@@ -1,3 +1,10 @@
+/**
+ * Tests for report/validation.ts — detail band validation.
+ *
+ * Covers missing child table, key pair validation (left/right column existence),
+ * sort column validation, multi-key validation, disabled bands, card mapping,
+ * match column existence (colMap vs selCols checks), and multiple bands.
+ */
 import { describe, it, expect } from 'vitest';
 import { deriveValidation } from '../../report/validation';
 import type { AppState, DetailBandSpec } from '../../types';
@@ -95,7 +102,7 @@ describe('validation — detail bands', () => {
 
   // ── Key pair validation ────────────────────────────────────────────────
 
-  it('should block when key pair left column is not in projected cols', () => {
+  it('should block when key pair left column does not exist in parent data', () => {
     const state = baseState({
       detailBands: [makeBand({
         keyPairs: [{ left: 'NonExistentCol', right: 'OrderId' }],
@@ -109,6 +116,7 @@ describe('validation — detail bands', () => {
     );
     expect(leftIssue).toBeDefined();
     expect(leftIssue!.message).toContain('NonExistentCol');
+    expect(leftIssue!.message).toContain('does not exist in parent data');
   });
 
   it('should block when key pair right column is not in child table', () => {
@@ -288,6 +296,50 @@ describe('validation — detail bands', () => {
     const bandItems = Object.keys(result.items).filter(k => k.startsWith('detailband_'));
     expect(bandItems.length).toBe(0);
     expect(result.reportStatus).toBe('healthy');
+  });
+
+  // ── Match column vs selCols / parent data ──────────────────────────────
+
+  it('should pass validation when match column exists in colMap but not in selCols (output columns)', () => {
+    // The key new behavior: match columns are validated against colMap (all resolvable
+    // parent columns), not against projected/selCols (user-selected output columns).
+    // A match column used for grouping doesn't need to be in the output.
+    const state = baseState({
+      detailBands: [makeBand({
+        keyPairs: [{ left: 'Status', right: 'OrderId' }],
+      })],
+    });
+    // selCols is a subset — only OrderId and Company selected for output
+    const selCols = ['OrderId', 'Company'];
+    // colMap contains ALL resolvable parent columns including Status
+    const result = deriveValidation(state, selCols, makeColMap(), makeSourceCatalog());
+    // Status is in colMap (it's a real Orders column) even though not in selCols
+    expect(result.items['detailband_0']).toBeDefined();
+    expect(result.items['detailband_0'].blocking).toBe(false);
+    expect(result.items['detailband_0'].resolved).toBe(true);
+    // No left-key issue should be raised
+    const leftIssue = result.items['detailband_0'].issues.find(
+      i => i.id === 'detailband_0_kp0_left',
+    );
+    expect(leftIssue).toBeUndefined();
+  });
+
+  it('should fail validation when match column does not exist in parent data (colMap)', () => {
+    // Match column must exist in parent data (colMap), not just in selCols
+    const state = baseState({
+      detailBands: [makeBand({
+        keyPairs: [{ left: 'CompletelyFakeColumn', right: 'OrderId' }],
+      })],
+    });
+    const result = deriveValidation(state, ordersCols, makeColMap(), makeSourceCatalog());
+    expect(result.reportStatus).toBe('blocked');
+    expect(result.items['detailband_0'].blocking).toBe(true);
+    const leftIssue = result.items['detailband_0'].issues.find(
+      i => i.id === 'detailband_0_kp0_left',
+    );
+    expect(leftIssue).toBeDefined();
+    expect(leftIssue!.message).toContain('CompletelyFakeColumn');
+    expect(leftIssue!.message).toContain('does not exist in parent data');
   });
 
   // ── Key pair skipped when base not ok ─────────────────────────────────
