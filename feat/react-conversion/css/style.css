@@ -41,6 +41,22 @@ body {
 /* Table list container */
 .tables-list { flex: 1; overflow-y: auto; }
 
+/* ── Sidebar ─────────────────────────────────────────────── */
+.sb-sec { padding: 12px; border-bottom: 1px solid var(--border); }
+.tcard {
+  padding: 8px 12px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background 0.12s; position: relative;
+}
+.tcard-name {
+  font-size: 0.82rem; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 22px;
+}
+.tcard-meta { font-size: 0.7rem; color: var(--muted); margin-top: 1px; }
+.sidebar-footer {
+  padding: 12px; border-top: 1px solid var(--border);
+  background: var(--bg3); margin-top: auto;
+}
+
 /* ── Cards ───────────────────────────────────────────────── */
 .card {
   background: var(--bg2); border: 1px solid var(--border);
@@ -412,6 +428,74 @@ body {
 ::-webkit-scrollbar-track  { background: var(--bg2); }
 ::-webkit-scrollbar-thumb  { background: #444c56; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* ── Column chip palette (Paul Tol 16-color) ────────────── */
+.chip-c0  { --chip-color: #4477AA; --chip-fg: #fff; }
+.chip-c1  { --chip-color: #EE6677; --chip-fg: #111; }
+.chip-c2  { --chip-color: #228833; --chip-fg: #fff; }
+.chip-c3  { --chip-color: #CCBB44; --chip-fg: #111; }
+.chip-c4  { --chip-color: #66CCEE; --chip-fg: #111; }
+.chip-c5  { --chip-color: #AA3377; --chip-fg: #fff; }
+.chip-c6  { --chip-color: #EE7733; --chip-fg: #111; }
+.chip-c7  { --chip-color: #0077BB; --chip-fg: #fff; }
+.chip-c8  { --chip-color: #33BBEE; --chip-fg: #111; }
+.chip-c9  { --chip-color: #EE3377; --chip-fg: #fff; }
+.chip-c10 { --chip-color: #CC3311; --chip-fg: #fff; }
+.chip-c11 { --chip-color: #009988; --chip-fg: #fff; }
+.chip-c12 { --chip-color: #882255; --chip-fg: #fff; }
+.chip-c13 { --chip-color: #117733; --chip-fg: #fff; }
+.chip-c14 { --chip-color: #999933; --chip-fg: #111; }
+.chip-c15 { --chip-color: #44AA99; --chip-fg: #111; }
+
+/* ── Tooltip badge ───────────────────────────────────────── */
+.tip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--muted); font-size: 0.62rem; font-weight: 700;
+  cursor: default; flex-shrink: 0; vertical-align: middle;
+  margin-left: 4px; transition: border-color 0.15s, color 0.15s;
+  user-select: none;
+}
+.tip:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Context menu ────────────────────────────────────────── */
+.ctx-menu {
+  position: fixed; z-index: 9600;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 4px 0; min-width: 140px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+}
+.ctx-menu-item {
+  display: block; width: 100%; padding: 7px 14px;
+  background: none; border: none; color: var(--text);
+  font-size: 0.82rem; text-align: left; cursor: pointer;
+}
+.ctx-menu-item:hover { background: var(--bg3); }
+
+/* ── Data grid wrapper ───────────────────────────────────── */
+.grid-wrap {
+  flex: 1; min-height: 0;
+  border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden;
+}
+
+/* ── Results bar ─────────────────────────────────────────── */
+.results-bar {
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0; min-height: 28px;
+}
+.results-count { font-size: 0.8rem; color: var(--muted); }
+
+/* ── Empty states ────────────────────────────────────────── */
+.empty {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 36px; color: var(--muted); text-align: center; gap: 6px;
+}
+.empty-icon  { font-size: 1.8rem; }
+.empty-title { font-size: 0.88rem; font-weight: 500; }
+.empty-sub   { font-size: 0.76rem; }
 
 /* ── AG Grid overrides ───────────────────────────────────── */
 /* Blend the balham-dark theme into the app's dark palette */
