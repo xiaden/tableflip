@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TableFlip (╯°□°）╯︵ ┻━┻</title>
+
+<script>
+// Local-dev asset cache busting without manual version bumps.
+window.__IS_LOCAL_DEV = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(location.hostname);
+window.__ASSET_VER = window.__IS_LOCAL_DEV
+  ? Date.now().toString(36)
+  : '20260531.9';
+window.assetUrl = p => `${p}?v=${window.__ASSET_VER}`;
+</script>
+
+<!-- XLSX runtime (pinned, local bundle) -->
+<script>document.write('<script src="' + assetUrl('/js/vendor/xlsx.bundle.js') + '"><\/script>');</script>
+<!-- AG Grid Community + sql.js runtimes (pinned, local bundles) -->
+<script>document.write('<link rel="stylesheet" href="' + assetUrl('/css/ag-grid.min.css') + '">');</script>
+<script>document.write('<link rel="stylesheet" href="' + assetUrl('/css/ag-theme-balham-dark.min.css') + '">');</script>
+<script>document.write('<script src="' + assetUrl('/js/vendor/ag-grid-community.min.js') + '"><\/script>');</script>
+<script>document.write('<script src="' + assetUrl('/js/wasm/sql-wasm.js') + '"><\/script>');</script>
+
+<script>document.write('<link rel="stylesheet" href="' + assetUrl('/css/style.css') + '">');</script>
+  <script type="module" crossorigin src="/assets/index-BN9qXpNi.js"></script>
+</head>
+
+<body>
+<div id="app"></div>
+</body>
+</html>
