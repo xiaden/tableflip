@@ -15,18 +15,29 @@ window.assetUrl = p => `${p}?v=${window.__ASSET_VER}`;
 </script>
 
 <!-- XLSX runtime (pinned, local bundle) -->
-<script>document.write('<script src="' + assetUrl('/js/vendor/xlsx.bundle.js') + '"><\/script>');</script>
-<!-- AG Grid Community + sql.js runtimes (pinned, local bundles) -->
-<script>document.write('<link rel="stylesheet" href="' + assetUrl('/css/ag-grid.min.css') + '">');</script>
-<script>document.write('<link rel="stylesheet" href="' + assetUrl('/css/ag-theme-balham-dark.min.css') + '">');</script>
-<script>document.write('<script src="' + assetUrl('/js/vendor/ag-grid-community.min.js') + '"><\/script>');</script>
-<script>document.write('<script src="' + assetUrl('/js/wasm/sql-wasm.js') + '"><\/script>');</script>
+<script>document.write('<script src="' + assetUrl('js/vendor/xlsx.bundle.js') + '"><\/script>');</script>
+<!-- sql.js runtime (pinned, local bundle) -->
+<script>document.write('<script src="' + assetUrl('js/wasm/sql-wasm.js') + '"><\/script>');</script>
+<!-- AG Grid styles (AG Grid JS is bundled via ag-grid-react) -->
+<script>document.write('<link rel="stylesheet" href="' + assetUrl('css/ag-grid.min.css') + '">');</script>
+<script>document.write('<link rel="stylesheet" href="' + assetUrl('css/ag-theme-balham-dark.min.css') + '">');</script>
 
-<script>document.write('<link rel="stylesheet" href="' + assetUrl('/css/style.css') + '">');</script>
-  <script type="module" crossorigin src="/assets/index-BN9qXpNi.js"></script>
+<script>document.write('<link rel="stylesheet" href="' + assetUrl('css/style.css') + '">');</script>
+  <script type="module" crossorigin src="./assets/index-B5SDoDfF.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/vendor-DzGA-zdN.js">
 </head>
 
 <body>
+<!-- Loading overlay — shown while SQLite WASM downloads, hidden by main.tsx once ready -->
+<div id="loadingOverlay" style="
+  position:fixed;inset:0;background:var(--bg, #1a1a2e);z-index:9998;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+">
+  <div style="font-size:2rem">⚙️</div>
+  <div style="font-size:1rem;font-weight:600">Loading database engine…</div>
+  <div style="font-size:0.8rem;color:var(--muted, #888)">Downloading SQLite WASM (~1.3 MB, cached after first use)</div>
+</div>
+
 <div id="app"></div>
 </body>
 </html>
