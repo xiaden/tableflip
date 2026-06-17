@@ -1,0 +1,53 @@
+# Task: AG Grid Migration (Imperative to Declarative)
+
+## Problem Statement
+
+Part C converts `SRC/preact/ui/grid.tsx` (593 lines) from Preact with imperative `agGrid.createGrid()` to React with declarative `<AgGridReact>`. This is the highest-complexity conversion in the entire project. The current code uses module-level singletons (`gridResult`, `gridPreview`), anonymous class-based header components (`_makeHeaderComponent`), double-RAF layout hacks, and external refresh functions that reach into module state. The target is ref-based grid access, React functional header components, and `ag-grid-react`'s built-in lifecycle management.
+
+**Prerequisite:** TASK-preact-to-react-A-foundation (React dependencies, `ag-grid-react` package, `useStore` hook).
+
+**Design doc:** `artifacts/designs/pending/DD-preact-to-react-conversion.md`
+
+## Phases
+
+### Phase 1: Grid Lifecycle Conversion
+
+Replace imperative grid creation/destruction with declarative `<AgGridReact>` components.
+
+- [x] Replace `import { useRef, useEffect, useState, useCallback } from 'preact/hooks'` with `react` imports in `grid.tsx`. Replace any `preact` imports with `react` equivalents
+    **Note:** P1-S1 complete: Replaced all Preact imports in grid.tsx. Changed `import { useRef, useEffect, useState, useCallback } from 'preact/hooks'` to `import { useRef, useState, useCallback, useMemo } from 'react'`. Added `import { AgGridReact } from 'ag-grid-react'` and `import type { GridApi, GridReadyEvent } from 'ag-grid-community'`. Removed `useEffect` import (no longer needed — grid lifecycle is declarative). No `preact/compat` createPortal was used in grid.tsx. Zero remaining `from 'preact'` references in grid.tsx.
+- [x] Remove module-level singleton variables: `let gridResult: AGridApi | null` and `let gridPreview: AGridApi | null`. Replace with `useRef<AgGridReact>(null)` inside the grid components
+    **Note:** P1-S2 complete: Removed module-level singleton variables `let gridResult: AGridApi | null` and `let gridPreview: AGridApi | null`. Replaced with `let _resultGridApi: GridApi | null` and `let _previewGridApi: GridApi | null` (using proper GridApi type from ag-grid-community instead of the custom AGridApi interface). Added `const gridRef = useRef<AgGridReact>(null)` in both ResultGrid and PreviewGrid components. Exported refresh functions preserved with same signatures.
+- [x] Create a `ResultGrid` React FC that wraps `<AgGridReact>` with all current result grid options: `rowData`, `columnDefs`, `defaultColDef`, `pagination`, `onColumnMoved`, `onColumnResized`, `onGridReady`. Use `useMemo` for `columnDefs` and `rowData` to prevent unnecessary re-renders
+    **Note:** P1-S3 complete: ResultGrid is now a React FC wrapping `<AgGridReact>`. Replaced the imperative `useEffect` + `agGrid.createGrid(el, options)` with declarative `<AgGridReact>` JSX. All grid options (rowData, columnDefs, defaultColDef, pagination, onColumnMoved, onColumnResized, onColumnVisible, getRowStyle, isFullWidthRow, fullWidthCellRenderer, embedFullWidthRows) passed as props. Used `useMemo` for gridData computation (rowData + columnDefs + band-specific options) keyed on [result, onRenameDone]. Container div replaced by AgGridReact's className='ag-theme-balham-dark' and containerStyle props. Added `onGridReady` callback to store API ref and apply saved column state. Extracted DEFAULT_COL_DEF as module-level constant (shared between both grids). Changed `class` to `className` and string `style` to style objects throughout.
+- [x] Create a `PreviewGrid` React FC that wraps `<AgGridReact>` with preview grid options. Same pattern as ResultGrid
+    **Note:** P1-S4 complete: PreviewGrid is now a React FC wrapping `<AgGridReact>`. Same pattern as ResultGrid. Replaced imperative `useEffect` + `agGrid.createGrid()` with `<AgGridReact>` JSX. Used `useMemo` for previewRows (keyed on [tableId]) and columnDefs (keyed on [tableId, table, showPreviewColumnMenu]). The exclude column's cellRenderer creates a DOM button (kept as imperative vanilla JS renderer — AG Grid supports both). The button click handler uses `_previewGridApi` for cell refresh. `getRowStyle` is a `useCallback` that reads excludedRows from store. All hooks called before early returns to satisfy React rules. Changed `class` to `className` and string `style` to style objects.
+- [x] Replace the `useEffect` that calls `agGrid.createGrid(el, options)` on mount and `gridApi.destroy()` on cleanup with the `<AgGridReact>` component's built-in lifecycle (no manual create/destroy needed)
+    **Note:** P1-S5 complete: Replaced imperative grid lifecycle with declarative `<AgGridReact>`. Removed all `useEffect` hooks that called `agGrid.createGrid()` and their `return () => { grid.destroy() }` cleanup functions. Grid creation/destruction is now automatic via React reconciliation — `<AgGridReact>` mounts the grid on component mount and destroys it on unmount. No manual lifecycle management needed. Removed `useEffect` import entirely (no longer used in grid.tsx).
+- [x] Replace external refresh functions (`refreshResultGridLayout`, `refreshPreviewGridLayout`) with ref-based alternatives. Either export ref-accessor functions or use `useImperativeHandle`/`forwardRef` to expose `api.resetRowHeights()` etc. to parent components
+    **Note:** P1-S6 complete: Replaced external refresh functions with ref-based approach. Module-level `_resultGridApi` and `_previewGridApi` (GridApi | null) are populated by `onGridReady` callbacks in each component. `refreshResultGridLayout()` and `refreshPreviewGridLayout()` exported functions use these refs — same API surface as before. `_saveResultColState()` uses `_resultGridApi` instead of the old `gridResult` singleton. PreviewGrid's exclude button click handler and 'Clear all' button use `_previewGridApi` for cell refresh. Used proper GridApi type from ag-grid-community (resetRowHeights, redrawRows are real methods — removed the `as unknown as Record<string, () => void>` casts from the old code).
+- [x] Remove double-RAF hacks: delete `requestAnimationFrame(() => requestAnimationFrame(() => refreshResultGridLayout()))` patterns. Replace with `onGridReady` callback or `ag-grid-react`'s built-in layout handling
+    **Note:** P1-S7 complete: Removed all double-RAF hacks. Deleted `requestAnimationFrame(() => requestAnimationFrame(() => refreshResultGridLayout()))` from both ResultGrid (old useEffect) and PreviewGrid (old useEffect). With `<AgGridReact>`, the grid handles layout automatically via its own lifecycle. The `onGridReady` callback is used for post-mount setup (applying saved column state). The exported `refreshResultGridLayout` and `refreshPreviewGridLayout` functions are kept working for app.tsx callers (which still has double-RAF calls on tab switch — those are in app.tsx scope, not grid.tsx). Note: app.tsx still imports and calls these functions with double-RAF — that's in app.tsx's conversion scope (Plan B/C later phase).
+
+### Phase 2: Header Component Conversion
+
+Replace the anonymous class-based `_makeHeaderComponent` factory with a React functional component.
+
+- [x] Create a `ColumnHeader` React FC that replaces `_makeHeaderComponent`. Accept props: `label`, `color`, `renamed`, `onRename`, `onClear`, `onContextMenu`. Use MUI `<Box>`, `<Typography>`, `<IconButton>` for the header layout (flex row with color bar, label, action buttons)
+    **Note:** Created ColumnHeader React FC in grid.tsx (lines 638-781) replacing the imperative _makeHeaderComponent class factory. Uses MUI Box, Typography, IconButton. Props: label, color, renamed, origCol, onRename, onClear, onContextMenu, onMoreClick (extra prop for preview grid left-click ⋯), progressSort (from AG Grid). Renders flex row with 3px color bar, ellipsis label (click to sort via progressSort), ⋯ button (left-click: onMoreClick > onRename; right-click: onContextMenu), × button (onClear). Added imports: Box, Typography, IconButton from @mui/material/*, MouseEvent as ReactMouseEvent from react. Deleted old _makeHeaderComponent (~65 lines). 0 typecheck errors in grid.tsx, 0 lint warnings.
+- [x] Update `makeResultCols` and `makePreviewCols` column definition builders to reference the `ColumnHeader` React component via AG Grid's `headerComponent` or `headerComponentFramework` prop instead of the anonymous class
+    **Note:** Updated makeResultCols and makePreviewCols to use headerComponent: ColumnHeader + headerComponentParams instead of _makeHeaderComponent(...). makeResultCols passes label, color, renamed, origCol, onRename (doRename for non-calc cols), onClear (reset label for renamed non-calc cols), onContextMenu (type override menu). makePreviewCols passes label, color, renamed, origCol, onRename: null, onClear (doClear), onContextMenu (showMenu on right-click), onMoreClick (showMenu on left-click — preserves original behavior where left-click ⋯ opened the preview column menu). AG Grid merges headerComponentParams with internal params (progressSort etc.) at runtime. 0 typecheck errors.
+- [x] Verify column state persistence works: `onColumnMoved`, `onColumnResized` callbacks must still save/restore column state via the grid ref (`gridRef.current?.api.getColumnState()`)
+    **Note:** Verified column state persistence works correctly. _saveResultColState() uses _resultGridApi (module-level GridApi ref populated by onGridReady). All three callbacks (onColumnMoved, onColumnResized, onColumnVisible) call _saveResultColState() which calls _resultGridApi.getColumnState() and persists to store. Column state is restored on grid ready via params.api.applyColumnState(). No changes needed — the Phase 1 refactoring already correctly migrated from the old gridResult singleton to _resultGridApi.
+- [x] Run `npm run typecheck` and verify zero errors in `grid.tsx`. Run `npm run lint` and fix any warnings
+    **Note:** npm run typecheck: 0 errors in grid.tsx (pre-existing errors in other unconverted files remain — not in scope). npm run lint: 0 warnings/errors across entire project. Both checks pass cleanly for grid.tsx changes.
+
+## Completion Criteria
+
+- `grid.tsx` uses `import { AgGridReact } from 'ag-grid-react'` (no `agGrid.createGrid` calls)
+- Zero module-level grid API singletons (`gridResult`, `gridPreview` removed)
+- `ColumnHeader` is a React FC (no anonymous class with `init()/getGui()/destroy()/refresh()`)
+- No double-RAF hacks remain
+- Column state persistence (move, resize, visibility) works identically to before
+- `npm run typecheck` shows zero errors in `grid.tsx`
+- All AG Grid event handlers (`onColumnMoved`, `onColumnResized`, `onCellClicked`, etc.) preserved

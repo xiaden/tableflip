@@ -1,16 +1,18 @@
 /**
  * Layout card — aggregation mode selector, column chips, and aggregation config.
  *
- * Renders radio buttons for aggregation mode (none/group/totals/subtotals),
+ * Renders toggle buttons for aggregation mode (none/group/totals/subtotals),
  * column chips for layout ordering, and mode-specific aggregation sections
  * (group-by aggregates, column totals, subtotal configuration).
  *
  * Ported from pipeline-card.tsx (layout card portion) and output-card.tsx.
- * Uses store.subscribe() for reactive updates instead of imperative re-renders.
+ * Uses useStore() for reactive updates instead of raw store.subscribe().
  */
 
-import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useEffect, useCallback } from 'react';
+import Tooltip from '@mui/material/Tooltip';
 import { getStore } from '../../core/store';
+import { useStore } from '../useStore';
 import { buildReportSpecFromState } from '../../core/state';
 import { colLabel, defaultAggAlias } from '../../core/utils';
 import { buildColSourceMap, projectedCols } from '../../catalog/column-catalog';
@@ -36,9 +38,22 @@ import {
 } from '../aggregation';
 import type { AppState, AggMode, AggregateSpec } from '../../types';
 import type { ColMapEntry } from '../../catalog/column-catalog';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Checkbox from '@mui/material/Checkbox';
+import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
 
 // ── Sync display label helper ─────────────────────────────────────────────────
-// colDisplayLabel is async in the preact core; this sync version works when
+// colDisplayLabel is async in the core layer; this sync version works when
 // a pre-built colMap is available.
 
 function _syncColDisplayLabel(alias: string, colMap: Map<string, ColMapEntry>): string {
@@ -74,8 +89,7 @@ function getHint(mode: AggMode, state: AppState): string | null {
 // ── Totals Section ────────────────────────────────────────────────────────────
 
 function TotalsSection({ cols }: { cols: string[] }) {
-  const [state, setState] = useState<AppState>(getStore().getState());
-  useEffect(() => getStore().subscribe(s => setState(s)), []);
+  const state = useStore(s => s);
 
   const colMap = buildColSourceMap();
   const selSet = state.selCols;
@@ -89,7 +103,7 @@ function TotalsSection({ cols }: { cols: string[] }) {
   }, []);
 
   if (!visibleCols.length) {
-    return <span style="font-size:0.76rem;color:var(--muted)">No columns available</span>;
+    return <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>No columns available</span>;
   }
 
   return (
@@ -98,17 +112,23 @@ function TotalsSection({ cols }: { cols: string[] }) {
         const cur = state.colTotals[col] || 'skip';
         const label = _syncColDisplayLabel(col, colMap);
         return (
-          <div key={col} class="totals-row">
-            <span class="totals-col-name" title={col}>{label}</span>
-            <select
-              class="totals-fn-sel"
-              value={cur}
-              onChange={e => handleTotalChange(col, (e.target as HTMLSelectElement).value)}
-            >
-              {TOTAL_FNS.map(f => (
-                <option key={f} value={f}>{TOTAL_LABELS[f]}</option>
-              ))}
-            </select>
+          <div key={col} className="totals-row">
+            <span className="totals-col-name" title={col}>{label}</span>
+            <FormControl size="small">
+              <Select
+                className="totals-fn-sel"
+                value={cur}
+                onChange={e => handleTotalChange(col, e.target.value as string)}
+                sx={{
+                  '& .MuiSelect-select': { py: 0.5, px: 1, fontSize: '0.78rem', minHeight: 'unset' },
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
+                }}
+              >
+                {TOTAL_FNS.map(f => (
+                  <MenuItem key={f} value={f}>{TOTAL_LABELS[f]}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </div>
         );
       })}
@@ -119,8 +139,7 @@ function TotalsSection({ cols }: { cols: string[] }) {
 // ── Subtotals Section ─────────────────────────────────────────────────────────
 
 function SubtotalsSection({ cols }: { cols: string[] }) {
-  const [state, setState] = useState<AppState>(getStore().getState());
-  useEffect(() => getStore().subscribe(s => setState(s)), []);
+  const state = useStore(s => s);
 
   const colMap = buildColSourceMap();
   const subtotalBy = state.subtotalBy || [];
@@ -158,13 +177,13 @@ function SubtotalsSection({ cols }: { cols: string[] }) {
   }, []);
 
   if (subtotalBy.length === 0) {
-    return <span style="font-size:0.76rem;color:var(--muted)">Click columns above to choose group keys — then configure subtotal rows here.</span>;
+    return <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>Click columns above to choose group keys — then configure subtotal rows here.</span>;
   }
 
   const visibleCols = cols.filter(c => (!selSet || selSet.has(c)) && !subtotalBy.includes(c));
 
   if (!visibleCols.length) {
-    return <span style="font-size:0.76rem;color:var(--muted)">All columns are group keys.</span>;
+    return <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>All columns are group keys.</span>;
   }
 
   return (
@@ -183,17 +202,23 @@ function SubtotalsSection({ cols }: { cols: string[] }) {
         const fnList = isAdvancedCalc ? ['skip' as const] : SUBTOTAL_FNS;
 
         return (
-          <div key={col} class="totals-row">
-            <span class="totals-col-name" title={col}>{label}</span>
-            <select
-              class="totals-fn-sel"
-              value={cur}
-              onChange={e => handleSubtotalFnChange(col, (e.target as HTMLSelectElement).value)}
-            >
-              {fnList.map(f => (
-                <option key={f} value={f}>{SUBTOTAL_LABELS[f]}</option>
-              ))}
-            </select>
+          <div key={col} className="totals-row">
+            <span className="totals-col-name" title={col}>{label}</span>
+            <FormControl size="small">
+              <Select
+                className="totals-fn-sel"
+                value={cur}
+                onChange={e => handleSubtotalFnChange(col, e.target.value as string)}
+                sx={{
+                  '& .MuiSelect-select': { py: 0.5, px: 1, fontSize: '0.78rem', minHeight: 'unset' },
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
+                }}
+              >
+                {fnList.map(f => (
+                  <MenuItem key={f} value={f}>{SUBTOTAL_LABELS[f]}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </div>
         );
       })}
@@ -204,8 +229,7 @@ function SubtotalsSection({ cols }: { cols: string[] }) {
 // ── Aggregate Items Section ───────────────────────────────────────────────────
 
 function AggregateItems({ cols }: { cols: string[] }) {
-  const [state, setState] = useState<AppState>(getStore().getState());
-  useEffect(() => getStore().subscribe(s => setState(s)), []);
+  const state = useStore(s => s);
 
   const colMap = buildColSourceMap();
   const selSet = state.selCols;
@@ -217,7 +241,7 @@ function AggregateItems({ cols }: { cols: string[] }) {
     const msg = groupBy.length > 0
       ? 'No calculations — add one below or click ungrouped chips above'
       : 'Click a column above to start grouping';
-    return <span style="font-size:0.76rem;color:var(--muted)">{msg}</span>;
+    return <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>{msg}</span>;
   }
 
   const handleFnChange = useCallback((i: number, val: string) => {
@@ -241,6 +265,11 @@ function AggregateItems({ cols }: { cols: string[] }) {
     });
   }, []);
 
+  const compactSelectSx = {
+    '& .MuiSelect-select': { py: 0.5, px: 1, fontSize: '0.78rem', minHeight: 'unset' },
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
+  };
+
   return (
     <>
       {aggregates.map((agg, i) => {
@@ -252,34 +281,64 @@ function AggregateItems({ cols }: { cols: string[] }) {
         const isAuto = (agg as AggregateSpec & { auto?: boolean }).auto;
 
         return (
-          <div key={i} class={`agg-row${isAuto ? ' agg-row-auto' : ''}`}>
+          <div key={i} className="agg-row" style={isAuto ? { opacity: 0.82 } : undefined}>
             {isAuto && (
-              <span class="agg-auto-badge" title="Auto-added — edit or delete to customize.">auto</span>
+              <span style={{
+                fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase' as const,
+                letterSpacing: '0.06em', color: 'var(--muted)',
+                border: '1px solid var(--border)', borderRadius: '4px',
+                padding: '1px 5px', flexShrink: 0, alignSelf: 'center',
+              }} title="Auto-added — edit or delete to customize.">auto</span>
             )}
-            <input
-              type="text"
-              class="agg-alias"
+            <TextField
+              className="agg-alias"
               placeholder={placeholder}
               value={agg.alias}
-              onInput={e => handleAliasChange(i, (e.target as HTMLInputElement).value)}
+              onChange={e => handleAliasChange(i, e.target.value)}
+              size="small"
+              sx={{
+                width: 120,
+                '& input': { py: 0.5, px: 1, fontSize: '0.78rem' },
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
+              }}
             />
-            <span class="agg-eq">=</span>
-            <select value={agg.fn} onChange={e => handleFnChange(i, (e.target as HTMLSelectElement).value)}>
-              {AGG_FNS.map(f => (
-                <option key={f} value={f}>{AGG_LABELS[f]}</option>
-              ))}
-            </select>
+            <span className="agg-eq">=</span>
+            <FormControl size="small">
+              <Select
+                value={agg.fn}
+                onChange={e => handleFnChange(i, e.target.value as string)}
+                sx={compactSelectSx}
+              >
+                {AGG_FNS.map(f => (
+                  <MenuItem key={f} value={f}>{AGG_LABELS[f]}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
             {needsCol && (
               <>
-                <span class="agg-eq">of</span>
-                <select value={agg.col} onChange={e => handleColChange(i, (e.target as HTMLSelectElement).value)}>
-                  {visibleCols.map(c => (
-                    <option key={c} value={c}>{_syncColDisplayLabel(c, colMap)}</option>
-                  ))}
-                </select>
+                <span className="agg-eq">of</span>
+                <FormControl size="small">
+                  <Select
+                    value={agg.col}
+                    onChange={e => handleColChange(i, e.target.value as string)}
+                    sx={compactSelectSx}
+                  >
+                    {visibleCols.map(c => (
+                      <MenuItem key={c} value={c}>{_syncColDisplayLabel(c, colMap)}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </>
             )}
-            <button class="btn btn-danger" onClick={() => removeAggregate(i)}>{'✕'}</button>
+            <Button
+              variant="contained"
+              color="error"
+              size="small"
+              sx={{ minWidth: 'unset', py: 0.25, px: 0.75 }}
+              onClick={() => removeAggregate(i)}
+            >
+              {'✕'}
+            </Button>
           </div>
         );
       })}
@@ -289,10 +348,20 @@ function AggregateItems({ cols }: { cols: string[] }) {
 
 // ── Main Layout Card ──────────────────────────────────────────────────────────
 
+/**
+ * Layout card — aggregation mode selector, column chips, and aggregation config.
+ *
+ * Renders toggle buttons for aggregation mode (none/group/totals/subtotals),
+ * column chips for layout ordering, and mode-specific aggregation sections
+ * (group-by aggregates, column totals, subtotal configuration). Also renders
+ * merge display toggles for visual cell merging.
+ *
+ * Returns null when no base table is selected. Delegates state mutations to
+ * the aggregation module (setAggMode, addAggregate, etc.) which handle
+ * validation invalidation.
+ */
 export function LayoutCard() {
-  const [state, setState] = useState<AppState>(getStore().getState());
-
-  useEffect(() => getStore().subscribe(s => setState(s)), []);
+  const state = useStore(s => s);
 
   const base = state.base;
   if (!base) return null;
@@ -309,136 +378,186 @@ export function LayoutCard() {
 
   const hint = getHint(mode, state);
 
-  const handleModeChange = useCallback((newMode: string) => {
-    setAggMode(newMode as AggMode);
+  const handleModeChange = useCallback((_: React.MouseEvent<HTMLElement>, newMode: string | null) => {
+    if (newMode) setAggMode(newMode as AggMode);
   }, []);
 
   return (
-    <div id="layoutCard" class="card">
-      {/* Aggregation mode tabs */}
-      <div class="card-header" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <span style="font-weight:600;font-size:0.82rem">Layout <Tip text="Choose which columns appear in your report and how they are arranged. Drag chips to reorder columns. Double-click a chip to show or hide it." /></span>
-        <div class="tab-row">
-          <label class="tab-opt">
-            <input type="radio" name="aggMode" value="none" checked={mode === 'none'} onChange={() => handleModeChange('none')} />
-            <span data-tip="Show every row exactly as it is. Use the chips below to choose which columns appear in your report.">No summary</span>
-          </label>
-          <label class="tab-opt">
-            <input type="radio" name="aggMode" value="group" checked={mode === 'group'} onChange={() => handleModeChange('group')} />
-            <span data-tip="Group rows that share the same value, then calculate totals for each group — like a PivotTable. Double-click a chip to make it a group key.">Summarize</span>
-          </label>
-          <label class="tab-opt">
-            <input type="radio" name="aggMode" value="totals" checked={mode === 'totals'} onChange={() => handleModeChange('totals')} />
-            <span data-tip="Keep every row as-is, then add one extra row at the bottom with totals (like Sum, Count, Average) for each column.">Keep all rows + totals</span>
-          </label>
-          <label class="tab-opt">
-            <input type="radio" name="aggMode" value="subtotals" checked={mode === 'subtotals'} onChange={() => handleModeChange('subtotals')} />
-            <span data-tip="Keep all detail rows, but group them visually. After each group, insert a subtotal row. Optionally add a grand total at the very bottom.">Group rows + subtotals</span>
-          </label>
-        </div>
-        <Tip text={"Choose how your data is summarized:\n\n• No summary — every row stays as-is\n• Summarize — group rows and calculate totals\n• Keep all + totals — show all rows plus a totals row\n• Group + subtotals — group rows with a subtotal after each group"} />
-      </div>
+    <Card id="layoutCard" className="card" sx={{ background: 'transparent', boxShadow: 'none' }}>
+      <CardContent>
+        {/* Aggregation mode tabs */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 1 }}>
+          <Typography sx={{ fontWeight: 600, fontSize: '0.82rem' }}>
+            Layout <Tip text="Choose which columns appear in your report and how they are arranged. Drag chips to reorder columns. Double-click a chip to show or hide it." />
+          </Typography>
+          <ToggleButtonGroup
+            value={mode}
+            exclusive
+            onChange={handleModeChange}
+            size="small"
+            className="tab-row"
+          >
+            <ToggleButton value="none" sx={{ fontSize: '0.76rem', py: 0.25, px: 1, textTransform: 'none' }}>
+              <Tooltip title="Show every row exactly as it is. Use the chips below to choose which columns appear in your report.">
+                <span>No summary</span>
+              </Tooltip>
+            </ToggleButton>
+            <ToggleButton value="group" sx={{ fontSize: '0.76rem', py: 0.25, px: 1, textTransform: 'none' }}>
+              <Tooltip title="Group rows that share the same value, then calculate totals for each group — like a PivotTable. Double-click a chip to make it a group key.">
+                <span>Summarize</span>
+              </Tooltip>
+            </ToggleButton>
+            <ToggleButton value="totals" sx={{ fontSize: '0.76rem', py: 0.25, px: 1, textTransform: 'none' }}>
+              <Tooltip title="Keep every row as-is, then add one extra row at the bottom with totals (like Sum, Count, Average) for each column.">
+                <span>Keep all rows + totals</span>
+              </Tooltip>
+            </ToggleButton>
+            <ToggleButton value="subtotals" sx={{ fontSize: '0.76rem', py: 0.25, px: 1, textTransform: 'none' }}>
+              <Tooltip title="Keep all detail rows, but group them visually. After each group, insert a subtotal row. Optionally add a grand total at the very bottom.">
+                <span>Group rows + subtotals</span>
+              </Tooltip>
+            </ToggleButton>
+          </ToggleButtonGroup>
+          <Tip text={"Choose how your data is summarized:\n\n• No summary — every row stays as-is\n• Summarize — group rows and calculate totals\n• Keep all + totals — show all rows plus a totals row\n• Group + subtotals — group rows with a subtotal after each group"} />
+        </Box>
 
-      {/* Hint */}
-      {hint && (
-        <div id="aggHint" style="font-size:0.72rem;color:var(--muted);padding:4px 0">
-          {hint}
-        </div>
-      )}
+        {/* Hint */}
+        {hint && (
+          <Box id="aggHint" sx={{ fontSize: '0.72rem', color: 'var(--muted)', py: 0.5 }}>
+            {hint}
+          </Box>
+        )}
 
-      {/* Column chips (always visible) */}
-      <ColumnChips />
+        {/* Column chips (always visible) */}
+        <ColumnChips />
 
-      {/* Group-by aggregates section */}
-      {mode === 'group' && (
-        <div id="aggSection" style="margin-top:8px">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-            <span style="font-size:0.76rem;font-weight:600;color:var(--muted)">Calculations <Tip text={"Choose how non-group columns are summarized.\n\nFor example:\n• Sum adds up all values\n• Average finds the mean\n• Count counts the rows\n\nYou can add multiple calculations."} /></span>
-          </div>
-          <AggregateItems cols={cols} />
-          {(state.groupBy.length > 0) && (
-            <div id="aggAddRow" style="margin-top:6px">
-              <button class="btn btn-ghost" style="font-size:0.72rem;padding:2px 8px" onClick={addAggregate} title="Add another calculation like Sum, Average, Count, etc.">
-                {'＋'} Add calculation
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+        {/* Group-by aggregates section */}
+        {mode === 'group' && (
+          <Box id="aggSection" sx={{ mt: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
+              <Typography sx={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--muted)' }}>
+                Calculations <Tip text={"Choose how non-group columns are summarized.\n\nFor example:\n• Sum adds up all values\n• Average finds the mean\n• Count counts the rows\n\nYou can add multiple calculations."} />
+              </Typography>
+            </Box>
+            <AggregateItems cols={cols} />
+            {(state.groupBy.length > 0) && (
+              <Box id="aggAddRow" sx={{ mt: 0.75 }}>
+                <Button
+                  variant="text"
+                  size="small"
+                  onClick={addAggregate}
+                  title="Add another calculation like Sum, Average, Count, etc."
+                  sx={{ fontSize: '0.72rem', py: 0.25, px: 1, minWidth: 'unset' }}
+                >
+                  {'＋'} Add calculation
+                </Button>
+              </Box>
+            )}
+          </Box>
+        )}
 
-      {/* Totals section */}
-      {mode === 'totals' && (
-        <div id="totalsSection" style="margin-top:8px">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-            <span style="font-size:0.76rem;font-weight:600;color:var(--muted)">Totals row <Tip text={"For each column in your report, choose what the totals row at the bottom should display.\n\n• Skip — leaves the cell blank\n• Sum, Average, Count, etc. — calculates that value for the column"} /></span>
-          </div>
-          <TotalsSection cols={cols} />
-        </div>
-      )}
+        {/* Totals section */}
+        {mode === 'totals' && (
+          <Box id="totalsSection" sx={{ mt: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
+              <Typography sx={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--muted)' }}>
+                Totals row <Tip text={"For each column in your report, choose what the totals row at the bottom should display.\n\n• Skip — leaves the cell blank\n• Sum, Average, Count, etc. — calculates that value for the column"} />
+              </Typography>
+            </Box>
+            <TotalsSection cols={cols} />
+          </Box>
+        )}
 
-      {/* Subtotals section */}
-      {mode === 'subtotals' && (
-        <div id="subtotalsSection" style="margin-top:8px">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-            <span style="font-size:0.76rem;font-weight:600;color:var(--muted)">Subtotal rows <Tip text={"For each non-group column, choose what value appears in the subtotal row after each group.\n\n• Skip — leaves the cell blank\n• Sum, Average, Count, etc. — calculates that value for the group"} /></span>
-          </div>
-          {/* Subtotal options */}
-          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:0.76rem;margin-bottom:8px">
-            <label style="cursor:pointer;display:flex;align-items:center;gap:3px">
-              <input
-                type="checkbox"
-                checked={state.subtotalGrandTotal !== false}
-                onChange={e => setSubtotalGrandTotal((e.target as HTMLInputElement).checked)}
+        {/* Subtotals section */}
+        {mode === 'subtotals' && (
+          <Box id="subtotalsSection" sx={{ mt: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
+              <Typography sx={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--muted)' }}>
+                Subtotal rows <Tip text={"For each non-group column, choose what value appears in the subtotal row after each group.\n\n• Skip — leaves the cell blank\n• Sum, Average, Count, etc. — calculates that value for the group"} />
+              </Typography>
+            </Box>
+            {/* Subtotal options */}
+            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap', fontSize: '0.76rem', mb: 1 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={state.subtotalGrandTotal !== false}
+                    onChange={e => setSubtotalGrandTotal(e.target.checked)}
+                    size="small"
+                    sx={{ py: 0, px: 0.5 }}
+                  />
+                }
+                label={<span>Grand total <Tip text="Adds one final total row at the very bottom, combining all groups together." /></span>}
+                sx={{ cursor: 'pointer', '& .MuiFormControlLabel-label': { fontSize: '0.76rem' } }}
               />
-              Grand total <Tip text="Adds one final total row at the very bottom, combining all groups together." />
-            </label>
-            <label style="cursor:pointer;display:flex;align-items:center;gap:3px">
-              <input
-                type="checkbox"
-                checked={!!state.subtotalSpacer}
-                onChange={e => setSubtotalSpacer((e.target as HTMLInputElement).checked)}
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={!!state.subtotalSpacer}
+                    onChange={e => setSubtotalSpacer(e.target.checked)}
+                    size="small"
+                    sx={{ py: 0, px: 0.5 }}
+                  />
+                }
+                label={<span>Spacer rows <Tip text="Inserts an empty row after each subtotal block to make the report easier to read." /></span>}
+                sx={{ cursor: 'pointer', '& .MuiFormControlLabel-label': { fontSize: '0.76rem' } }}
               />
-              Spacer rows <Tip text="Inserts an empty row after each subtotal block to make the report easier to read." />
-            </label>
-            <label style="cursor:pointer;display:flex;align-items:center;gap:3px">
-              <input
-                type="checkbox"
-                checked={!!state.subtotalOnTop}
-                onChange={e => setSubtotalOnTop((e.target as HTMLInputElement).checked)}
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={!!state.subtotalOnTop}
+                    onChange={e => setSubtotalOnTop(e.target.checked)}
+                    size="small"
+                    sx={{ py: 0, px: 0.5 }}
+                  />
+                }
+                label={<span>Headers on top <Tip text="Shows each group's subtotal row before that group's detail rows instead of after." /></span>}
+                sx={{ cursor: 'pointer', '& .MuiFormControlLabel-label': { fontSize: '0.76rem' } }}
               />
-              Headers on top <Tip text="Shows each group's subtotal row before that group's detail rows instead of after." />
-            </label>
-          </div>
-          <div style="margin-bottom:8px">
-            <span style="font-size:0.76rem;color:var(--muted);margin-right:8px">Strategy <Tip text={"'Combined' groups all keys at once — like a PivotTable with multiple row fields.\n\n'Nested' produces subtotals at each level — like an outline with sub-groups."} />:</span>
-            <div class="tab-row" style="display:inline-flex">
-              <label class="tab-opt">
-                <input type="radio" name="subtotalStrategy" value="combined" checked={(state.subtotalStrategy || 'combined') === 'combined'} onChange={() => setSubtotalStrategy('combined')} />
-                <span>Combined</span>
-              </label>
-              <label class="tab-opt">
-                <input type="radio" name="subtotalStrategy" value="nested" checked={state.subtotalStrategy === 'nested'} onChange={() => setSubtotalStrategy('nested')} />
-                <span>Nested</span>
-              </label>
-            </div>
-          </div>
-          <SubtotalsSection cols={cols} />
-        </div>
-      )}
+            </Box>
+            <Box sx={{ mb: 1 }}>
+              <Typography component="span" sx={{ fontSize: '0.76rem', color: 'var(--muted)', mr: 1 }}>
+                Strategy <Tip text={"'Combined' groups all keys at once — like a PivotTable with multiple row fields.\n\n'Nested' produces subtotals at each level — like an outline with sub-groups."} />:
+              </Typography>
+              <ToggleButtonGroup
+                value={state.subtotalStrategy || 'combined'}
+                exclusive
+                onChange={(_: React.MouseEvent<HTMLElement>, val: string | null) => { if (val) setSubtotalStrategy(val); }}
+                size="small"
+                sx={{ display: 'inline-flex' }}
+              >
+                <ToggleButton value="combined" sx={{ fontSize: '0.76rem', py: 0.25, px: 1, textTransform: 'none' }}>
+                  Combined
+                </ToggleButton>
+                <ToggleButton value="nested" sx={{ fontSize: '0.76rem', py: 0.25, px: 1, textTransform: 'none' }}>
+                  Nested
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+            <SubtotalsSection cols={cols} />
+          </Box>
+        )}
 
-      {/* Merge toggles */}
-      <div style="margin-top:12px">
-        <div style="font-size:0.76rem;font-weight:600;margin-bottom:4px">Merge display <Tip text={"When enabled for a column, consecutive rows with the same value are visually merged into one tall cell — like Excel's 'Merge cells' feature.\n\nUseful for cleaner-looking grouped data."} /></div>
-        <MergeToggles />
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.76rem;margin-top:6px">
-          <input
-            type="checkbox"
-            checked={state.mergeGroupUnderline}
-            onChange={e => setMergeGroupUnderline((e.target as HTMLInputElement).checked)}
+        {/* Merge toggles */}
+        <Box sx={{ mt: 1.5 }}>
+          <Typography sx={{ fontSize: '0.76rem', fontWeight: 600, mb: 0.5 }}>
+            Merge display <Tip text={"When enabled for a column, consecutive rows with the same value are visually merged into one tall cell — like Excel's 'Merge cells' feature.\n\nUseful for cleaner-looking grouped data."} />
+          </Typography>
+          <MergeToggles />
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={state.mergeGroupUnderline}
+                onChange={e => setMergeGroupUnderline(e.target.checked)}
+                size="small"
+                sx={{ py: 0, px: 0.5 }}
+              />
+            }
+            label={<span>Underline merged groups <Tip text="Adds a subtle line at the end of each merged block to help visually separate groups." /></span>}
+            sx={{ display: 'flex', cursor: 'pointer', fontSize: '0.76rem', mt: 0.75, '& .MuiFormControlLabel-label': { fontSize: '0.76rem' } }}
           />
-          Underline merged groups <Tip text="Adds a subtle line at the end of each merged block to help visually separate groups." />
-        </label>
-      </div>
-    </div>
+        </Box>
+      </CardContent>
+    </Card>
   );
 }

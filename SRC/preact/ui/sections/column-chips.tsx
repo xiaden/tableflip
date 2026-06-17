@@ -8,8 +8,9 @@
  * Ported from SRC/js/ui/views/output-card.tsx (ColChips component).
  */
 
-import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getStore } from '../../core/store';
+import { useStore } from '../useStore';
 import { buildReportSpecFromState } from '../../core/state';
 import {
   colLabel,
@@ -89,13 +90,11 @@ function _chipAtPoint(el: HTMLElement, x: number, y: number, dragCol: string | n
 }
 
 export function ColumnChips() {
-  const [state, setState] = useState<AppState>(getStore().getState());
+  const state = useStore(s => s);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragColRef = useRef<string | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; items: CtxMenuItem[] } | null>(null);
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
-
-  useEffect(() => getStore().subscribe(s => setState(s)), []);
 
   useEffect(() => {
     _afterCombineChange();
@@ -157,7 +156,7 @@ export function ColumnChips() {
     _afterCombineChange();
   }, []);
 
-  const onDragStart = useCallback((col: string, e: DragEvent) => {
+  const onDragStart = useCallback((col: string, e: React.DragEvent) => {
     dragColRef.current = col;
     (e.target as HTMLElement).classList.add('dragging');
     if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
@@ -168,7 +167,7 @@ export function ColumnChips() {
     containerRef.current?.querySelectorAll('.chip').forEach(c => c.classList.remove('dragging', 'drag-over'));
   }, []);
 
-  const onDragOver = useCallback((e: DragEvent) => {
+  const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
     const el = containerRef.current;
@@ -178,7 +177,7 @@ export function ColumnChips() {
     if (nearest) nearest.classList.add('drag-over');
   }, []);
 
-  const onDrop = useCallback((e: DragEvent) => {
+  const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const el = containerRef.current;
     if (!el) return;
@@ -208,7 +207,7 @@ export function ColumnChips() {
       <div
         ref={containerRef}
         id="colChips"
-        class="chips"
+        className="chips"
         onDragOver={onDragOver}
         onDrop={onDrop}
       >
@@ -231,7 +230,7 @@ export function ColumnChips() {
               <Chip
                 key={c} col={c} label={label} colorClass={colorCls} selected={isOn}
                 draggable={true} tooltip={tip} badge={badge} badgeTooltip={badgeTip}
-                className={isOrphan ? 'chip-orphan' : ''}
+                inlineStyle={isOrphan ? 'opacity:0.65' : undefined}
                 onDblClick={() => handleDblClick(c)}
                 onContextMenu={e => {
                   e.preventDefault();
@@ -274,7 +273,7 @@ export function ColumnChips() {
           );
         })}
       </div>
-      <div id="colCardHint" style="font-size:0.72rem;color:var(--muted);margin-top:4px">{hint}</div>
+      <div id="colCardHint" style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 4 }}>{hint}</div>
       {ctxMenu && (
         <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={ctxMenu.items} onClose={() => setCtxMenu(null)} />
       )}

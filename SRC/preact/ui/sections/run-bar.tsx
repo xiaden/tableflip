@@ -7,13 +7,16 @@
  * Ported from SRC/js/ui/views/query-builder.tsx (runRow section).
  */
 
-import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useState, useCallback } from 'react';
 import { getStore } from '../../core/store';
+import { useStore } from '../useStore';
 import { toast } from '../../core/utils';
 import { Tip } from '../components/tip';
 import { getValidation, invalidateValidation } from '../../report/validation';
 import { runReport as executeReport } from '../../report/engine';
-import type { AppState, ReportSpec } from '../../types';
+import Button from '@mui/material/Button';
+import Box from '@mui/material/Box';
+import type { ReportSpec } from '../../types';
 
 export interface RunBarProps {
   /** Callback invoked after a successful report run with the result. */
@@ -21,10 +24,8 @@ export interface RunBarProps {
 }
 
 export function RunBar({ onResult }: RunBarProps) {
-  const [state, setState] = useState<AppState>(getStore().getState());
+  const state = useStore(s => s);
   const [runStatus, setRunStatus] = useState<string>('');
-
-  useEffect(() => getStore().subscribe(s => setState(s)), []);
 
   const base = state.base;
   const hasBaseConfigured = !!base;
@@ -133,7 +134,7 @@ export function RunBar({ onResult }: RunBarProps) {
   }, [onResult]);
 
   return (
-    <div id="runRow" style="display:flex;align-items:center;gap:8px;padding:8px 0">
+    <Box id="runRow" sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
       <span
         id="reportStatusPill"
         style={{
@@ -147,10 +148,16 @@ export function RunBar({ onResult }: RunBarProps) {
       >
         {statusPill.text}
       </span>
-      <button id="runBtn" class="btn btn-primary" disabled={runDisabled} onClick={() => runQuery()} title="Generate your report applying all sheet combinations, filters, sort order, and summary settings.">
+      <Button
+        id="runBtn"
+        variant="contained"
+        disabled={runDisabled}
+        onClick={() => runQuery()}
+        title="Generate your report applying all sheet combinations, filters, sort order, and summary settings."
+      >
         Run Report <Tip text={"Generate your report. This applies all your:\n• Sheet combinations and lookups\n• Calculated columns\n• Filters and sort order\n• Summary settings\n\nto produce the final output."} />
-      </button>
-      <span id="runStatus" style="font-size:0.72rem;color:var(--muted)">{runStatus}</span>
-    </div>
+      </Button>
+      <span id="runStatus" style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{runStatus}</span>
+    </Box>
   );
 }

@@ -1,19 +1,33 @@
 /**
  * Loader UI — file drop zone, sheet selector modal, file input handler.
  *
- * Ported from `SRC/js/ui/loader.ts`. Key differences:
- * - Preact component with store.subscribe() for reactive updates
- * - Sheet selector uses Preact Modal component instead of manual DOM
- * - File drop uses Preact event handlers instead of window assignments
+ * Converted from Preact to React + MUI.
+ * Key differences from the Preact version:
+ * - React hooks from 'react' instead of 'preact/hooks'
+ * - MUI Dialog (via Modal component) for sheet selector
+ * - className instead of class for CSS compatibility
+ * - style objects instead of style strings
+ * - File drop uses React event handlers on document
  * - Delegates data ingestion to loader.ts (data layer)
- * - No window assignments (confirmModal, closeModal)
  */
 
-import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getStore } from '../core/store';
 import { toast, stripExt } from '../core/utils';
 import { loadSpreadsheet, loadSheets, ingestSheet } from './loader';
 import { Modal } from './components/modal';
+import Checkbox from '@mui/material/Checkbox';
+import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
+
+/**
+ * Module-level promise resolve for the sheet selector modal.
+ * When a multi-sheet workbook is loaded, processFiles() creates a promise and
+ * stores its resolve function here. The modal's onConfirm/onClose callbacks
+ * invoke it to unblock the await. Using a module-level variable instead of
+ * window global avoids polluting the global scope and is type-safe.
+ */
+let _sheetSelectorResolve: (() => void) | null = null;
 
 /**
  * Programmatically opens the file picker dialog.
@@ -77,33 +91,35 @@ function SheetSelectorModal({
         { label: 'Import', primary: true, action: handleConfirm },
       ]}
     >
-      <div style="margin-bottom:8px;font-size:0.78rem;color:var(--muted)">
+      <Box sx={{ marginBottom: '8px', fontSize: '0.78rem', color: 'var(--muted)' }}>
         File: <strong>{pending.filename}</strong>
-      </div>
-      <div id="modalSheets">
+      </Box>
+      <Box id="modalSheets">
         {pending.sheets.map(sheet => {
           const id = 'chk_' + sheet.name.replace(/[^A-Za-z0-9]/g, '_');
           return (
-            <div key={sheet.name} class="sheet-opt">
-              <label style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer">
-                <input
-                  type="checkbox"
+            <Box key={sheet.name} className="sheet-opt" sx={{ padding: '6px 0' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, cursor: 'pointer' }}>
+                <Checkbox
                   id={id}
                   checked={selected.has(sheet.name)}
                   onChange={() => toggle(sheet.name)}
-                  style="width:14px;height:14px;flex-shrink:0"
+                  size="small"
+                  sx={{ padding: '4px' }}
                 />
-                <div>
-                  <div class="sheet-opt-name">{sheet.name}</div>
-                  <div class="sheet-opt-meta">
+                <Box>
+                  <Typography className="sheet-opt-name" sx={{ fontSize: '0.82rem' }}>
+                    {sheet.name}
+                  </Typography>
+                  <Typography className="sheet-opt-meta" sx={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
                     ~{sheet.rows} rows · {sheet.cols} cols
-                  </div>
-                </div>
-              </label>
-            </div>
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
           );
         })}
-      </div>
+      </Box>
     </Modal>
   );
 }
@@ -116,9 +132,16 @@ function SheetSelectorModal({
 function DropOverlay({ active }: { active: boolean }) {
   if (!active) return null;
   return (
-    <div id="dropOverlay" class="drop-overlay active">
-      <div class="do-icon">{'\u{1F4C2}'}</div>
-      <div class="do-label">Drop files to import</div>
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 99999,
+      background: 'rgba(88,166,255,0.08)',
+      border: '3px dashed var(--accent)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      flexDirection: 'column', gap: '10px',
+      pointerEvents: 'none',
+    }}>
+      <div style={{ fontSize: '3rem' }}>{'\u{1F4C2}'}</div>
+      <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--accent)' }}>Drop files to import</div>
     </div>
   );
 }
@@ -131,9 +154,19 @@ function DropOverlay({ active }: { active: boolean }) {
 function LoadOverlay({ active }: { active: boolean }) {
   if (!active) return null;
   return (
-    <div id="loadOverlay" class="load-overlay active">
-      <div class="lo-spinner" />
-      <div class="lo-title">Loading...</div>
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 100000,
+      background: 'rgba(13,17,23,0.85)', backdropFilter: 'blur(3px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      flexDirection: 'column', gap: '14px',
+      pointerEvents: 'all',
+    }}>
+      <div style={{
+        width: 38, height: 38,
+        border: '3px solid var(--border)', borderTopColor: 'var(--accent)',
+        borderRadius: '50%', animation: 'spin 0.7s linear infinite',
+      }} />
+      <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)' }}>Loading...</div>
     </div>
   );
 }
@@ -209,9 +242,7 @@ export function Loader() {
             setPendingModal(pending);
             // Wait for modal confirmation
             await new Promise<void>(resolve => {
-              // The modal will call onConfirm which processes the sheets
-              // We store the resolve for later
-              (window as unknown as Record<string, unknown>).__loaderResolve = resolve;
+              _sheetSelectorResolve = resolve;
             });
           }
         } catch (ex) {
@@ -236,20 +267,18 @@ export function Loader() {
     }
     pendingModalRef.current = null;
     setPendingModal(null);
-    const resolve = (window as unknown as Record<string, unknown>).__loaderResolve as (() => void) | undefined;
-    if (resolve) {
-      resolve();
-      delete (window as unknown as Record<string, unknown>).__loaderResolve;
+    if (_sheetSelectorResolve) {
+      _sheetSelectorResolve();
+      _sheetSelectorResolve = null;
     }
   }, []);
 
   const handleCloseModal = useCallback(() => {
     pendingModalRef.current = null;
     setPendingModal(null);
-    const resolve = (window as unknown as Record<string, unknown>).__loaderResolve as (() => void) | undefined;
-    if (resolve) {
-      resolve();
-      delete (window as unknown as Record<string, unknown>).__loaderResolve;
+    if (_sheetSelectorResolve) {
+      _sheetSelectorResolve();
+      _sheetSelectorResolve = null;
     }
   }, []);
 
@@ -296,11 +325,10 @@ export function Loader() {
     };
   }, [processFiles]);
 
-  const handleFileInput = useCallback((e: Event) => {
-    const target = e.target as HTMLInputElement;
-    if (target.files) {
-      processFiles(target.files);
-      target.value = '';
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      processFiles(e.target.files);
+      e.target.value = '';
     }
   }, [processFiles]);
 
@@ -321,7 +349,7 @@ export function Loader() {
         type="file"
         accept=".xlsx,.xls,.csv,.rcjson"
         multiple
-        style="display:none"
+        style={{ display: 'none' }}
         onChange={handleFileInput}
       />
     </>

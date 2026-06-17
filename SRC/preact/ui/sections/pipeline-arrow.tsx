@@ -10,7 +10,7 @@
  *   JSX arrow connector with preview toggle and inline data table.
  */
 
-import { useState } from 'preact/hooks';
+import { useState } from 'react';
 import { _previewOpen } from '../../query/layout-selection';
 import type { PreviewResult } from '../../report/preview-builder';
 
@@ -63,11 +63,11 @@ export function PipelineArrow({ id, result, onOpen }: PipelineArrowProps) {
     }
 
     return (
-      <table class="pl-preview-table" style="font-size:0.7rem;border-collapse:collapse;width:100%">
+      <table className="pl-preview-table" style={{ fontSize: '0.7rem', borderCollapse: 'collapse', width: '100%' }}>
         <thead>
           <tr>
             {result.headers.map(h => (
-              <th style="padding:1px 4px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">
+              <th key={String(h ?? '')} style={{ padding: '1px 4px', textAlign: 'left', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>
                 {String(h ?? '')}
               </th>
             ))}
@@ -77,7 +77,7 @@ export function PipelineArrow({ id, result, onOpen }: PipelineArrowProps) {
           {result.rows.map((row, ri) => (
             <tr key={ri}>
               {result.headers.map(h => (
-                <td style="padding:1px 4px;white-space:nowrap">
+                <td key={String(h ?? '')} style={{ padding: '1px 4px', whiteSpace: 'nowrap' }}>
                   {row[h] != null ? String(row[h]) : ''}
                 </td>
               ))}
@@ -89,17 +89,17 @@ export function PipelineArrow({ id, result, onOpen }: PipelineArrowProps) {
   };
 
   return (
-    <div class="pl-arrow">
-      <div class="pl-arrow-line"></div>
-      <div class="pl-arrow-meta">
-        <button class="pl-preview-btn" onClick={toggle}>
+    <div className="pl-arrow">
+      <div className="pl-arrow-line"></div>
+      <div className="pl-arrow-meta">
+        <button className="pl-preview-btn" onClick={toggle}>
           {open ? '▲ Hide preview' : '▼ Preview'}
         </button>
       </div>
-      <div class="pl-arrow-line"></div>
-      <div class="pl-arrow-head"></div>
+      <div className="pl-arrow-line"></div>
+      <div className="pl-arrow-head"></div>
       {open && (
-        <div class="pl-mini-preview">
+        <div className="pl-mini-preview">
           {renderContent()}
         </div>
       )}

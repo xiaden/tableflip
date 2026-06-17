@@ -4,17 +4,26 @@
  * Combines Sidebar, PipelineCard, LayoutCard, FilterSortCard, RunBar,
  * PreviewPanel, and ResultsPanel with tab switching.
  *
- * Ported from SRC/js/ui/views/query-builder.tsx and the old index.html layout.
- * Key differences:
- * - Entire UI is a Preact component tree (no static HTML shell)
- * - Tab switching via store subscription instead of DOM class toggling
- * - Grid rendering handled by ResultGrid/PreviewGrid components (no innerHTML)
- * - No window assignments for event handlers
+ * Converted from Preact to React + MUI.
+ * Key differences from the Preact version:
+ * - React hooks from 'react' instead of 'preact/hooks'
+ * - useStore(selector) replaces getStore().subscribe() pattern
+ * - MUI Tabs/Tab for tab bar, MUI Select/MenuItem for dropdowns
+ * - MUI Box/Stack/Typography for layout instead of class-based divs
+ * - MUI Button replaces native <button> elements
+ * - MUI Tooltip wraps tab labels for help text
  */
 
-import { useState, useEffect, useCallback } from 'preact/hooks';
-import { getStore } from '../core/store';
-import { h } from '../core/utils';
+import { useState, useEffect, useCallback } from 'react';
+import Box from '@mui/material/Box';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import Tooltip from '@mui/material/Tooltip';
+import { useStore } from './useStore';
 import { Sidebar } from './sidebar';
 import { Loader } from './file-loader';
 import { PipelineCard } from './cards/pipeline-card';
@@ -30,7 +39,7 @@ import {
 } from './grid';
 import { exportAs } from './export';
 import { invalidateValidation } from '../report/validation';
-import type { AppState } from '../types';
+import type { BandResultSet } from '../types';
 
 // ── Preview Panel ─────────────────────────────────────────────────────────────
 
@@ -39,47 +48,46 @@ import type { AppState } from '../types';
  * Uses the PreviewGrid component for AG Grid rendering.
  */
 function PreviewPanel() {
-  const [state, setState] = useState<AppState>(getStore().getState());
+  const { tables, previewTableId } = useStore(s => ({ tables: s.tables, previewTableId: s.previewTableId }));
   const [selectedTable, setSelectedTable] = useState<string>('');
 
-  useEffect(() => {
-    const unsub = getStore().subscribe(s => setState(s));
-    return unsub;
-  }, []);
-
-  const tableIds = Object.keys(state.tables).sort((a, b) =>
-    state.tables[a].name.localeCompare(state.tables[b].name)
+  const tableIds = Object.keys(tables).sort((a, b) =>
+    tables[a].name.localeCompare(tables[b].name)
   );
 
   // Restore selected table from store if coming back to this tab
   useEffect(() => {
-    const previewId = state.previewTableId;
-    if (previewId && state.tables[previewId] && previewId !== selectedTable) {
-      setSelectedTable(previewId);
+    if (previewTableId && tables[previewTableId] && previewTableId !== selectedTable) {
+      setSelectedTable(previewTableId);
     }
-  }, [state]);
+  }, [tables, previewTableId, selectedTable]);
 
-  const handleSelect = useCallback((e: Event) => {
-    const val = (e.target as HTMLSelectElement).value;
-    setSelectedTable(val);
+  const handleSelect = useCallback((e: { target: { value: unknown } }) => {
+    setSelectedTable(e.target.value as string);
   }, []);
 
   return (
-    <div class="data-body">
-      <div class="btn-row" style="flex-shrink:0">
-        <div style="flex:1;max-width:320px">
-          <select value={selectedTable} onChange={handleSelect}>
-            <option value="">{'\u2014'} select a table to preview {'\u2014'}</option>
+    <Box className="data-body" sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+      <Box sx={{ flexShrink: 0, display: 'flex', gap: '7px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <Box sx={{ flex: 1, maxWidth: 320 }}>
+          <Select
+            value={selectedTable}
+            onChange={handleSelect}
+            displayEmpty
+            size="small"
+            sx={{ width: '100%', fontSize: '0.82rem' }}
+          >
+            <MenuItem value="" disabled>{'\u2014'} select a table to preview {'\u2014'}</MenuItem>
             {tableIds.map(id => (
-              <option key={id} value={id}>{h(state.tables[id].name)}</option>
+              <MenuItem key={id} value={id}>{tables[id].name}</MenuItem>
             ))}
-          </select>
-        </div>
-      </div>
-      <div class="grid-wrap">
+          </Select>
+        </Box>
+      </Box>
+      <Box className="grid-wrap" sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
         <PreviewGrid key={selectedTable} tableId={selectedTable} />
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
 
@@ -90,57 +98,78 @@ function PreviewPanel() {
  * Subscribes to store.result for reactive updates after report runs.
  */
 function ResultsPanel() {
-  const [state, setState] = useState<AppState>(getStore().getState());
-
-  useEffect(() => {
-    const unsub = getStore().subscribe(s => setState(s));
-    return unsub;
-  }, []);
-
-  const result = state.result as Record<string, unknown> | null;
+  const result = useStore(s => s.result) as Record<string, unknown> | null;
   const hasResults = !!(result && result.rows);
 
+  // Compute results count for display (moved from ResultGrid to avoid duplication)
+  let resultsCountText = '';
+  if (hasResults) {
+    const rows = (result as Record<string, unknown>).rows as Record<string, unknown>[];
+    const totalsRow = (result as Record<string, unknown>).totalsRow as Record<string, unknown> | null;
+    const cols = (result as Record<string, unknown>).cols as string[];
+    const bandResult = (result as Record<string, unknown>).bandResult as BandResultSet | undefined;
+    const displayRows = bandResult ? bandResult.parentRows : rows;
+    const displayCols = bandResult
+      ? [...bandResult.parentCols, ...bandResult.bandResults.flatMap(br => br.cols)]
+      : cols;
+    resultsCountText = totalsRow !== null
+      ? displayRows.length.toLocaleString() + ' rows + 1 totals row \u00b7 ' + displayCols.length + ' columns'
+      : displayRows.length.toLocaleString() + ' rows \u00b7 ' + displayCols.length + ' columns';
+  }
+
   return (
-    <div class="data-body">
-      <div class="results-bar">
-        <span class="results-count" style={!hasResults ? { fontSize: '0.76rem', color: 'var(--muted)' } : undefined}>
-          {hasResults ? '' : 'No results yet \u2014 run a query first'}
-        </span>
-        <div style="flex:1" />
+    <Box className="data-body" sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+      <Box className="results-bar" sx={{ display: 'flex', alignItems: 'center', padding: '4px 10px', gap: 1 }}>
+        <Typography
+          className="results-count"
+          sx={{
+            fontSize: '0.76rem',
+            color: hasResults ? 'inherit' : 'var(--muted)',
+          }}
+        >
+          {hasResults ? resultsCountText : 'No results yet \u2014 run a query first'}
+        </Typography>
+        <Box sx={{ flex: 1 }} />
         {hasResults && (
           <>
-            <button
-              class="btn btn-ghost"
-              onClick={() => exportAs('xlsx')}
-              data-tip="Download the current report results as an Excel (.xlsx) file you can open in Microsoft Excel."
-            >
-              {'\u2B07'} Excel
-            </button>
-            <button
-              class="btn btn-ghost"
-              onClick={() => exportAs('csv')}
-              data-tip="Download as a comma-separated values (.csv) file — a simple text format that any spreadsheet program can open."
-            >
-              {'\u2B07'} CSV
-            </button>
+            <Tooltip title="Download the current report results as an Excel (.xlsx) file you can open in Microsoft Excel.">
+              <Button
+                variant="text"
+                size="small"
+                onClick={() => exportAs('xlsx')}
+                sx={{ color: 'inherit', textTransform: 'none' }}
+              >
+                {'\u2B07'} Excel
+              </Button>
+            </Tooltip>
+            <Tooltip title="Download as a comma-separated values (.csv) file — a simple text format that any spreadsheet program can open.">
+              <Button
+                variant="text"
+                size="small"
+                onClick={() => exportAs('csv')}
+                sx={{ color: 'inherit', textTransform: 'none' }}
+              >
+                {'\u2B07'} CSV
+              </Button>
+            </Tooltip>
           </>
         )}
-      </div>
-      <div class="grid-wrap">
+      </Box>
+      <Box className="grid-wrap" sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
         {hasResults ? (
           <ResultGrid
             result={result!}
             onRenameDone={() => { invalidateValidation(); }}
           />
         ) : (
-          <div class="empty">
-            <div class="empty-icon">{'\u26A1'}</div>
-            <div class="empty-title">No results yet</div>
-            <div class="empty-sub">Build a query and click {'\u25B6'} Run Report</div>
-          </div>
+          <Box className="empty" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', color: 'var(--muted)' }}>
+            <Box className="empty-icon" sx={{ fontSize: '2.5rem', marginBottom: '8px' }}>{'\u26A1'}</Box>
+            <Box className="empty-title" sx={{ fontSize: '1rem', fontWeight: 600 }}>No results yet</Box>
+            <Box className="empty-sub" sx={{ fontSize: '0.82rem' }}>Build a query and click {'\u25B6'} Run Report</Box>
+          </Box>
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
 
@@ -151,40 +180,35 @@ function ResultsPanel() {
  * Shows an empty state when no tables are loaded.
  */
 function QueryBuilderTab() {
-  const [state, setState] = useState<AppState>(getStore().getState());
+  const { tables, base } = useStore(s => ({ tables: s.tables, base: s.base }));
 
-  useEffect(() => {
-    const unsub = getStore().subscribe(s => setState(s));
-    return unsub;
-  }, []);
-
-  const ids = Object.keys(state.tables).sort((a, b) =>
-    state.tables[a].name.localeCompare(state.tables[b].name)
+  const ids = Object.keys(tables).sort((a, b) =>
+    tables[a].name.localeCompare(tables[b].name)
   );
-  const hasBase = !!state.base && !!state.tables[state.base];
-  const hasBaseConfigured = !!state.base;
+  const hasBase = !!base && !!tables[base];
+  const hasBaseConfigured = !!base;
 
   if (ids.length === 0) {
     return (
-      <div class="empty">
-        <div class="empty-icon">{'\u{1F4C2}'}</div>
-        <div class="empty-title">Drop files to get started</div>
-        <div class="empty-sub">
+      <Box className="empty" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', color: 'var(--muted)' }}>
+        <Box className="empty-icon" sx={{ fontSize: '2.5rem', marginBottom: '8px' }}>{'\u{1F4C2}'}</Box>
+        <Box className="empty-title" sx={{ fontSize: '1rem', fontWeight: 600 }}>Drop files to get started</Box>
+        <Box className="empty-sub" sx={{ fontSize: '0.82rem' }}>
           Drop your Excel or CSV files {'\u2014'} each sheet becomes available to build your report from
-        </div>
-      </div>
+        </Box>
+      </Box>
     );
   }
 
   return (
-    <div class="qb-body">
+    <Box className="qb-body" sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'auto' }}>
       <PipelineCard />
       {hasBase && <LayoutCard />}
       {hasBase && <FilterSortCard />}
       {hasBaseConfigured && (
         <RunBar onResult={() => switchTab('results')} />
       )}
-    </div>
+    </Box>
   );
 }
 
@@ -197,13 +221,7 @@ function QueryBuilderTab() {
  * area with Query Builder, Browse Sheet, and Report tabs.
  */
 export function App() {
-  const [state, setState] = useState<AppState>(getStore().getState());
-  const activeTab = state.activeTab || 'query';
-
-  useEffect(() => {
-    const unsub = getStore().subscribe(s => setState(s));
-    return unsub;
-  }, []);
+  const activeTab = useStore(s => s.activeTab) || 'query';
 
   // Refresh grids when tab becomes visible
   useEffect(() => {
@@ -215,85 +233,119 @@ export function App() {
     }
   }, [activeTab]);
 
+  const tabValue = activeTab === 'query' ? 0 : activeTab === 'preview' ? 1 : 2;
+
+  const handleTabChange = (_event: unknown, newValue: number): void => {
+    const tabNames = ['query', 'preview', 'results'];
+    switchTab(tabNames[newValue]);
+  };
+
   return (
     <>
       {/* File drop/loading overlays and sheet selector modal */}
       <Loader />
 
       {/* Header */}
-      <div class="hdr">
-        <h1>TableFlip ({'\u256F'}{'\u00B0'}{'\u25A1'}{'\u00B0'}){'\u256F'}{'\uFE35'} {'\u253B'}{'\u2501'}{'\u253B'}</h1>
-        <div class="spacer" />
-        <span class="sub">
+      <Box className="hdr" sx={{ display: 'flex', alignItems: 'center', padding: '6px 16px', background: 'var(--hdr-bg, #1a1a2e)', borderBottom: '1px solid var(--border, #333)' }}>
+        <Typography variant="h6" component="h1" sx={{ fontSize: '1rem', fontWeight: 700, margin: 0, whiteSpace: 'nowrap' }}>
+          TableFlip ({'\u256F'}{'\u00B0'}{'\u25A1'}{'\u00B0'}){'\u256F'}{'\uFE35'} {'\u253B'}{'\u2501'}{'\u253B'}
+        </Typography>
+        <Box className="spacer" sx={{ flex: 1 }} />
+        <Typography className="sub" sx={{ fontSize: '0.72rem', color: 'var(--muted, #888)', marginLeft: 2 }}>
           Flip your spreadsheet tables into reports {'\u2014'} no 250-character formulas required
-        </span>
-      </div>
+        </Typography>
+      </Box>
 
       {/* Main layout */}
-      <div class="layout">
+      <Box className="layout" sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Sidebar */}
         <Sidebar />
 
         {/* Main content */}
-        <div class="main">
+        <Box className="main" sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
           {/* Tab bar */}
-          <div class="tabs">
-            <div
-              class={`tab-btn${activeTab === 'query' ? ' active' : ''}`}
-              onClick={() => switchTab('query')}
-            >
-              Report Setup{' '}
-              <span
-                class="tip"
-                data-tip="Set up your report here: choose a main sheet, combine it with others, pick which columns to show, filter rows, sort, and summarize."
-              >
-                ?
-              </span>
-            </div>
-            <div
-              class={`tab-btn${activeTab === 'preview' ? ' active' : ''}`}
-              onClick={() => switchTab('preview')}
-            >
-              Browse Sheet{' '}
-              <span class="tip" data-tip="Look at the raw data in any loaded sheet — no filters or summary applied.">?</span>
-            </div>
-            <div
-              class={`tab-btn${activeTab === 'results' ? ' active' : ''}`}
-              onClick={() => switchTab('results')}
-            >
-              Report{' '}
-              <span
-                class="tip"
-                data-tip="View your report results here after clicking Run Report. Export to Excel or CSV from this tab."
-              >
-                ?
-              </span>
-            </div>
-          </div>
+          <Tabs
+            value={tabValue}
+            onChange={handleTabChange}
+            className="tabs"
+            sx={{
+              minHeight: 'auto',
+              borderBottom: '1px solid var(--border, #333)',
+              '& .MuiTab-root': {
+                minHeight: 'auto',
+                py: '8px',
+                px: 2,
+                fontSize: '0.82rem',
+                textTransform: 'none',
+                color: 'var(--muted, #888)',
+                '&.Mui-selected': {
+                  color: 'var(--text, #e0e0e0)',
+                  fontWeight: 600,
+                },
+              },
+              '& .MuiTabs-indicator': {
+                backgroundColor: 'var(--accent, #4477AA)',
+              },
+            }}
+          >
+            <Tab
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  Report Setup{' '}
+                  <Tooltip title="Set up your report here: choose a main sheet, combine it with others, pick which columns to show, filter rows, sort, and summarize.">
+                    <Typography component="span" sx={{ fontSize: '0.72rem', color: 'var(--muted, #888)', cursor: 'help' }}>?</Typography>
+                  </Tooltip>
+                </Box>
+              }
+            />
+            <Tab
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  Browse Sheet{' '}
+                  <Tooltip title="Look at the raw data in any loaded sheet — no filters or summary applied.">
+                    <Typography component="span" sx={{ fontSize: '0.72rem', color: 'var(--muted, #888)', cursor: 'help' }}>?</Typography>
+                  </Tooltip>
+                </Box>
+              }
+            />
+            <Tab
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  Report{' '}
+                  <Tooltip title="View your report results here after clicking Run Report. Export to Excel or CSV from this tab.">
+                    <Typography component="span" sx={{ fontSize: '0.72rem', color: 'var(--muted, #888)', cursor: 'help' }}>?</Typography>
+                  </Tooltip>
+                </Box>
+              }
+            />
+          </Tabs>
 
           {/* Tab panels */}
-          <div class="tab-content">
-            <div
-              class={`tab-panel${activeTab === 'query' ? ' active' : ''}`}
+          <Box className="tab-content" sx={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+            <Box
+              className={`tab-panel${activeTab === 'query' ? ' active' : ''}`}
               id="tab-query"
+              sx={{ display: activeTab === 'query' ? 'flex' : 'none', flexDirection: 'column', height: '100%' }}
             >
               <QueryBuilderTab />
-            </div>
-            <div
-              class={`tab-panel${activeTab === 'preview' ? ' active' : ''}`}
+            </Box>
+            <Box
+              className={`tab-panel${activeTab === 'preview' ? ' active' : ''}`}
               id="tab-preview"
+              sx={{ display: activeTab === 'preview' ? 'flex' : 'none', flexDirection: 'column', height: '100%' }}
             >
               <PreviewPanel />
-            </div>
-            <div
-              class={`tab-panel${activeTab === 'results' ? ' active' : ''}`}
+            </Box>
+            <Box
+              className={`tab-panel${activeTab === 'results' ? ' active' : ''}`}
               id="tab-results"
+              sx={{ display: activeTab === 'results' ? 'flex' : 'none', flexDirection: 'column', height: '100%' }}
             >
               <ResultsPanel />
-            </div>
-          </div>
-        </div>
-      </div>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
     </>
   );
 }

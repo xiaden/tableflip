@@ -1,6 +1,6 @@
 ---
 name: ui-composition-orientation
-description: Use when working with the Preact UI layer — understanding the app shell composition, card/section/component hierarchy, store subscription pattern, ownership boundaries with core/query/report layers, AG Grid and XLSX vendor integration, export pipeline, or debugging UI behavior bugs. Also covers shared components (Modal, Chip, ContextMenu, RenameModal), tab switching, file loading UX, and the aggregation state management in ui/aggregation.ts.
+description: Use when working with the React UI layer — understanding the app shell composition, card/section/component hierarchy, store subscription pattern, ownership boundaries with core/query/report layers, AG Grid and XLSX vendor integration, export pipeline, or debugging UI behavior bugs. Also covers shared components (Modal, Chip, ContextMenu, RenameModal), tab switching, file loading UX, and the aggregation state management in ui/aggregation.ts.
 ---
 
 # UI Composition Orientation
@@ -9,7 +9,7 @@ description: Use when working with the Preact UI layer — understanding the app
 
 The UI is a **thin reactive shell** over a five-layer architecture. It subscribes to a single flat `AppState` store (pub/sub), renders JSX, and calls domain functions on events. No business logic (SQL generation, validation, catalog building, result computation) lives in the UI layer — instead, UI components invoke pure functions from `catalog/`, `query/`, `report/`, and `core/` layers, then write results back through `store.update(draft => ...)`. The composition is **card-oriented** (PipelineCard, LayoutCard, FilterSortCard) within a three-tab shell (Query Builder, Browse Sheet, Report), with shared components (Modal, Chip, ContextMenu) rendered via `createPortal` or inline.
 
-Three non-Preact surfaces are managed from UI code:
+Three non-React surfaces are managed from UI code:
 - **AG Grid** (grid.tsx) — created imperatively via `agGrid.createGrid(el, options)` inside useEffect refs
 - **XLSX export** (export.ts) — data transformation + styling using the `XLSX` global
 - **File loading** (loader.ts) — XLSX/CSV parsing via the `XLSX` global, SQLite writes via `core/sqldb`

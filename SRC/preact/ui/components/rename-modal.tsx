@@ -1,14 +1,20 @@
-import { useState, useEffect, useRef } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'react';
+import TextField from '@mui/material/TextField';
 import { getStore } from '../../core/store';
 import { setColLabel } from '../../core/utils';
 import { buildColSourceMap } from '../../catalog/column-catalog';
 import { renameCalcAlias } from '../../core/alias-rename';
 import { Modal } from './modal';
 
+/** Identifies the column being renamed. Either a calculated column (by calcIdx) or a physical column (by tid + col). */
 export interface RenameTarget {
+  /** The current alias/name of the column. */
   alias: string;
+  /** Table ID for physical columns. */
   tid?: string;
+  /** Column name within the table for physical columns. */
   col?: string;
+  /** Index into calcStages for calculated columns. */
   calcIdx?: number;
 }
 
@@ -26,6 +32,14 @@ export interface RenameModalProps {
   onClose: () => void;
 }
 
+/**
+ * Modal dialog for renaming a column.
+ *
+ * Handles two rename paths: calculated columns (identified by calcIdx) are renamed
+ * via renameCalcAlias, while physical columns (identified by tid + col) are renamed
+ * via setColLabel. The input is pre-filled with the current name and auto-focused
+ * with text selected. Supports Enter key to confirm.
+ */
 export function RenameModal({ target, onDone, onClose }: RenameModalProps) {
   const isCalc = target.calcIdx != null;
   const state = getStore().getState();
@@ -54,7 +68,7 @@ export function RenameModal({ target, onDone, onClose }: RenameModalProps) {
     onDone?.();
   };
 
-  const handleKey = (e: KeyboardEvent) => {
+  const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') { e.preventDefault(); handleRename(); }
   };
 
@@ -68,15 +82,17 @@ export function RenameModal({ target, onDone, onClose }: RenameModalProps) {
         { label: 'Rename', primary: true, action: handleRename },
       ]}
     >
-      <label for="rename-input" style="font-size:0.78rem;color:var(--muted)">Current name</label>
-      <input
-        ref={inputRef}
+      <TextField
+        inputRef={inputRef}
         id="rename-input"
-        type="text"
-        class="rename-modal-input"
+        label="Current name"
         value={value}
-        onInput={(e) => setValue((e.target as HTMLInputElement).value)}
+        onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKey}
+        size="small"
+        fullWidth
+        autoFocus
+        sx={{ mt: 1, '& .MuiInputLabel-root': { fontSize: '0.78rem' } }}
       />
     </Modal>
   );

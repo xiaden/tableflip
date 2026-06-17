@@ -8,15 +8,23 @@
  * Ported from SRC/js/ui/views/filter-sort-card.tsx (FilterRow + Filters components).
  */
 
-import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useCallback } from 'react';
 import { getStore } from '../../core/store';
+import { useStore } from '../useStore';
 import { buildReportSpecFromState } from '../../core/state';
 import { colLabel } from '../../core/utils';
 import { buildColSourceMap, projectedCols } from '../../catalog/column-catalog';
 import { buildSourceCatalog } from '../../catalog/source-catalog';
 import { invalidateValidation } from '../../report/validation';
 import { _afterCombineChange } from '../../query/layout-selection';
-import type { AppState, FilterSpec } from '../../types';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Checkbox from '@mui/material/Checkbox';
+import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
+import type { FilterSpec } from '../../types';
 
 const FILTER_OPS: string[] = [
   'contains', 'equals', 'not equals',
@@ -94,70 +102,94 @@ function FilterRow({ f, i, cols, colMap }: FilterRowProps) {
 
   const datalistId = 'fdl_' + i;
 
-  const rowClasses = [
-    'filter-row',
-    fEnabled ? '' : 'pl-stage-disabled',
-  ].filter(Boolean).join(' ');
+  const compactSelectSx = {
+    '& .MuiSelect-select': { py: 0.5, px: 1, fontSize: '0.78rem', minHeight: 'unset' },
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
+  };
 
   return (
-    <div class={rowClasses}>
-      <label class="pl-enable-toggle" style="margin-left:auto;order:99" title={fEnabled ? 'Disable filter' : 'Enable filter'}>
-        <input type="checkbox" checked={fEnabled} onChange={e => handleEnabledChange((e.target as HTMLInputElement).checked)} />
-        <span class="pl-enable-label">{fEnabled ? '' : 'Off'}</span>
-      </label>
-      <select value={f.col} onChange={e => handleColChange((e.target as HTMLSelectElement).value)}>
-        <option value="">Column…</option>
-        {cols.map(c => {
-          const src = colMap.get(c);
-          const label = src && src.kind !== 'calc' ? colLabel(src.tid, src.col) : c;
-          return <option key={c} value={c}>{label}</option>;
-        })}
-      </select>
-      <select class="fop" value={f.op} onChange={e => handleOpChange((e.target as HTMLSelectElement).value)}>
-        {FILTER_OPS.map(op => <option key={op} value={op}>{op}</option>)}
-      </select>
-      <span class="filter-or-wrap" style={{ display: noVal ? 'none' : 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+    <div className={`filter-row${fEnabled ? '' : ' pl-stage-disabled'}`} style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={fEnabled}
+            onChange={e => handleEnabledChange(e.target.checked)}
+            size="small"
+            sx={{ py: 0, px: 0.5 }}
+          />
+        }
+        label={<span className="pl-enable-label">{fEnabled ? '' : 'Off'}</span>}
+        title={fEnabled ? 'Disable filter' : 'Enable filter'}
+        sx={{ ml: 'auto', order: 99 }}
+      />
+      <FormControl size="small">
+        <Select
+          value={f.col}
+          onChange={e => handleColChange(e.target.value as string)}
+          sx={{ minWidth: 140, ...compactSelectSx }}
+          displayEmpty
+        >
+          <MenuItem value="">Column{'…'}</MenuItem>
+          {cols.map(c => {
+            const src = colMap.get(c);
+            const label = src && src.kind !== 'calc' ? colLabel(src.tid, src.col) : c;
+            return <MenuItem key={c} value={c}>{label}</MenuItem>;
+          })}
+        </Select>
+      </FormControl>
+      <FormControl size="small">
+        <Select
+          className="fop"
+          value={f.op}
+          onChange={e => handleOpChange(e.target.value as string)}
+          sx={{ minWidth: 120, ...compactSelectSx }}
+        >
+          {FILTER_OPS.map(op => <MenuItem key={op} value={op}>{op}</MenuItem>)}
+        </Select>
+      </FormControl>
+      <span className="filter-or-wrap" style={{ display: noVal ? 'none' : 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
         {vals.map((v, j) => (
-          <span key={j} style="display:contents">
-            {j > 0 && <span style="font-size:0.7rem;color:var(--muted);padding:0 1px;flex-shrink:0">OR</span>}
-            <input
-              type="text"
-              list={datalistId}
+          <span key={j} style={{ display: 'contents' }}>
+            {j > 0 && <span style={{ fontSize: '0.7rem', color: 'var(--muted)', padding: '0 1px', flexShrink: 0 }}>OR</span>}
+            <TextField
+              slotProps={{ htmlInput: { list: datalistId } }}
               placeholder="value"
               value={v}
-              style="width:120px"
-              onInput={e => handleValChange(j, (e.target as HTMLInputElement).value)}
+              onChange={e => handleValChange(j, e.target.value)}
+              size="small"
+              sx={{ width: 120, '& input': { py: 0.5, px: 1, fontSize: '0.78rem' } }}
             />
             {j > 0 && (
-              <button
-                class="btn btn-danger"
-                style="padding:2px 5px;font-size:0.75rem;flex-shrink:0"
+              <Button
+                variant="contained"
+                color="error"
+                size="small"
                 title="Remove this OR value"
                 onClick={() => removeOrValue(j)}
+                sx={{ py: 0, px: 0.75, fontSize: '0.75rem', minWidth: 'unset', flexShrink: 0 }}
               >
                 {'✕'}
-              </button>
+              </Button>
             )}
           </span>
         ))}
-        <button
-          class="btn btn-ghost"
-          style="padding:2px 7px;font-size:0.76rem;flex-shrink:0"
+        <Button
+          variant="text"
+          size="small"
           title="Add OR value"
           onClick={addOrValue}
+          sx={{ py: 0, px: 0.75, fontSize: '0.76rem', minWidth: 'unset', flexShrink: 0 }}
         >
           {'＋'}
-        </button>
+        </Button>
       </span>
-      <button class="btn btn-danger" onClick={removeFilter}>{'✕'}</button>
+      <Button variant="contained" color="error" size="small" sx={{ minWidth: 'unset', py: 0.25, px: 0.75 }} onClick={removeFilter}>{'✕'}</Button>
     </div>
   );
 }
 
 export function FilterList() {
-  const [state, setState] = useState<AppState>(getStore().getState());
-
-  useEffect(() => getStore().subscribe(s => setState(s)), []);
+  const state = useStore(s => s);
 
   const reportSpec = buildReportSpecFromState(state);
   const sourceCatalog = buildSourceCatalog(state.tables);
@@ -166,7 +198,7 @@ export function FilterList() {
   const filters = state.filters;
 
   if (!filters.length) {
-    return <span style="font-size:0.76rem;color:var(--muted)">No filters — all rows returned</span>;
+    return <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>No filters — all rows returned</span>;
   }
 
   return (

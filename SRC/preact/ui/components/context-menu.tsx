@@ -1,5 +1,6 @@
-import { createPortal } from 'preact/compat';
-import { useEffect, useRef } from 'preact/hooks';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import Divider from '@mui/material/Divider';
 
 /** A single item in a context menu. `separator: true` renders a divider (label/action/checked are ignored). */
 export interface CtxMenuItem {
@@ -13,53 +14,50 @@ export interface CtxMenuItem {
   separator?: boolean;
 }
 
+/** Props for the ContextMenu component. */
 export interface ContextMenuProps {
+  /** Horizontal position (pixels) where the menu anchors. */
   x: number;
+  /** Vertical position (pixels) where the menu anchors. */
   y: number;
+  /** Menu items to display. Separators render as dividers. */
   items: CtxMenuItem[];
+  /** Called when the menu should close (click outside or Escape). */
   onClose: () => void;
 }
 
 /**
- * Renders a positioned context menu as a portal at the given (x, y) coordinates.
- * Each item is rendered as a button with an optional checkmark prefix.
- * The menu closes when the user clicks outside it or right-clicks anywhere.
+ * Renders a positioned context menu at the given (x, y) coordinates using MUI Menu.
+ * Each item is rendered as a MenuItem with an optional checkmark prefix.
+ * The menu closes when the user clicks outside it or presses Escape.
  */
 export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const menu = menuRef.current;
-    if (!menu) return;
-
-    const rect = menu.getBoundingClientRect();
-    if (rect.right > window.innerWidth) menu.style.left = (x - rect.width) + 'px';
-    if (rect.bottom > window.innerHeight) menu.style.top = (y - rect.height) + 'px';
-
-    const close = (e: Event) => {
-      if (!menu.contains(e.target as Node)) onClose();
-    };
-    setTimeout(() => {
-      document.addEventListener('click', close, { once: true });
-      document.addEventListener('contextmenu', close, { once: true });
-    }, 0);
-    return () => {
-      document.removeEventListener('click', close);
-      document.removeEventListener('contextmenu', close);
-    };
-  }, [x, y, onClose]);
-
-  return createPortal(
-    <div class="ctx-menu" ref={menuRef} style={{ left: x + 'px', top: y + 'px' }}>
+  return (
+    <Menu
+      open={true}
+      onClose={onClose}
+      anchorReference="anchorPosition"
+      anchorPosition={{ top: y, left: x }}
+      slotProps={{
+        paper: {
+          sx: {
+            minWidth: 140,
+            '& .MuiMenuItem-root': { fontSize: '0.82rem', py: 0.5, px: 1.5 },
+          },
+        },
+      }}
+    >
       {items.map((item, i) => {
-        if (item.separator) return <div key={i} class="ctx-menu-sep" />;
+        if (item.separator) return <Divider key={i} />;
         return (
-          <button key={i} class="ctx-menu-item" onClick={() => { onClose(); item.action!(); }}>
-            {item.checked ? '✓ ' + item.label : item.label}
-          </button>
+          <MenuItem
+            key={i}
+            onClick={() => { onClose(); item.action!(); }}
+          >
+            {item.checked ? '✓ ' : ''}{item.label}
+          </MenuItem>
         );
       })}
-    </div>,
-    document.body
+    </Menu>
   );
 }

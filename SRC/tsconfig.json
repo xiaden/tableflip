@@ -12,8 +12,8 @@
     "isolatedModules": true,
     "declaration": false,
     "jsx": "react-jsx",
-    "jsxImportSource": "preact",
-    "types": ["node"],
+    "jsxImportSource": "react",
+    "types": ["node", "vite/client"],
     "rootDir": ".",
     "outDir": "../preact-dev"
   },

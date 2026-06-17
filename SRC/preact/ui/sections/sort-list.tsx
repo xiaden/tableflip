@@ -8,15 +8,22 @@
  * Ported from SRC/js/ui/views/filter-sort-card.tsx (SortRow + Sorts components).
  */
 
-import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useCallback } from 'react';
 import { getStore } from '../../core/store';
+import { useStore } from '../useStore';
 import { buildReportSpecFromState } from '../../core/state';
 import { colLabel } from '../../core/utils';
 import { buildColSourceMap, projectedCols } from '../../catalog/column-catalog';
 import { buildSourceCatalog } from '../../catalog/source-catalog';
 import { invalidateValidation } from '../../report/validation';
 import { _afterCombineChange } from '../../query/layout-selection';
-import type { AppState, SortSpec } from '../../types';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Checkbox from '@mui/material/Checkbox';
+import Button from '@mui/material/Button';
+import type { SortSpec } from '../../types';
 
 interface SortRowProps {
   s: SortSpec;
@@ -55,39 +62,59 @@ function SortRow({ s, i, cols, colMap }: SortRowProps) {
     _afterCombineChange();
   }, [i]);
 
-  const rowClasses = [
-    'sort-row',
-    sEnabled ? '' : 'pl-stage-disabled',
-  ].filter(Boolean).join(' ');
+  const compactSelectSx = {
+    '& .MuiSelect-select': { py: 0.5, px: 1, fontSize: '0.78rem', minHeight: 'unset' },
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
+  };
 
   return (
-    <div class={rowClasses}>
-      <span class="sort-level">{i + 1}.</span>
-      <select value={s.col} style="flex:1;min-width:0" onChange={e => handleColChange((e.target as HTMLSelectElement).value)}>
-        <option value="">{'—'} column {'—'}</option>
-        {cols.map(c => {
-          const src = colMap.get(c);
-          const label = src && src.kind !== 'calc' ? colLabel(src.tid, src.col) : c;
-          return <option key={c} value={c}>{label}</option>;
-        })}
-      </select>
-      <select value={s.dir} style="width:95px;flex-shrink:0" onChange={e => handleDirChange((e.target as HTMLSelectElement).value)}>
-        <option value="ASC">{'↑'} A {'→'} Z</option>
-        <option value="DESC">{'↓'} Z {'→'} A</option>
-      </select>
-      <label class="pl-enable-toggle" title={sEnabled ? 'Disable sort' : 'Enable sort'}>
-        <input type="checkbox" checked={sEnabled} onChange={e => handleEnabledChange((e.target as HTMLInputElement).checked)} />
-        <span class="pl-enable-label">{sEnabled ? '' : 'Off'}</span>
-      </label>
-      <button class="btn btn-danger" onClick={removeSort}>{'✕'}</button>
+    <div className={`sort-row${sEnabled ? '' : ' pl-stage-disabled'}`} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <span className="sort-level">{i + 1}.</span>
+      <FormControl size="small" sx={{ flex: 1, minWidth: 0 }}>
+        <Select
+          value={s.col}
+          onChange={e => handleColChange(e.target.value as string)}
+          sx={compactSelectSx}
+          displayEmpty
+        >
+          <MenuItem value="">{'—'} column {'—'}</MenuItem>
+          {cols.map(c => {
+            const src = colMap.get(c);
+            const label = src && src.kind !== 'calc' ? colLabel(src.tid, src.col) : c;
+            return <MenuItem key={c} value={c}>{label}</MenuItem>;
+          })}
+        </Select>
+      </FormControl>
+      <FormControl size="small" sx={{ width: 95, flexShrink: 0 }}>
+        <Select
+          value={s.dir}
+          onChange={e => handleDirChange(e.target.value as string)}
+          sx={compactSelectSx}
+        >
+          <MenuItem value="ASC">{'↑'} A {'→'} Z</MenuItem>
+          <MenuItem value="DESC">{'↓'} Z {'→'} A</MenuItem>
+        </Select>
+      </FormControl>
+      <FormControlLabel
+        className="pl-enable-toggle"
+        control={
+          <Checkbox
+            checked={sEnabled}
+            onChange={e => handleEnabledChange(e.target.checked)}
+            size="small"
+            sx={{ py: 0, px: 0.5 }}
+          />
+        }
+        label={<span className="pl-enable-label">{sEnabled ? '' : 'Off'}</span>}
+        title={sEnabled ? 'Disable sort' : 'Enable sort'}
+      />
+      <Button variant="contained" color="error" size="small" sx={{ minWidth: 'unset', py: 0.25, px: 0.75 }} onClick={removeSort}>{'✕'}</Button>
     </div>
   );
 }
 
 export function SortList() {
-  const [state, setState] = useState<AppState>(getStore().getState());
-
-  useEffect(() => getStore().subscribe(s => setState(s)), []);
+  const state = useStore(s => s);
 
   const selCols = state.selCols;
   const reportSpec = buildReportSpecFromState(state);
@@ -99,7 +126,7 @@ export function SortList() {
   const sorts = state.sorts;
 
   if (!sorts.length) {
-    return <span style="font-size:0.76rem;color:var(--muted)">No sort — rows returned in natural order</span>;
+    return <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>No sort — rows returned in natural order</span>;
   }
 
   return (

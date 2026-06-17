@@ -7,11 +7,14 @@
  * Ported from SRC/js/ui/views/pipeline-card.tsx (StackSheets sub-component).
  */
 
-import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
+import { useCallback, useState } from 'react';
 import { getStore } from '../../core/store';
+import { useStore } from '../useStore';
 import { getTableColor } from '../../core/utils';
 import { _afterCombineChange } from '../../query/layout-selection';
-import type { AppState } from '../../types';
+import Chip from '@mui/material/Chip';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 
 export interface StackSheetsProps {
   /** All table IDs sorted by name. */
@@ -23,10 +26,8 @@ export interface StackSheetsProps {
 }
 
 export function StackSheets({ sortedIds, usedAsLookup, usedAsStack }: StackSheetsProps) {
-  const [state, setState] = useState<AppState>(getStore().getState());
-  const selRef = useRef<HTMLSelectElement>(null);
-
-  useEffect(() => getStore().subscribe(s => setState(s)), []);
+  const state = useStore(s => s);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
 
   const base = state.base;
   const tables = state.tables;
@@ -48,52 +49,56 @@ export function StackSheets({ sortedIds, usedAsLookup, usedAsStack }: StackSheet
   }, []);
 
   if (!base || !tables[base]) {
-    return <span style="font-size:0.76rem;color:var(--muted)">{'←'} Pick a sheet first</span>;
+    return <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>{'←'} Pick a sheet first</span>;
   }
 
   const stackAvail = sortedIds.filter(id => id !== base && !usedAsStack.has(id) && !usedAsLookup.has(id));
 
-  const handleAddClick = useCallback(() => {
-    const sel = selRef.current;
-    if (!sel) return;
-    sel.style.cssText = 'position:absolute;opacity:1;pointer-events:auto;width:auto;height:auto';
-    sel.focus();
-    const handleBlur = () => {
-      sel.style.cssText = 'position:absolute;opacity:0;pointer-events:none;width:0;height:0';
-      sel.removeEventListener('blur', handleBlur);
-    };
-    sel.addEventListener('blur', handleBlur);
+  const handleAddClick = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    setMenuAnchor(e.currentTarget);
   }, []);
 
-  const handleSelectChange = useCallback((e: Event) => {
-    const val = (e.target as HTMLSelectElement).value;
-    if (val) addStack(val);
-    (e.target as HTMLSelectElement).value = '';
+  const handleMenuClose = useCallback(() => {
+    setMenuAnchor(null);
+  }, []);
+
+  const handleMenuSelect = useCallback((id: string) => {
+    addStack(id);
+    setMenuAnchor(null);
   }, [addStack]);
 
   return (
-    <div class="pl-stack-sheets">
+    <div className="pl-stack-sheets" style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
       {stacks.filter(id => tables[id]).map(id => (
-        <span key={id} class="pl-stack-chip" style={`border-left:3px solid ${getTableColor(id)}`}>
-          {tables[id].name}
-          <span class="rm" onClick={() => removeStack(id)}>{'×'}</span>
-        </span>
+        <Chip
+          key={id}
+          label={tables[id].name}
+          onDelete={() => removeStack(id)}
+          deleteIcon={<span>{'×'}</span>}
+          sx={{
+            fontSize: '0.76rem',
+            borderLeft: `3px solid ${getTableColor(id)}`,
+            '& .MuiChip-deleteIcon': { fontSize: '0.85rem' },
+          }}
+          className="pl-stack-chip"
+        />
       ))}
       {stackAvail.length > 0 && (
         <>
-          <select
-            ref={selRef}
-            style="position:absolute;opacity:0;pointer-events:none;width:0;height:0"
-            onChange={handleSelectChange}
-          >
-            <option value="">pick a sheet{'…'}</option>
-            {stackAvail.map(id => (
-              <option key={id} value={id}>{tables[id].name}</option>
-            ))}
-          </select>
-          <div class="pl-add-btn" onClick={handleAddClick}>
+          <div className="pl-add-btn" onClick={handleAddClick} style={{ cursor: 'pointer', fontSize: '0.76rem' }}>
             {'＋'} Include
           </div>
+          <Menu
+            anchorEl={menuAnchor}
+            open={Boolean(menuAnchor)}
+            onClose={handleMenuClose}
+          >
+            {stackAvail.map(id => (
+              <MenuItem key={id} onClick={() => handleMenuSelect(id)} sx={{ fontSize: '0.82rem' }}>
+                {tables[id].name}
+              </MenuItem>
+            ))}
+          </Menu>
         </>
       )}
     </div>

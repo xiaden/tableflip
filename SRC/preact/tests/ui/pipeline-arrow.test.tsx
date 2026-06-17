@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render } from 'preact';
-import { act } from 'preact/test-utils';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { act } from 'react';
+import { render, cleanup } from '@testing-library/react';
 import { PipelineArrow } from '../../ui/sections/pipeline-arrow';
 import type { PreviewResult } from '../../report/preview-builder';
 import { _previewOpen } from '../../query/layout-selection';
@@ -18,16 +18,8 @@ function makeResult(overrides: Partial<PreviewResult> = {}): PreviewResult {
 }
 
 describe('PipelineArrow', () => {
-  let container: HTMLDivElement;
-
-  beforeEach(() => {
-    container = document.createElement('div');
-    document.body.appendChild(container);
-    _previewOpen.clear();
-  });
-
   afterEach(() => {
-    document.body.removeChild(container);
+    cleanup();
     _previewOpen.clear();
   });
 
@@ -35,9 +27,7 @@ describe('PipelineArrow', () => {
 
   describe('rendering', () => {
     it('renders the toggle button', () => {
-      act(() => {
-        render(<PipelineArrow id="base" />, container);
-      });
+      const { container } = render(<PipelineArrow id="base" />);
 
       const btn = container.querySelector('.pl-preview-btn');
       expect(btn).toBeTruthy();
@@ -45,9 +35,7 @@ describe('PipelineArrow', () => {
     });
 
     it('renders placeholder when no result prop is provided', () => {
-      act(() => {
-        render(<PipelineArrow id="base" />, container);
-      });
+      const { container } = render(<PipelineArrow id="base" />);
 
       // Open the preview
       const btn = container.querySelector('.pl-preview-btn')!;
@@ -61,9 +49,7 @@ describe('PipelineArrow', () => {
     });
 
     it('renders placeholder when result is null', () => {
-      act(() => {
-        render(<PipelineArrow id="base" result={null} />, container);
-      });
+      const { container } = render(<PipelineArrow id="base" result={null} />);
 
       const btn = container.querySelector('.pl-preview-btn')!;
       act(() => {
@@ -78,9 +64,7 @@ describe('PipelineArrow', () => {
 
   describe('preview table', () => {
     it('renders a table when result has rows', () => {
-      act(() => {
-        render(<PipelineArrow id="base" result={makeResult()} />, container);
-      });
+      const { container } = render(<PipelineArrow id="base" result={makeResult()} />);
 
       // Open the preview
       const btn = container.querySelector('.pl-preview-btn')!;
@@ -103,9 +87,7 @@ describe('PipelineArrow', () => {
     });
 
     it('renders cell values as strings', () => {
-      act(() => {
-        render(<PipelineArrow id="base" result={makeResult()} />, container);
-      });
+      const { container } = render(<PipelineArrow id="base" result={makeResult()} />);
 
       const btn = container.querySelector('.pl-preview-btn')!;
       act(() => {
@@ -122,9 +104,7 @@ describe('PipelineArrow', () => {
         rows: [{ 'Col A': null, 'Col B': 'b1' }],
       });
 
-      act(() => {
-        render(<PipelineArrow id="base" result={result} />, container);
-      });
+      const { container } = render(<PipelineArrow id="base" result={result} />);
 
       const btn = container.querySelector('.pl-preview-btn')!;
       act(() => {
@@ -143,9 +123,7 @@ describe('PipelineArrow', () => {
     it('renders error message in red when result has error', () => {
       const result = makeResult({ error: 'Something went wrong' });
 
-      act(() => {
-        render(<PipelineArrow id="base" result={result} />, container);
-      });
+      const { container } = render(<PipelineArrow id="base" result={result} />);
 
       const btn = container.querySelector('.pl-preview-btn')!;
       act(() => {
@@ -161,9 +139,7 @@ describe('PipelineArrow', () => {
     it('renders "No rows" when result has empty rows array', () => {
       const result = makeResult({ rows: [] });
 
-      act(() => {
-        render(<PipelineArrow id="base" result={result} />, container);
-      });
+      const { container } = render(<PipelineArrow id="base" result={result} />);
 
       const btn = container.querySelector('.pl-preview-btn')!;
       act(() => {
@@ -178,9 +154,7 @@ describe('PipelineArrow', () => {
 
   describe('toggle behavior', () => {
     it('shows "Hide preview" when open', () => {
-      act(() => {
-        render(<PipelineArrow id="base" result={makeResult()} />, container);
-      });
+      const { container } = render(<PipelineArrow id="base" result={makeResult()} />);
 
       const btn = container.querySelector('.pl-preview-btn')!;
       expect(btn.textContent).toContain('Preview');
@@ -193,9 +167,7 @@ describe('PipelineArrow', () => {
     });
 
     it('hides preview content when closed', () => {
-      act(() => {
-        render(<PipelineArrow id="base" result={makeResult()} />, container);
-      });
+      const { container } = render(<PipelineArrow id="base" result={makeResult()} />);
 
       const btn = container.querySelector('.pl-preview-btn')!;
 
@@ -213,9 +185,7 @@ describe('PipelineArrow', () => {
     });
 
     it('tracks open state in _previewOpen', () => {
-      act(() => {
-        render(<PipelineArrow id="lk0" result={makeResult()} />, container);
-      });
+      const { container } = render(<PipelineArrow id="lk0" result={makeResult()} />);
 
       expect(_previewOpen.has('lk0')).toBe(false);
 
@@ -240,9 +210,7 @@ describe('PipelineArrow', () => {
     it('calls onOpen with the arrow id when preview is opened', () => {
       const onOpen = vi.fn();
 
-      act(() => {
-        render(<PipelineArrow id="lk0" onOpen={onOpen} />, container);
-      });
+      const { container } = render(<PipelineArrow id="lk0" onOpen={onOpen} />);
 
       const btn = container.querySelector('.pl-preview-btn')!;
       act(() => {
@@ -256,9 +224,7 @@ describe('PipelineArrow', () => {
     it('does not call onOpen when preview is closed', () => {
       const onOpen = vi.fn();
 
-      act(() => {
-        render(<PipelineArrow id="base" onOpen={onOpen} />, container);
-      });
+      const { container } = render(<PipelineArrow id="base" onOpen={onOpen} />);
 
       const btn = container.querySelector('.pl-preview-btn')!;
 
@@ -278,9 +244,7 @@ describe('PipelineArrow', () => {
     it('calls onOpen each time preview is re-opened', () => {
       const onOpen = vi.fn();
 
-      act(() => {
-        render(<PipelineArrow id="base" onOpen={onOpen} />, container);
-      });
+      const { container } = render(<PipelineArrow id="base" onOpen={onOpen} />);
 
       const btn = container.querySelector('.pl-preview-btn')!;
 

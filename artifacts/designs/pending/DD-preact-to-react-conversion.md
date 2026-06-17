@@ -2,25 +2,20 @@
 
 **Status:** Draft  
 **Author:** RnD-DDAuthor  
-**Created:** 2026-06-15  
+**Created:** 2026-06-16  
 
 **Related Documents:**
 - [ADR-002: Five-Layer Architecture](artifacts/decisions/ADR-002-five-layer-architecture.md) — Five-layer architecture — establishes that only the UI layer changes. Core/Catalog/Query/Report are untouched.
 - [ADR-006: Monolithic State Store](artifacts/decisions/ADR-006-monolithic-state-store-single-source-of-truth-for-reactivity-and-serialization.md) — Monolithic state store — the store is preserved as-is. The React adapter hook wraps it without modification.
 - [ADR-007: Signal-Based State (to be superseded)](artifacts/decisions/ADR-007-signal-based-state-with-explicit-serialization-subscriber.md) — Signal-based state — PROPOSED, must be SUPERSEDED if React conversion proceeds. Opposite direction.
-- [DD-pivot-table-ui-redesign](artifacts/designs/pending/DD-pivot-table-ui-redesign.md) — Pivot-table UI redesign — touches the same ~25 UI files. Sequencing must be coordinated to avoid double work.
-- [DD-pipeline-preview](artifacts/designs/pending/DD-pipeline-preview.md) — Pipeline preview — modifies pipeline-card.tsx and pipeline-arrow.tsx (in conversion scope). Must coordinate timing.
-- [DD-store-alias-rename](artifacts/designs/pending/DD-store-alias-rename.md) — Store alias rename — modifies calc-stage.tsx, rename-modal.tsx (in conversion scope). Small changes, should land first.
-- [DD-needs-sync-state-separation](artifacts/designs/pending/DD-needs-sync-state-separation.md) — State separation — proposes fieldFlags on AppState. Compatible but coordinate type changes.
 - [DD-preact-rebuild-architecture](artifacts/designs/completed/DD-preact-rebuild-architecture.md) — The original Preact rebuild design. This conversion replaces the UI layer it specified while preserving all lower layers.
 
 ---
 
 ## Scope
 
-## Scope
-
 **In scope:**
+
 - All 25 component/UI files in `SRC/preact/ui/` (app.tsx, sidebar.tsx, grid.tsx, file-loader.tsx, cards/*, sections/*, components/*)
 - Store adapter hook (`useStore`) bridging existing `core/store.ts` to React — NO changes to the store itself
 - Build pipeline migration: esbuild → Vite + @vitejs/plugin-react
@@ -33,6 +28,7 @@
 - Test environment setup: `@testing-library/react` for any UI tests
 
 **Out of scope:**
+
 - `SRC/preact/core/` — EXCEPT the thin adapter hook that wraps `getStore()` for React. The store itself (`core/store.ts`) is NOT modified.
 - `SRC/preact/catalog/` — Zero changes
 - `SRC/preact/query/` — Zero changes
@@ -42,7 +38,7 @@
 - `SRC/js/` — Legacy JavaScript code, not part of this conversion
 - `SRC/js/vendor/` and `SRC/js/wasm/` — Vendor globals unchanged
 - UI redesign or new features — this is a framework conversion, not a redesign
-- Pivot-table redesign (DD-pivot-table-ui-redesign) — separate effort, must be coordinated (see Open Questions)
+- Pivot-table redesign (separate effort — now tracked in DD-pivot-table-ui-redesign-react)
 
 ---
 
@@ -51,8 +47,6 @@
 The TableFlip UI layer is built on Preact with a custom CSS stylesheet (~900 lines) and imperative AG Grid integration. The project has decided to migrate the UI layer from Preact to React + Material UI (MUI) to gain access to the React ecosystem, a mature component library, and standard tooling (Vite, React DevTools, React Testing Library). This conversion must preserve the existing five-layer architecture (ADR-002), keep the monolithic state store unchanged (ADR-006), introduce zero behavioral changes to the UI, and maintain all 1030 passing tests. The conversion touches ~25 component files in `SRC/preact/ui/` while leaving Core, Catalog, Query, and Report layers completely untouched.
 
 ---
-
-## Architecture
 
 ## Architecture
 
@@ -133,12 +127,14 @@ function useStore(): AppState {
 | CSS | `style.css` via `<link>` in index.html | Vite CSS handling + MUI Emotion CSS-in-JS |
 
 **Why Vite over esbuild reconfig:**
+
 1. **HMR** — The current dev workflow has NO hot module replacement. `tsc --watch` only typechecks. Vite provides instant HMR with React Fast Refresh (component state preserved across edits). This is a qualitative DX improvement.
 2. **React Fast Refresh** — Vite's `@vitejs/plugin-react` includes the React Refresh runtime. esbuild does not support this.
 3. **Standard tooling** — Vite is the standard React development toolchain. Future contributors will be familiar with it.
 4. **Production parity** — Vite's production build (Rollup) produces well-optimized bundles with tree-shaking. esbuild's bundle is fast but less optimized.
 
 **Migration path for build:**
+
 1. Add `vite.config.ts` with `@vitejs/plugin-react`
 2. Move `index.html` to project root (Vite convention) or configure `root`
 3. Move vendor assets to `public/` directory (served as-is)
@@ -147,6 +143,7 @@ function useStore(): AppState {
 6. Remove `scripts/build.mjs` after validation
 
 **tsconfig.json changes:**
+
 ```diff
 - "jsxImportSource": "preact",
 + "jsxImportSource": "react",
@@ -156,6 +153,7 @@ function useStore(): AppState {
 ### AG Grid Integration Migration
 
 **Current pattern (imperative):**
+
 - Module-level singletons: `let gridResult: AGridApi | null` and `let gridPreview: AGridApi | null`
 - `useEffect` creates grid via `agGrid.createGrid(el, options)` on mount, destroys on cleanup
 - Anonymous class-based header components (`_makeHeaderComponent`) implementing AG Grid's `init()/getGui()/destroy()/refresh()` interface
@@ -188,6 +186,7 @@ function ResultGrid({ result, onRenameDone }: ResultGridProps) {
 ```
 
 **Key changes:**
+
 1. **No module singletons** — Grid API accessed via `gridRef.current.api`
 2. **No anonymous classes** — Header components become React functional components rendered via `headerComponentFramework`
 3. **No double-RAF hacks** — `ag-grid-react` handles layout lifecycle
@@ -240,6 +239,7 @@ AG Grid React supports React components as header components via `frameworkCompo
 | **Remaining custom CSS** | Pipeline arrows, band tints, specialized layouts | ~120 lines |
 
 **Phased approach:**
+
 1. **Phase 1 (tooling):** Add MUI, keep `style.css` entirely. MUI components coexist with custom CSS.
 2. **Phase 2 (components):** Replace Modal, Chip, ContextMenu, Tip with MUI equivalents. Remove corresponding CSS blocks.
 3. **Phase 3 (layout):** Replace layout CSS (`.hdr`, `.layout`, `.main`, `.sidebar`, `.tabs`) with MUI layout components. Remove corresponding CSS blocks.
@@ -257,6 +257,7 @@ AG Grid React supports React components as header components via `frameworkCompo
 ### Workflows
 
 **Component conversion workflow (per file):**
+
 1. Change imports: `preact/hooks` → `react`, `preact` → `react`
 2. Replace `class` → `className` (or use MUI `sx` prop)
 3. Replace `getStore().subscribe()` pattern with `useStore()` hook
@@ -267,6 +268,7 @@ AG Grid React supports React components as header components via `frameworkCompo
 8. Run typecheck + lint + tests
 
 **Entry point migration (`app.ts` → `main.tsx`):**
+
 ```tsx
 // Current (Preact)
 import { render, h } from 'preact';
@@ -302,64 +304,37 @@ root.render(<App />);
 6. **TypeScript strictness preserved:** `strict: true` in tsconfig. No `any` types introduced for framework bridging.
 7. **Vendor globals unchanged:** AG Grid, XLSX, sql.js continue loading via `<script>` tags. `ag-grid-react` wraps the same global AG Grid module.
 8. **AGENTS.md rules preserved:** No `dangerouslySetInnerHTML`, `typeof window/document` guards for SSR safety, vendored CJS modules need `@ts-expect-error`.
-9. **Pivot-table redesign coordination (CRITICAL):** DD-pivot-table-ui-redesign plans to rewrite the same ~25 UI files. Sequencing decision required (see Open Questions). If React conversion proceeds first, pivot redesign must be updated to target React+MUI.
-10. **Pending feature coordination:** DD-pipeline-preview (modifies pipeline-card.tsx, pipeline-arrow.tsx), DD-store-alias-rename (modifies calc-stage.tsx, rename-modal.tsx, utils.ts), DD-needs-sync-state-separation (proposes fieldFlags on AppState) — all touch files in conversion scope. These must either land before conversion or be re-targeted post-conversion.
 
 ---
 
 ## Open Questions
 
-## Open Questions
+### 1. Build Tooling: Vite (RESOLVED)
 
-### 1. Pivot-Table Redesign Sequencing (CRITICAL — must resolve before starting)
+**Decision:** Adopt Vite with `@vitejs/plugin-react`. See Architecture → Build Pipeline section for details.
 
-DD-pivot-table-ui-redesign plans to rewrite the same ~25 UI files this conversion touches. Three options:
+### 2. Store Adapter: Selector-Based `useStore(selector)` (RESOLVED)
 
-- **Option A: React conversion first, then pivot redesign in React+MUI.** Pivot builds on the new React foundation. No double work. The old 3-tab layout exists temporarily in React before pivot replaces it with the single-screen layout. **Recommended** — mechanical work first, creative work second.
-- **Option B: Pivot redesign first in Preact, then re-convert everything to React.** Double work on ~25 files (~2 extra weeks). The pivot's new Preact components must be mechanically re-converted.
-- **Option C: Merge both efforts into one.** Combine React conversion + pivot redesign. Higher risk (two large changes simultaneously), but avoids the intermediate "old layout in React" state.
+**Decision:** Implement a selector-based `useStore(selector)` hook from the start. NOT plain subscription — the user chose granular subscriptions for optimized re-renders. The hook takes a selector function `(state: AppState) => T` and returns the selected slice. Components only re-render when their selected slice changes.
 
-**Decision needed:** Which option? This determines whether the pivot DD needs to be updated to target React+MUI before either effort starts.
+```tsx
+function useStore<T>(selector: (state: AppState) => T): T {
+  const sliceRef = useRef(selector(getStore().getState()));
+  // Uses useSyncExternalStore with shallow equality check on the selected slice
+}
+```
 
-### 2. Build Tooling: Vite vs. esbuild Reconfig
+### 3. CSS Strategy: Full MUI Phased Replacement (RESOLVED)
 
-**Recommended: Vite** (see Architecture section). Alternative: reconfigure esbuild for React JSX transform (change `jsxImportSource` to `"react"`, add React deps). This avoids adding Vite but provides NO HMR and NO React Fast Refresh — the dev experience remains "edit → manual refresh."
+**Decision:** Full MUI phased replacement as described in Architecture → CSS Replacement Strategy section. All custom CSS eventually replaced by MUI components + `sx` props. ~120 lines of specialized CSS (pipeline arrows, band tints) may remain as inline `sx` or a minimal theme CSS file.
 
-**Decision needed:** Vite (recommended) or esbuild-only?
+### 4. MUI Theme Fidelity: Hybrid Approach (RESOLVED)
 
-### 3. Store Adapter: `useSyncExternalStore` vs. Custom Hook with Selectors
+**Decision:** Hybrid approach — use MUI styling where close enough, keep custom styling where ours is vastly different/superior from a UI/UX perspective. Maintain our color palette in either case. Create a MUI theme that maps current CSS variables to the MUI palette, but allow custom `sx` overrides for areas where MUI's default look doesn't match (e.g., pipeline arrow components, band tint styling).
 
-**Recommended: Plain `useSyncExternalStore`** wrapping the existing store. Every component that currently subscribes to the full state continues to receive the full state. Change detection remains the component's responsibility (same as today).
+### 5. Pending Feature Coordination (RESOLVED)
 
-**Alternative:** Add a selector parameter to `useStore(selector)` for granular subscriptions. This reduces re-renders but adds complexity and deviates from the current pattern. Can be added later as an optimization without changing the store.
-
-**Decision needed:** Plain subscription (recommended) or selector-based from the start?
-
-### 4. CSS Strategy: Full MUI vs. Hybrid
-
-**Recommended: Phased full MUI** (see CSS Replacement Strategy section). All custom CSS eventually replaced by MUI components + `sx` props. ~120 lines of specialized CSS (pipeline arrows, band tints) may remain as inline `sx` or a minimal theme CSS file.
-
-**Alternative: Hybrid** — keep `style.css` for layout, use MUI only for form controls and shared components. Less conversion work but two styling systems coexist permanently.
-
-**Decision needed:** Full MUI (recommended) or hybrid?
-
-### 5. Pending Feature Coordination
-
-Three pending design documents touch files in the conversion scope:
-- DD-pipeline-preview (pipeline-card.tsx, pipeline-arrow.tsx)
-- DD-store-alias-rename (calc-stage.tsx, rename-modal.tsx)
-- DD-needs-sync-state-separation (AppState type)
-
-**Decision needed:** Should these land BEFORE the React conversion (so we convert their finished output), or should they be deferred and re-targeted post-conversion?
-
-### 6. MUI Theme Fidelity
-
-The current UI uses a custom dark theme with CSS variables (`--bg`, `--bg2`, `--text`, `--muted`, `--border`, etc.). MUI uses its own theme system. Two approaches:
-
-- **Map CSS variables to MUI palette:** Create a MUI theme that matches current colors exactly. MUI components render with the same visual appearance.
-- **Accept MUI's default dark theme:** Let MUI's dark theme replace the current custom theme. Visual appearance changes but MUI components look consistent.
-
-**Decision needed:** Pixel-perfect theme mapping (recommended for "zero behavioral changes" goal) or accept MUI default dark theme?
+**Decision:** Ignore pending DDs (DD-pipeline-preview, DD-store-alias-rename, DD-needs-sync-state-separation). Another agent will handle re-planning those features. This conversion proceeds independently and handles the files as they exist in their current state.
 
 ---
 
@@ -410,6 +385,7 @@ ADR-007 (Proposed) recommends migrating to Preact signals for granular reactivit
 | `sections/stack-sheets.tsx` | ~100 | Section | MUI Select, Checkbox | Low |
 
 **Files requiring NO conversion** (pure logic, zero framework imports):
+
 - `loader.ts` — File data ingestion
 - `export.ts` — Export trigger logic
 - `tabs.ts` — Tab switching (single store mutation)
@@ -421,8 +397,6 @@ ADR-007 (Proposed) recommends migrating to Preact signals for granular reactivit
 |---|---|---|
 | AG Grid imperative → declarative breaks column state persistence | High | Test column state save/restore early in Phase 4. The `onColumnMoved`/`onColumnResized` callbacks are identical in ag-grid-react. |
 | MUI dark theme doesn't match current CSS dark theme | Medium | Create MUI theme object mapping current CSS variables (`--bg`, `--text`, `--border`, etc.) to MUI palette. Test visually after Phase 2. |
-| Pivot-table redesign scope conflict | **Critical** | Resolve sequencing in Open Questions before starting. Double work risk is ~25 files × ~2 weeks. |
-| Pending features touch files in conversion scope | High | Land or defer pending DDs before starting Phase 3. See Open Questions. |
 | `useSyncExternalStore` broadcast re-renders cause performance regression | Medium | Monitor with React DevTools Profiler. If needed, add selector-based subscription wrapper (still uses same store, just filters updates). |
 | Vendor global loading breaks with Vite | Low | Vite `public/` directory serves files as-is. `<script>` tags in index.html work unchanged. Test early in Phase 1. |
 | Test environment needs React setup | Low | Add `@testing-library/react` and `jsdom` environment config to Vitest. Most tests don't render UI. |
@@ -430,6 +404,7 @@ ADR-007 (Proposed) recommends migrating to Preact signals for granular reactivit
 ### Dependencies Added/Removed
 
 **Added:**
+
 - `react` ^19.x
 - `react-dom` ^19.x
 - `@mui/material` ^7.x
@@ -442,11 +417,13 @@ ADR-007 (Proposed) recommends migrating to Preact signals for granular reactivit
 - `@vitejs/plugin-react` ^4.x
 
 **Removed:**
+
 - `preact` ^10.29.2
 - `esbuild` ^0.28.1 (dev dependency — replaced by Vite's built-in esbuild for dev transforms)
 - `esbuild-wasm` ^0.28.1 (dev dependency — no longer needed for production build)
 
 **Unchanged:**
+
 - `typescript`, `vitest`, `eslint`, `jsdom`, `typedoc`, `tsx` — all remain
 - AG Grid Community (vendor global) — unchanged, `ag-grid-react` wraps it
 - XLSX (vendor global) — unchanged
@@ -456,11 +433,10 @@ ADR-007 (Proposed) recommends migrating to Preact signals for granular reactivit
 
 ## Appendix: Research Findings
 
-## Appendix: Research Findings
-
 ### Store Pattern Analysis
 
 Every UI component uses the identical subscription pattern:
+
 ```tsx
 const [state, setState] = useState<AppState>(getStore().getState());
 useEffect(() => {
@@ -476,6 +452,7 @@ This is a textbook case for `useSyncExternalStore`. The store's `getState()` ret
 ### AG Grid Integration Analysis
 
 Current `grid.tsx` (593 lines) has three distinct concerns:
+
 1. **Grid lifecycle** (imperative create/destroy via `agGrid.createGrid`) — ~100 lines
 2. **Column definition builders** (`makeResultCols`, `makePreviewCols`) — ~100 lines
 3. **Header component factory** (`_makeHeaderComponent` returning anonymous class) — ~55 lines
@@ -489,16 +466,19 @@ The column definition builders are pure functions that return config objects —
 ### Build Pipeline Analysis
 
 Current dev workflow:
+
 - `npm run dev` → `tsc --watch -p tsconfig.json` → typechecks and emits to `../preact-dev/`
 - Developer manually refreshes browser
 - No source maps, no HMR, no Fast Refresh
 
 Current production build:
+
 - `npm run build` → `node scripts/build.mjs` → esbuild-wasm bundles to `../pkg/js/app.bundle.js`
 - Static assets (CSS, vendor, WASM) copied manually
 - index.html patched to inject bundle script
 
 Vite replaces both:
+
 - `npm run dev` → `vite` → dev server on :5173 with HMR + React Fast Refresh
 - `npm run build` → `vite build` → optimized bundle to `dist/`
 - Vendor assets in `public/` served as-is
@@ -506,46 +486,19 @@ Vite replaces both:
 
 **Output directory:** Current build outputs to `../pkg/`. Vite defaults to `dist/`. Configure `build.outDir` in `vite.config.ts` to maintain `../pkg/` output if needed for deployment.
 
-### Pivot-Table Redesign Overlap
-
-DD-pivot-table-ui-redesign (pending, 768 lines) plans:
-- DELETE `grid.tsx` entirely (replace AG Grid with custom virtual-scrolling grid)
-- Rewrite all 25 UI files in a new single-screen pivot layout
-- New component hierarchy: PivotLayout → PivotSidebar + PivotToolbar + PivotGrid
-- New CSS file: `pivot-layout.css`
-- AppState `_ui` field for UI-only state
-
-**Overlap with React conversion:**
-- Both touch all 25 UI files
-- Both replace grid.tsx (React conversion migrates to ag-grid-react; pivot deletes AG Grid entirely)
-- Both replace the 3-tab layout (React conversion preserves it; pivot replaces with single-screen)
-
-**Sequencing options:**
-1. **React first, then pivot in React+MUI** — Pivot redesign builds on the new React foundation. No double work. Pivot's custom grid replaces ag-grid-react (which was a stepping stone).
-2. **Pivot first in Preact, then re-convert to React** — Double work on ~25 files. The pivot's new components must be converted from Preact to React after.
-3. **Merge into one effort** — Combine React conversion + pivot redesign into a single larger effort. Higher risk, but avoids intermediate state where the old 3-tab layout exists in React temporarily.
-
-**Recommendation:** Option 1 (React first, then pivot). The React conversion is mechanical and low-risk (framework swap, same UI). The pivot redesign is creative and high-risk (new layout, new grid, new interactions). Doing the mechanical work first gives the pivot redesign a stable React+MUI foundation to build on.
-
-### Pending Feature Coordination
-
-| Pending DD | Files Touched | Impact on React Conversion |
-|---|---|---|
-| DD-pipeline-preview | pipeline-card.tsx, pipeline-arrow.tsx | Land before conversion, or re-target post-conversion |
-| DD-store-alias-rename | calc-stage.tsx, rename-modal.tsx, utils.ts | Small changes — land before conversion |
-| DD-needs-sync-state-separation | AppState type (core/state.ts) | Adds fieldFlags to AppState — compatible, but coordinate type changes |
-
 ### Test Strategy
 
 Current: 1030 tests across 54 files, Vitest + jsdom.
 
 **Impact analysis:**
+
 - ~90% of tests are in `preact/tests/` testing core/catalog/query/report logic — **zero framework imports, unchanged**
 - UI component tests (if any) would import from `preact/test-utils` — these need migration to `@testing-library/react`
 - Test setup (`vitest-setup.ts`) creates fresh SQLite DB per test — **unchanged**
 - Vitest config may need `@testing-library/jest-dom` matchers added
 
 **Action items:**
+
 1. Add `@testing-library/react` and `@testing-library/jest-dom` to devDependencies
 2. Update any UI test imports from `preact` to `react`
 3. Verify all 1030 tests pass after conversion

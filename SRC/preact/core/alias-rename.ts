@@ -32,9 +32,11 @@ export function renameCalcAlias(idx: number, newAlias: string): void {
     const calc = draft.calcStages[idx];
     if (!calc) return;
     const oldAlias = (calc.alias || '').trim();
-    if (!oldAlias || oldAlias === trimmed) return;
+    if (oldAlias === trimmed) return;
     calc.alias = trimmed;
-    renameAliasRefsInternal(draft, oldAlias, trimmed);
+    if (oldAlias) {
+      renameAliasRefsInternal(draft, oldAlias, trimmed);
+    }
   });
 
   _afterCombineChange();

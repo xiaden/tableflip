@@ -1,6 +1,6 @@
 ---
 name: state-lifecycle-orientation
-description: 'Core state lifecycle: store, load, serialize, hydrate, apply, validate, and the reactive pub/sub pattern for app state in TableFlip Preact.'
+description: 'Core state lifecycle: store, load, serialize, hydrate, apply, validate, and the reactive pub/sub pattern for app state in TableFlip React.'
 ---
 
 # State Lifecycle Orientation

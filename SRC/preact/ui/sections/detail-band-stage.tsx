@@ -15,8 +15,9 @@
  * - Calls invalidateValidation() after every mutation
  */
 
-import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useState, useEffect, useCallback } from 'react';
 import { getStore } from '../../core/store';
+import { useStore } from '../useStore';
 import { buildReportSpecFromState } from '../../core/state';
 import {
   colLabel,
@@ -32,6 +33,14 @@ import { Chip } from '../components/chip';
 import { Tip } from '../components/tip';
 import { ContextMenu, type CtxMenuItem } from '../components/context-menu';
 import { resolveRenameTarget, RenameModal, type RenameTarget } from '../components/rename-modal';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Checkbox from '@mui/material/Checkbox';
+import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
 import type { AppState, DetailBandSpec } from '../../types';
 
 export interface DetailBandStageProps {
@@ -48,11 +57,9 @@ export interface DetailBandStageProps {
 }
 
 export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedAsBase }: DetailBandStageProps) {
-  const [state, setState] = useState<AppState>(getStore().getState());
+  const state = useStore(s => s);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; items: CtxMenuItem[] } | null>(null);
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
-
-  useEffect(() => getStore().subscribe(s => setState(s)), []);
 
   // Initialize keyPairs if empty (moved from render phase)
   useEffect(() => {
@@ -238,60 +245,95 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
     });
   }, [updateBand]);
 
+  const compactSelectSx = {
+    '& .MuiSelect-select': { py: 0.5, px: 1, fontSize: '0.78rem', minHeight: 'unset' },
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
+  };
+
   return (
     <>
-      <div class={stageClasses}>
-      <div class="pl-stage-label">
+      <div className={stageClasses}>
+      <div className="pl-stage-label">
           Related Details from <Tip text={"Add related rows from another sheet beneath each parent row — like sub-report details.\n\nFor example: show each Order followed by its Line Items. Use '+ AND' to match on multiple columns at once.\n\nExported spreadsheets cannot be re-sorted after detail bands are inserted — apply all desired sorts in the report's Sorting stage before export."} />
-        <label class="pl-enable-toggle" title={bandEnabled ? "Disable this detail band (won't block report)" : 'Enable this detail band'}>
-          <input type="checkbox" checked={bandEnabled} onChange={e => handleEnabledChange((e.target as HTMLInputElement).checked)} />
-          <span class="pl-enable-label">{bandEnabled ? 'Enabled' : 'Disabled'}</span>
-        </label>
+        <FormControlLabel
+          className="pl-enable-toggle"
+          control={
+            <Checkbox
+              checked={bandEnabled}
+              onChange={e => handleEnabledChange(e.target.checked)}
+              size="small"
+              sx={{ py: 0, px: 0.5 }}
+            />
+          }
+          label={<span className="pl-enable-label">{bandEnabled ? 'Enabled' : 'Disabled'}</span>}
+          title={bandEnabled ? "Disable this detail band (won't block report)" : 'Enable this detail band'}
+        />
       </div>
-      {bandVMsg && <div class="pl-lookup-error">{bandVBlocked ? '\u26D4' : '\u26A0'} {bandVMsg}</div>}
-      <div class="pl-lookup-header">
-        <select value={band.rightId || ''} onChange={e => handleRightIdChange((e.target as HTMLSelectElement).value)}>
-          <option value="">{'\u2014'} pick a sheet {'\u2014'}</option>
-          {sortedIds
-            .filter(id =>
-              id !== usedAsBase &&
-              !usedAsStack.has(id) &&
-              (!usedAsLookup.has(id) || id === band.rightId) &&
-              (!usedAsBand.has(id) || id === band.rightId),
-            )
-            .map(id => <option key={id} value={id}>{tables[id].name}</option>)}
-        </select>
-        <button class="btn btn-danger" style="flex-shrink:0" onClick={removeBand}>{'\u2715'}</button>
+      {bandVMsg && <div className="pl-lookup-error">{bandVBlocked ? '\u26D4' : '\u26A0'} {bandVMsg}</div>}
+      <div className="pl-lookup-header" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <FormControl size="small">
+          <Select
+            value={band.rightId || ''}
+            onChange={e => handleRightIdChange(e.target.value as string)}
+            sx={{ minWidth: 180, ...compactSelectSx }}
+            displayEmpty
+          >
+            <MenuItem value="">{'\u2014'} pick a sheet {'\u2014'}</MenuItem>
+            {sortedIds
+              .filter(id =>
+                id !== usedAsBase &&
+                !usedAsStack.has(id) &&
+                (!usedAsLookup.has(id) || id === band.rightId) &&
+                (!usedAsBand.has(id) || id === band.rightId),
+              )
+              .map(id => <MenuItem key={id} value={id}>{tables[id].name}</MenuItem>)}
+          </Select>
+        </FormControl>
+        <Button variant="contained" color="error" size="small" sx={{ flexShrink: 0, minWidth: 'unset', py: 0.25, px: 1 }} onClick={removeBand}>{'\u2715'}</Button>
       </div>
       {rt && (
-        <div class="pl-lookup-keys">
+        <div className="pl-lookup-keys">
           {pairs.map((pair, pi) => (
-            <div key={pi} class="pl-key-pair">
-              <span class="pl-key-pair-label">{pi === 0 ? 'Where' : 'AND'}</span>
-              <select value={pair.left || ''} onChange={e => handleKpLeftChange(pi, (e.target as HTMLSelectElement).value)}>
-                <option value="">{'\u2014'} column {'\u2014'}</option>
-                {leftCols.map(c => {
-                  const src = lkColMap.get(c);
-                  const label = src && src.kind !== 'calc' ? colLabel(src.tid, src.col) : c;
-                  return <option key={c} value={c}>{label}</option>;
-                })}
-              </select>
-              <span class="pl-lookup-eq">=</span>
-              <select value={pair.right || ''} onChange={e => handleKpRightChange(pi, (e.target as HTMLSelectElement).value)}>
-                <option value="">{'\u2014'} column {'\u2014'}</option>
-                {rightCols.map(c => <option key={c} value={c}>{colLabel(band.rightId, c)}</option>)}
-              </select>
+            <div key={pi} className="pl-key-pair">
+              <span className="pl-key-pair-label">{pi === 0 ? 'Where' : 'AND'}</span>
+              <FormControl size="small">
+                <Select
+                  value={pair.left || ''}
+                  onChange={e => handleKpLeftChange(pi, e.target.value as string)}
+                  sx={{ minWidth: 140, ...compactSelectSx }}
+                  displayEmpty
+                >
+                  <MenuItem value="">{'\u2014'} column {'\u2014'}</MenuItem>
+                  {leftCols.map(c => {
+                    const src = lkColMap.get(c);
+                    const label = src && src.kind !== 'calc' ? colLabel(src.tid, src.col) : c;
+                    return <MenuItem key={c} value={c}>{label}</MenuItem>;
+                  })}
+                </Select>
+              </FormControl>
+              <span className="pl-lookup-eq">=</span>
+              <FormControl size="small">
+                <Select
+                  value={pair.right || ''}
+                  onChange={e => handleKpRightChange(pi, e.target.value as string)}
+                  sx={{ minWidth: 140, ...compactSelectSx }}
+                  displayEmpty
+                >
+                  <MenuItem value="">{'\u2014'} column {'\u2014'}</MenuItem>
+                  {rightCols.map(c => <MenuItem key={c} value={c}>{colLabel(band.rightId, c)}</MenuItem>)}
+                </Select>
+              </FormControl>
               {pairs.length > 1 && (
-                <button class="pl-rm-kp" title="Remove this condition" onClick={() => removeKeyPair(pi)}>{'\u2715'}</button>
+                <IconButton className="pl-rm-kp" size="small" title="Remove this condition" onClick={() => removeKeyPair(pi)} sx={{ fontSize: '0.75rem' }}>{'\u2715'}</IconButton>
               )}
             </div>
           ))}
-          <button class="btn btn-ghost pl-add-kp" onClick={addKeyPair}>{'\uFF0B'} AND {'\u2026'}</button>
+          <Button variant="text" size="small" className="pl-add-kp" onClick={addKeyPair} sx={{ fontSize: '0.76rem', textTransform: 'none' }}>{'\uFF0B'} AND {'\u2026'}</Button>
         </div>
       )}
       {rt && (
-        <div class="pl-band-cols">
-          <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Include:</span>
+        <div className="pl-band-cols" style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.7rem', color: 'var(--muted)', flexShrink: 0, alignSelf: 'center' }}>Include:</span>
           <Tip text="These are the columns from the child sheet. Click a chip to include or exclude it from the detail band. Right-click any chip to rename it." />
           {rt.cols.map(c => {
             const isSelected = band.cols.includes(c);
@@ -321,60 +363,74 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
               />
             );
           })}
-          <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" onClick={selectAllCols}>All</button>
-          <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" onClick={selectNoneCols}>None</button>
+          <Button variant="text" size="small" sx={{ fontSize: '0.68rem', py: 0.25, px: 0.75, minWidth: 'unset', flexShrink: 0 }} onClick={selectAllCols}>All</Button>
+          <Button variant="text" size="small" sx={{ fontSize: '0.68rem', py: 0.25, px: 0.75, minWidth: 'unset', flexShrink: 0 }} onClick={selectNoneCols}>None</Button>
         </div>
       )}
       {rt && (
-        <div class="pl-band-label-row">
-          <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0">Label:</span>
-          <input
-            type="text"
-            class="pl-band-label-input"
+        <div className="pl-band-label-row" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: '0.7rem', color: 'var(--muted)', flexShrink: 0 }}>Label:</span>
+          <TextField
+            className="pl-band-label-input"
             placeholder={tables[band.rightId]?.name || 'Section label'}
             value={band.label || ''}
-            onChange={e => handleLabelChange((e.target as HTMLInputElement).value)}
-            style="font-size:0.72rem;padding:2px 6px;max-width:180px"
+            onChange={e => handleLabelChange(e.target.value)}
+            size="small"
+            sx={{ fontSize: '0.72rem', maxWidth: 180, '& input': { py: 0.25, px: 0.75, fontSize: '0.72rem' } }}
           />
           <Tip text="Optional label for this detail section. Defaults to the sheet name if left blank." />
         </div>
       )}
       {rt && (
-        <div class="pl-band-sorts">
-          <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Sort by:</span>
+        <div className="pl-band-sorts" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: '0.7rem', color: 'var(--muted)', flexShrink: 0, alignSelf: 'center' }}>Sort by:</span>
           <Tip text="Sort the child rows within each band. Add multiple sort levels for tie-breaking." />
           {(band.sorts || []).map((s, si) => {
             const sEnabled = s.enabled !== false;
             return (
-              <div key={si} class={`sort-row${sEnabled ? '' : ' pl-stage-disabled'}`}>
-                <span class="sort-level">{si + 1}.</span>
-                <select
-                  value={s.col}
-                  style="flex:1;min-width:0"
-                  onChange={e => handleSortColChange(si, (e.target as HTMLSelectElement).value)}
-                >
-                  <option value="">{'\u2014'} column {'\u2014'}</option>
-                  {rightCols.map(c => (
-                    <option key={c} value={c}>{colLabel(band.rightId, c)}</option>
-                  ))}
-                </select>
-                <select
-                  value={s.dir}
-                  style="width:95px;flex-shrink:0"
-                  onChange={e => handleSortDirChange(si, (e.target as HTMLSelectElement).value)}
-                >
-                  <option value="ASC">{'\u2191'} A {'\u2192'} Z</option>
-                  <option value="DESC">{'\u2193'} Z {'\u2192'} A</option>
-                </select>
-                <label class="pl-enable-toggle" title={sEnabled ? 'Disable sort' : 'Enable sort'}>
-                  <input type="checkbox" checked={sEnabled} onChange={e => handleSortEnabledChange(si, (e.target as HTMLInputElement).checked)} />
-                  <span class="pl-enable-label">{sEnabled ? '' : 'Off'}</span>
-                </label>
-                <button class="btn btn-danger" onClick={() => removeSort(si)}>{'\u2715'}</button>
+              <div key={si} className={`sort-row${sEnabled ? '' : ' pl-stage-disabled'}`} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span className="sort-level">{si + 1}.</span>
+                <FormControl size="small" sx={{ flex: 1, minWidth: 0 }}>
+                  <Select
+                    value={s.col}
+                    onChange={e => handleSortColChange(si, e.target.value as string)}
+                    sx={{ ...compactSelectSx }}
+                    displayEmpty
+                  >
+                    <MenuItem value="">{'\u2014'} column {'\u2014'}</MenuItem>
+                    {rightCols.map(c => (
+                      <MenuItem key={c} value={c}>{colLabel(band.rightId, c)}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl size="small" sx={{ width: 95, flexShrink: 0 }}>
+                  <Select
+                    value={s.dir}
+                    onChange={e => handleSortDirChange(si, e.target.value as string)}
+                    sx={compactSelectSx}
+                  >
+                    <MenuItem value="ASC">{'\u2191'} A {'\u2192'} Z</MenuItem>
+                    <MenuItem value="DESC">{'\u2193'} Z {'\u2192'} A</MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControlLabel
+                  className="pl-enable-toggle"
+                  control={
+                    <Checkbox
+                      checked={sEnabled}
+                      onChange={e => handleSortEnabledChange(si, e.target.checked)}
+                      size="small"
+                      sx={{ py: 0, px: 0.5 }}
+                    />
+                  }
+                  label={<span className="pl-enable-label">{sEnabled ? '' : 'Off'}</span>}
+                  title={sEnabled ? 'Disable sort' : 'Enable sort'}
+                />
+                <Button variant="contained" color="error" size="small" sx={{ minWidth: 'unset', py: 0.25, px: 0.75 }} onClick={() => removeSort(si)}>{'\u2715'}</Button>
               </div>
             );
           })}
-          <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" onClick={addSort}>{'\uFF0B'} sort</button>
+          <Button variant="text" size="small" sx={{ fontSize: '0.68rem', py: 0.25, px: 0.75, flexShrink: 0, textTransform: 'none' }} onClick={addSort}>{'\uFF0B'} sort</Button>
         </div>
       )}
       </div>

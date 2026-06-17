@@ -5,8 +5,8 @@
   "description": "Browser-based spreadsheet reporting tool",
   "type": "module",
   "scripts": {
-    "build": "node scripts/build.mjs",
-    "dev": "tsc --watch -p tsconfig.json",
+    "build": "vite build",
+    "dev": "vite --host",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint preact/",
     "test": "vitest run",
@@ -16,19 +16,28 @@
     "docs:watch": "typedoc --watch"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^25.9.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.7.0",
     "@vitest/coverage-v8": "^4.1.8",
-    "esbuild": "^0.28.1",
-    "esbuild-wasm": "^0.28.1",
     "eslint": "^10.5.0",
     "jsdom": "^29.1.1",
     "tsx": "^4.19.0",
     "typedoc": "^0.28.19",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.61.0",
+    "vite": "^6.4.3",
     "vitest": "^4.1.8"
   },
   "dependencies": {
-    "preact": "^10.29.2"
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/material": "^7.3.11",
+    "ag-grid-react": "^33.3.2",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   }
 }

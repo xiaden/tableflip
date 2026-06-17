@@ -1,8 +1,10 @@
 # ADR-007: Signal-Based State with Explicit Serialization Subscriber
 
-**Status:** Proposed  
+**Status:** Superseded  
 **Date:** 2026-06-14  
 **Tags:** state, signals, serialization, future-direction  
+
+> **Superseded by:** [DD-preact-to-react-conversion](../designs/pending/DD-preact-to-react-conversion.md) — The Preact-to-React conversion uses `useSyncExternalStore` to bridge the existing monolith store (ADR-006) to React's rendering model, achieving the same goal (framework-native reactivity) without signals. The signal migration path described here is abandoned.  
 
 ## Context
 

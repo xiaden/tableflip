@@ -69,7 +69,7 @@ The report pipeline transforms user-configurable report specifications into quer
 | **Catalog** (`catalog/`) | Building source table metadata (`source-catalog`), resolving column aliases to physical/calc/band entries (`column-catalog`), projection helpers (`projectedCols`, `projectedColsUpToLookup`) | SQL generation, report execution |
 | **Query** (`query/`) | SQL generation (SELECT, JOINs, WHERE, GROUP BY, ORDER BY), column reference resolution (`resolveRef`), calc expression generation, lookup validation/expansion, aggregate rendering. All pure functions — no store dependency. | Report execution, result shaping |
 | **Report** (`report/`) | Report execution engine (`runReport` → `buildQueryPlan` → `execQuery` → `buildResultSet`), result set construction, validation (`deriveValidation`), output publishing, report dependency graph, calc validation, aggregation constants | UI rendering, SQL generation details |
-| **UI** (`ui/`) | Preact component tree, grid rendering (AG Grid), export (XLSX/CSV), pipeline card interactions, aggregation mode UI, tab switching, file loading | Report execution, SQL generation |
+| **UI** (`ui/`) | React component tree, grid rendering (AG Grid), export (XLSX/CSV), pipeline card interactions, aggregation mode UI, tab switching, file loading | Report execution, SQL generation |
 
 ## Key Entrypoints / Chokepoints
 
@@ -194,7 +194,7 @@ The single validation engine. Checks every pipeline stage (base table, stacks, l
 - **Empty filter values** (`vals` array) are treated as a single empty string — the `renderFilter()` function produces `CAST(...) = ''` for empty values.
 - **Detail band columns are excluded from main query SELECT** — they have no JOIN. If you need a main-query reference to a child table, use a lookup instead of a detail band.
 - **`outputColumns` can mask bugs** — if a column is missing from the result but present in the colMap, check whether `outputColumns` (the explicit column-order list) is filtering it.
-- **`window`/`document` access must be guarded** — the Preact bundle runs in jsdom during tests, so `typeof window !== 'undefined'` checks are required around browser-specific code.
+- **`window`/`document` access must be guarded** — the React bundle runs in jsdom during tests, so `typeof window !== 'undefined'` checks are required around browser-specific code.
 
 ## Sources
 

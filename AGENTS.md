@@ -29,7 +29,7 @@ After any code change, run:
 - **State changes** — call `invalidateValidation()` after modifying db state, or validation stays stale
 - **Vendored CJS modules** — use `// @ts-expect-error - vendored CJS module` before `import()` of files in `js/wasm/` and `js/vendor/`
 - **window/document access** — always guard with `typeof window !== 'undefined'` / `typeof document !== 'undefined'`
-- **No `dangerouslySetInnerHTML`** — use Preact components with JSX, never string HTML builders
+- **No `dangerouslySetInnerHTML`** — use React components with JSX, never string HTML builders
 
 ## Testing
 
@@ -46,7 +46,7 @@ Five-layer architecture — vendor/wasm libs from `js/vendor/` and `js/wasm/` ar
 2. **Catalog Layer** (`preact/catalog/`) — Source and column catalog building, column projection
 3. **Query Layer** (`preact/query/`) — SQL generation (WHERE, JOINs, GROUP BY, aggregates, totals, subtotals, calculated columns), query plan builder, lookup resolver, alias ref management
 4. **Report Layer** (`preact/report/`) — Report execution engine, validation, result set construction, output layout, export formatting
-5. **UI Layer** (`preact/ui/`) — Preact component tree (App shell → Cards → Sections → Elements), AG Grid integration, export
+5. **UI Layer** (`preact/ui/`) — React component tree (App shell → Cards → Sections → Elements), AG Grid integration, export
 
 - **Vendor libs** (sql.js, AG Grid, xlsx-js-style) loaded via `<script>` tags in `index.html`
 - **State management** uses reactive store: `store.getState()`, `store.update(draft => { ... })`, `store.set(key, value)`, `store.subscribe(listener)`

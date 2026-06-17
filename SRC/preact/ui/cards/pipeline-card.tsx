@@ -7,13 +7,14 @@
  * columns, and detail bands.
  *
  * Ported from SRC/js/ui/views/pipeline-card.tsx. Key differences:
- * - Composes Preact section components instead of inline sub-components
- * - Uses store.subscribe() for reactive updates instead of re-render calls
+ * - Composes React section components instead of inline sub-components
+ * - Uses useStore() for reactive updates instead of raw store.subscribe()
  * - Preview result data is computed via buildPreview() and passed as a prop to PipelineArrow
  */
 
-import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useState, useEffect, useCallback } from 'react';
 import { getStore } from '../../core/store';
+import { useStore } from '../useStore';
 import { _afterCombineChange } from '../../query/layout-selection';
 import { BaseStage } from '../sections/base-stage';
 import { StackSheets } from '../sections/stack-sheets';
@@ -25,15 +26,33 @@ import { createDetailBandSpec } from '../../core/state';
 import { Tip } from '../components/tip';
 import { buildPreview } from '../../report/preview-builder';
 import type { PreviewResult } from '../../report/preview-builder';
-import type { AppState } from '../../types';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Button from '@mui/material/Button';
+import Box from '@mui/material/Box';
 
+/**
+ * Pipeline card — combines all pipeline stages into a single card.
+ *
+ * Renders the base table selector, stacked sheets, lookup stages,
+ * calculated column stages, and detail band stages with pipeline arrows
+ * between them. Also provides buttons to add new lookups, calculated
+ * columns, and detail bands.
+ *
+ * Ported from SRC/js/ui/views/pipeline-card.tsx. Key differences:
+ * - Composes React section components instead of inline sub-components
+ * - Uses useStore() for reactive updates instead of raw store.subscribe()
+ * - Preview result data is computed via buildPreview() and passed as a prop to PipelineArrow
+ *
+ * Subscribes to store changes to clear the preview cache, ensuring previews
+ * are recomputed when pipeline state changes.
+ */
 export function PipelineCard() {
-  const [state, setState] = useState<AppState>(getStore().getState());
+  const state = useStore(s => s);
   const [previews, setPreviews] = useState<Record<string, PreviewResult>>({});
 
-  // Subscribe to store changes and clear preview cache on any state change
-  useEffect(() => getStore().subscribe(s => {
-    setState(s);
+  // Clear preview cache on any store state change
+  useEffect(() => getStore().subscribe(() => {
     setPreviews({});
   }), []);
 
@@ -106,83 +125,100 @@ export function PipelineCard() {
   const hasBase = !!(base && tables[base]);
 
   return (
-    <div id="pipeline" class="pipeline">
-      <div class="pl-top-pair">
-        <BaseStage sortedIds={sortedIds} />
+    <Card id="pipeline" className="pipeline" sx={{ background: 'transparent', boxShadow: 'none' }}>
+      <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
+        <div className="pl-top-pair">
+          <BaseStage sortedIds={sortedIds} />
+
+          {hasBase && (
+            <>
+              <div className="pl-h-arrow">
+                <div className="pl-h-line" />
+                <div className="pl-h-head" />
+              </div>
+              <div className="pl-v-arrow-stacked">
+                <div className="pl-arrow-line" />
+                <div className="pl-arrow-head" />
+              </div>
+              <div className="pl-stage">
+                <div className="pl-stage-label">
+                  Include rows from <Tip text="Add sheets with the same columns to get more rows — like stacking spreadsheets on top of each other. For example: Jan Sales + Feb Sales + Mar Sales." />
+                </div>
+                <StackSheets sortedIds={sortedIds} usedAsLookup={usedAsLookup} usedAsStack={usedAsStack} />
+              </div>
+            </>
+          )}
+        </div>
 
         {hasBase && (
-          <>
-            <div class="pl-h-arrow">
-              <div class="pl-h-line" />
-              <div class="pl-h-head" />
-            </div>
-            <div class="pl-v-arrow-stacked">
-              <div class="pl-arrow-line" />
-              <div class="pl-arrow-head" />
-            </div>
-            <div class="pl-stage">
-              <div class="pl-stage-label">
-                Include rows from <Tip text="Add sheets with the same columns to get more rows — like stacking spreadsheets on top of each other. For example: Jan Sales + Feb Sales + Mar Sales." />
-              </div>
-              <StackSheets sortedIds={sortedIds} usedAsLookup={usedAsLookup} usedAsStack={usedAsStack} />
-            </div>
-          </>
+          <PipelineArrow id="base" result={previews['base']} onOpen={computePreview} />
         )}
-      </div>
 
-      {hasBase && (
-        <PipelineArrow id="base" result={previews['base']} onOpen={computePreview} />
-      )}
-
-      {/* Lookup stages */}
-      {lookups.map((_lk, i) => (
-        <div key={`lk-${i}`}>
-          <LookupStage
-            i={i}
-            sortedIds={sortedIds}
-            usedAsLookup={usedAsLookup}
-            usedAsStack={usedAsStack}
-          />
-          <PipelineArrow id={`lk${i}`} result={previews[`lk${i}`]} onOpen={computePreview} />
-        </div>
-      ))}
-
-      {/* Calc stages */}
-      {calcStages.map((_calc, i) => (
-        <div key={`calc-${i}`}>
-          <CalcStageSection i={i} />
-          <PipelineArrow id={`calc${i}`} result={previews[`calc${i}`]} onOpen={computePreview} />
-        </div>
-      ))}
-
-      {/* Detail band stages */}
-      {detailBands.map((_band, i) => (
-        <div key={`band-${i}`}>
-          <DetailBandStage
-            i={i}
-            sortedIds={sortedIds}
-            usedAsLookup={usedAsLookup}
-            usedAsStack={usedAsStack}
-            usedAsBase={base}
-          />
-          <PipelineArrow id={`band${i}`} result={previews[`band${i}`]} onOpen={computePreview} />
-        </div>
-      ))}
-
-      {/* Add buttons */}
-      {hasBase && (
-        <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;padding:2px 0 8px">
-          <div class="pl-add-btn" onClick={addLookup}>
-            {'＋'} Add columns from another sheet
+        {/* Lookup stages */}
+        {lookups.map((_lk, i) => (
+          <div key={`lk-${i}`}>
+            <LookupStage
+              i={i}
+              sortedIds={sortedIds}
+              usedAsLookup={usedAsLookup}
+              usedAsStack={usedAsStack}
+            />
+            <PipelineArrow id={`lk${i}`} result={previews[`lk${i}`]} onOpen={computePreview} />
           </div>
-          <div class="pl-add-btn" onClick={addCalcStage}>
-            {'＋'} Add a calculated column
+        ))}
+
+        {/* Calc stages */}
+        {calcStages.map((_calc, i) => (
+          <div key={`calc-${i}`}>
+            <CalcStageSection i={i} />
+            <PipelineArrow id={`calc${i}`} result={previews[`calc${i}`]} onOpen={computePreview} />
           </div>
-          <div class="pl-add-btn" onClick={addDetailBand}>
-            {'＋'} Add detail rows from another
+        ))}
+
+        {/* Detail band stages */}
+        {detailBands.map((_band, i) => (
+          <div key={`band-${i}`}>
+            <DetailBandStage
+              i={i}
+              sortedIds={sortedIds}
+              usedAsLookup={usedAsLookup}
+              usedAsStack={usedAsStack}
+              usedAsBase={base}
+            />
+            <PipelineArrow id={`band${i}`} result={previews[`band${i}`]} onOpen={computePreview} />
           </div>
-        </div>
-      )}
-    </div>
+        ))}
+
+        {/* Add buttons */}
+        {hasBase && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, flexWrap: 'wrap', py: 1 }}>
+            <Button
+              className="pl-add-btn"
+              variant="text"
+              size="small"
+              onClick={addLookup}
+            >
+              {'＋'} Add columns from another sheet
+            </Button>
+            <Button
+              className="pl-add-btn"
+              variant="text"
+              size="small"
+              onClick={addCalcStage}
+            >
+              {'＋'} Add a calculated column
+            </Button>
+            <Button
+              className="pl-add-btn"
+              variant="text"
+              size="small"
+              onClick={addDetailBand}
+            >
+              {'＋'} Add detail rows from another
+            </Button>
+          </Box>
+        )}
+      </CardContent>
+    </Card>
   );
 }

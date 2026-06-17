@@ -7,8 +7,9 @@
  * Ported from SRC/js/ui/views/pipeline-card.tsx (LookupStage sub-component).
  */
 
-import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useState, useEffect, useCallback } from 'react';
 import { getStore } from '../../core/store';
+import { useStore } from '../useStore';
 import { buildReportSpecFromState } from '../../core/state';
 import {
   colLabel,
@@ -32,6 +33,15 @@ import { Chip } from '../components/chip';
 import { Tip } from '../components/tip';
 import { ContextMenu, type CtxMenuItem } from '../components/context-menu';
 import { resolveRenameTarget, RenameModal, type RenameTarget } from '../components/rename-modal';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import RadioGroup from '@mui/material/RadioGroup';
+import Radio from '@mui/material/Radio';
+import Checkbox from '@mui/material/Checkbox';
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
 import type { AppState, LookupSpec } from '../../types';
 
 export interface LookupStageProps {
@@ -46,11 +56,9 @@ export interface LookupStageProps {
 }
 
 export function LookupStage({ i, sortedIds, usedAsLookup, usedAsStack }: LookupStageProps) {
-  const [state, setState] = useState<AppState>(getStore().getState());
+  const state = useStore(s => s);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; items: CtxMenuItem[] } | null>(null);
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
-
-  useEffect(() => getStore().subscribe(s => setState(s)), []);
 
   // Initialize keyPairs if empty (moved from render phase)
   useEffect(() => {
@@ -205,71 +213,120 @@ export function LookupStage({ i, sortedIds, usedAsLookup, usedAsStack }: LookupS
     _afterCombineChange();
   }, [i, lk.rightId]);
 
+  const compactSelectSx = {
+    '& .MuiSelect-select': { py: 0.5, px: 1, fontSize: '0.78rem', minHeight: 'unset' },
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
+  };
+
   return (
     <>
-      <div class={stageClasses}>
-        <div class="pl-stage-label">
+      <div className={stageClasses}>
+        <div className="pl-stage-label">
           Look up columns from <Tip text={"Pull columns from another sheet by matching a shared value — just like VLOOKUP in Excel.\n\nFor example: match Employee ID in your main sheet to Employee ID in a lookup sheet to bring in their Department.\n\nUse '+ AND' to match on multiple columns at once."} />
-          <label class="pl-enable-toggle" title={lkEnabled ? "Disable this lookup (won't block report)" : 'Enable this lookup'}>
-            <input type="checkbox" checked={lkEnabled} onChange={e => handleEnabledChange((e.target as HTMLInputElement).checked)} />
-            <span class="pl-enable-label">{lkEnabled ? 'Enabled' : 'Disabled'}</span>
-          </label>
+          <FormControlLabel
+            className="pl-enable-toggle"
+            control={
+              <Checkbox
+                checked={lkEnabled}
+                onChange={e => handleEnabledChange(e.target.checked)}
+                size="small"
+                sx={{ py: 0, px: 0.5 }}
+              />
+            }
+            label={<span className="pl-enable-label">{lkEnabled ? 'Enabled' : 'Disabled'}</span>}
+            title={lkEnabled ? "Disable this lookup (won't block report)" : 'Enable this lookup'}
+          />
         </div>
-        {lkVMsg && <div class="pl-lookup-error">{lkVBlocked ? '⛔' : '⚠'} {lkVMsg}</div>}
-        <div class="pl-lookup-header">
-          <select value={lk.rightId || ''} onChange={e => handleRightIdChange((e.target as HTMLSelectElement).value)}>
-            <option value="">{'—'} pick a sheet {'—'}</option>
-            {sortedIds
-              .filter(id => id !== base && (!usedAsLookup.has(id) || id === lk.rightId) && !usedAsStack.has(id))
-              .map(id => <option key={id} value={id}>{tables[id].name}</option>)}
-          </select>
-          <button class="btn btn-danger" style="flex-shrink:0" onClick={removeLookup}>{'✕'}</button>
+        {lkVMsg && <div className="pl-lookup-error">{lkVBlocked ? '⛔' : '⚠'} {lkVMsg}</div>}
+        <div className="pl-lookup-header" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <FormControl size="small">
+            <Select
+              value={lk.rightId || ''}
+              onChange={e => handleRightIdChange(e.target.value as string)}
+              sx={{ minWidth: 180, ...compactSelectSx }}
+              displayEmpty
+            >
+              <MenuItem value="">{'—'} pick a sheet {'—'}</MenuItem>
+              {sortedIds
+                .filter(id => id !== base && (!usedAsLookup.has(id) || id === lk.rightId) && !usedAsStack.has(id))
+                .map(id => <MenuItem key={id} value={id}>{tables[id].name}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <Button variant="contained" color="error" size="small" sx={{ flexShrink: 0, minWidth: 'unset', py: 0.25, px: 1 }} onClick={removeLookup}>{'✕'}</Button>
         </div>
         {rt && (
-          <div class="pl-lookup-keys">
+          <div className="pl-lookup-keys">
             {pairs.map((pair, pi) => (
-              <div key={pi} class="pl-key-pair">
-                <span class="pl-key-pair-label">{pi === 0 ? 'Where' : 'AND'}</span>
-                <select value={pair.left || ''} onChange={e => handleKpLeftChange(pi, (e.target as HTMLSelectElement).value)}>
-                  <option value="">{'—'} column {'—'}</option>
-                  {leftCols.map(c => {
-                    const src = lkColMap.get(c);
-                    const label = src && src.kind !== 'calc' ? colLabel(src.tid, src.col) : c;
-                    return <option key={c} value={c}>{label}</option>;
-                  })}
-                </select>
-                <span class="pl-lookup-eq">=</span>
-                <select value={pair.right || ''} onChange={e => handleKpRightChange(pi, (e.target as HTMLSelectElement).value)}>
-                  <option value="">{'—'} column {'—'}</option>
-                  {rightCols.map(c => <option key={c} value={c}>{colLabel(lk.rightId, c)}</option>)}
-                </select>
+              <div key={pi} className="pl-key-pair">
+                <span className="pl-key-pair-label">{pi === 0 ? 'Where' : 'AND'}</span>
+                <FormControl size="small">
+                  <Select
+                    value={pair.left || ''}
+                    onChange={e => handleKpLeftChange(pi, e.target.value as string)}
+                    sx={{ minWidth: 140, ...compactSelectSx }}
+                    displayEmpty
+                  >
+                    <MenuItem value="">{'—'} column {'—'}</MenuItem>
+                    {leftCols.map(c => {
+                      const src = lkColMap.get(c);
+                      const label = src && src.kind !== 'calc' ? colLabel(src.tid, src.col) : c;
+                      return <MenuItem key={c} value={c}>{label}</MenuItem>;
+                    })}
+                  </Select>
+                </FormControl>
+                <span className="pl-lookup-eq">=</span>
+                <FormControl size="small">
+                  <Select
+                    value={pair.right || ''}
+                    onChange={e => handleKpRightChange(pi, e.target.value as string)}
+                    sx={{ minWidth: 140, ...compactSelectSx }}
+                    displayEmpty
+                  >
+                    <MenuItem value="">{'—'} column {'—'}</MenuItem>
+                    {rightCols.map(c => <MenuItem key={c} value={c}>{colLabel(lk.rightId, c)}</MenuItem>)}
+                  </Select>
+                </FormControl>
                 {pairs.length > 1 && (
-                  <button class="pl-rm-kp" title="Remove this condition" onClick={() => removeKeyPair(pi)}>{'✕'}</button>
+                  <IconButton className="pl-rm-kp" size="small" title="Remove this condition" onClick={() => removeKeyPair(pi)} sx={{ fontSize: '0.75rem' }}>{'✕'}</IconButton>
                 )}
               </div>
             ))}
-            <button class="btn btn-ghost pl-add-kp" onClick={addKeyPair}>{'＋'} AND {'…'}</button>
+            <Button variant="text" size="small" className="pl-add-kp" onClick={addKeyPair} sx={{ fontSize: '0.76rem', textTransform: 'none' }}>{'＋'} AND {'…'}</Button>
           </div>
         )}
         {rt && (
-          <div class="pl-lookup-required">
-            <span style="flex-shrink:0">If no match:</span>
-            <label><input type="radio" name={`lkreq_${i}`} value="0" checked={!lk.required} onChange={e => handleRequiredChange((e.target as HTMLInputElement).value)} /> Leave blank</label>
-            <label><input type="radio" name={`lkreq_${i}`} value="1" checked={lk.required} onChange={e => handleRequiredChange((e.target as HTMLInputElement).value)} /> Skip row</label>
+          <div className="pl-lookup-required" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ flexShrink: 0, fontSize: '0.76rem' }}>If no match:</span>
+            <RadioGroup
+              row
+              value={lk.required ? '1' : '0'}
+              onChange={e => handleRequiredChange(e.target.value)}
+              sx={{ '& .MuiFormControlLabel-root': { ml: 0, mr: 1, '& .MuiRadio-root': { py: 0.25, px: 0.5 }, '& .MuiTypography-root': { fontSize: '0.76rem' } } }}
+            >
+              <FormControlLabel value="0" control={<Radio size="small" />} label="Leave blank" />
+              <FormControlLabel value="1" control={<Radio size="small" />} label="Skip row" />
+            </RadioGroup>
             <Tip text={"Leave blank: keep all rows from your main sheet, even if there is no match in the lookup sheet (the column will just be empty).\n\nSkip row: only keep rows that have a match — rows without a match are removed entirely."} />
           </div>
         )}
         {rt && (
-          <div class="pl-lookup-required">
-            <span style="flex-shrink:0">Duplicate keys:</span>
-            <label><input type="radio" name={`lkdup_${i}`} value="block" checked={(lk.duplicatePolicy?.mode ?? 'block') !== 'combine'} onChange={e => handleDupModeChange((e.target as HTMLInputElement).value)} /> Block (error)</label>
-            <label><input type="radio" name={`lkdup_${i}`} value="combine" checked={lk.duplicatePolicy?.mode === 'combine'} onChange={e => handleDupModeChange((e.target as HTMLInputElement).value)} /> Combine values</label>
+          <div className="pl-lookup-required" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ flexShrink: 0, fontSize: '0.76rem' }}>Duplicate keys:</span>
+            <RadioGroup
+              row
+              value={(lk.duplicatePolicy?.mode ?? 'block') === 'combine' ? 'combine' : 'block'}
+              onChange={e => handleDupModeChange(e.target.value)}
+              sx={{ '& .MuiFormControlLabel-root': { ml: 0, mr: 1, '& .MuiRadio-root': { py: 0.25, px: 0.5 }, '& .MuiTypography-root': { fontSize: '0.76rem' } } }}
+            >
+              <FormControlLabel value="block" control={<Radio size="small" />} label="Block (error)" />
+              <FormControlLabel value="combine" control={<Radio size="small" />} label="Combine values" />
+            </RadioGroup>
             <Tip text={"Block: the report cannot run if the same key appears more than once in the lookup sheet. Use this when each match should be unique.\n\nCombine: if there are multiple matches, join them together into one cell separated by semicolons. For example: 'Tag1; Tag2; Tag3'."} />
           </div>
         )}
         {rt && (
-          <div class="pl-lookup-cols">
-            <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Bring in:</span>
+          <div className="pl-lookup-cols" style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--muted)', flexShrink: 0, alignSelf: 'center' }}>Bring in:</span>
             <Tip text="These are the columns from the lookup sheet. Click a chip to include or exclude it from the report. Right-click any chip to rename it." />
             {rt.cols.map(c => {
               const isLayoutVisible = _isSourceVisibleInLayout(lk.rightId, c, lkColMap, aggMode);
@@ -310,8 +367,8 @@ export function LookupStage({ i, sortedIds, usedAsLookup, usedAsStack }: LookupS
                 />
               );
             })}
-            <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" onClick={selectAllCols}>All</button>
-            <button class="btn btn-ghost" style="font-size:0.68rem;padding:2px 6px;flex-shrink:0" onClick={selectNoneCols}>None</button>
+            <Button variant="text" size="small" sx={{ fontSize: '0.68rem', py: 0.25, px: 0.75, minWidth: 'unset', flexShrink: 0 }} onClick={selectAllCols}>All</Button>
+            <Button variant="text" size="small" sx={{ fontSize: '0.68rem', py: 0.25, px: 0.75, minWidth: 'unset', flexShrink: 0 }} onClick={selectNoneCols}>None</Button>
           </div>
         )}
       </div>

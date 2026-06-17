@@ -7,18 +7,18 @@
  * Ported from SRC/js/ui/views/output-card.tsx (MergeToggles component).
  */
 
-import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useCallback } from 'react';
 import { getStore } from '../../core/store';
+import { useStore } from '../useStore';
 import { buildReportSpecFromState } from '../../core/state';
 import { colLabel } from '../../core/utils';
 import { buildColSourceMap, projectedCols } from '../../catalog/column-catalog';
 import { buildSourceCatalog } from '../../catalog/source-catalog';
-import type { AppState } from '../../types';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Checkbox from '@mui/material/Checkbox';
 
 export function MergeToggles() {
-  const [state, setState] = useState<AppState>(getStore().getState());
-
-  useEffect(() => getStore().subscribe(s => setState(s)), []);
+  const state = useStore(s => s);
 
   const resultCols = (state.result?.cols as string[]) || null;
   const reportSpec = buildReportSpecFromState(state);
@@ -43,7 +43,7 @@ export function MergeToggles() {
   ];
 
   if (!displayCols.length) {
-    return <span style="font-size:0.76rem;color:var(--muted)">No result columns</span>;
+    return <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>No result columns</span>;
   }
 
   const mergedCols = state.mergedCols || [];
@@ -67,14 +67,19 @@ export function MergeToggles() {
         const src = colMap.get(c);
         const label = src && src.kind !== 'calc' ? colLabel(src.tid, src.col) : c;
         return (
-          <label key={c} style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.76rem;font-weight:normal;margin-top:4px">
-            <input
-              type="checkbox"
-              checked={mergedSet.has(c)}
-              onChange={e => toggle(c, (e.target as HTMLInputElement).checked)}
-            />
-            {label}
-          </label>
+          <FormControlLabel
+            key={c}
+            control={
+              <Checkbox
+                checked={mergedSet.has(c)}
+                onChange={e => toggle(c, e.target.checked)}
+                size="small"
+                sx={{ py: 0, px: 0.5 }}
+              />
+            }
+            label={label}
+            sx={{ display: 'flex', cursor: 'pointer', fontSize: '0.76rem', fontWeight: 'normal', mt: 0.5, '& .MuiFormControlLabel-label': { fontSize: '0.76rem' } }}
+          />
         );
       })}
     </div>

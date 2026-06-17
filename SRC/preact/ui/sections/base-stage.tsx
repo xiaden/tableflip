@@ -7,8 +7,9 @@
  * Ported from SRC/js/ui/views/pipeline-card.tsx (BaseStage sub-component).
  */
 
-import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useState, useCallback } from 'react';
 import { getStore } from '../../core/store';
+import { useStore } from '../useStore';
 import {
   colLabel,
   getTableColor,
@@ -28,7 +29,10 @@ import { Chip } from '../components/chip';
 import { Tip } from '../components/tip';
 import { ContextMenu, type CtxMenuItem } from '../components/context-menu';
 import { resolveRenameTarget, RenameModal, type RenameTarget } from '../components/rename-modal';
-import type { AppState } from '../../types';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import Button from '@mui/material/Button';
 
 export interface BaseStageProps {
   /** Table IDs sorted by name. */
@@ -36,11 +40,9 @@ export interface BaseStageProps {
 }
 
 export function BaseStage({ sortedIds }: BaseStageProps) {
-  const [state, setState] = useState<AppState>(getStore().getState());
+  const state = useStore(s => s);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; items: CtxMenuItem[] } | null>(null);
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
-
-  useEffect(() => getStore().subscribe(s => setState(s)), []);
 
   const base = state.base;
   const tables = state.tables;
@@ -63,19 +65,26 @@ export function BaseStage({ sortedIds }: BaseStageProps) {
 
   return (
     <>
-      <div class="pl-stage">
-        <div class="pl-stage-label">Start from <Tip text="Pick the main sheet for your report. This is the sheet that all other sheets will be combined with — like the main table in your workbook." /></div>
-          <div class="pl-base-row">
-            <select value={base || ''} onChange={e => handleBaseChange((e.target as HTMLSelectElement).value)}>
-              <option value="">{'—'} select a sheet {'—'}</option>
-              {sortedIds.map(id => (
-                <option key={id} value={id}>{tables[id].name}</option>
-              ))}
-            </select>
+      <div className="pl-stage">
+        <div className="pl-stage-label">Start from <Tip text="Pick the main sheet for your report. This is the sheet that all other sheets will be combined with — like the main table in your workbook." /></div>
+          <div className="pl-base-row">
+            <FormControl size="small">
+              <Select
+                value={base || ''}
+                onChange={e => handleBaseChange(e.target.value as string)}
+                sx={{ minWidth: 200 }}
+                displayEmpty
+              >
+                <MenuItem value="">{'—'} select a sheet {'—'}</MenuItem>
+                {sortedIds.map(id => (
+                  <MenuItem key={id} value={id}>{tables[id].name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </div>
           {baseTable && (
-            <div class="pl-lookup-cols" style="margin-top:6px">
-              <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Columns:</span>
+            <div className="pl-lookup-cols" style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.7rem', color: 'var(--muted)', flexShrink: 0, alignSelf: 'center' }}>Columns:</span>
               <Tip text="These are the columns in your main sheet. Click a chip to hide it from the report. Right-click any chip to rename it." />
               {allCols.map(c => {
                 const colMap = buildColSourceMap();
@@ -118,20 +127,22 @@ export function BaseStage({ sortedIds }: BaseStageProps) {
                   />
                 );
               })}
-              <button
-                class="btn btn-ghost"
-                style="font-size:0.68rem;padding:2px 6px;flex-shrink:0"
+              <Button
+                variant="text"
+                size="small"
+                sx={{ fontSize: '0.68rem', py: 0.25, px: 0.75, minWidth: 'unset', flexShrink: 0 }}
                 onClick={() => { _showLayoutAliasesForSource(base); _afterCombineChange(); }}
               >
                 All
-              </button>
-              <button
-                class="btn btn-ghost"
-                style="font-size:0.68rem;padding:2px 6px;flex-shrink:0"
+              </Button>
+              <Button
+                variant="text"
+                size="small"
+                sx={{ fontSize: '0.68rem', py: 0.25, px: 0.75, minWidth: 'unset', flexShrink: 0 }}
                 onClick={() => { _hideLayoutAliasesForSource(base); _afterCombineChange(); }}
               >
                 None
-              </button>
+              </Button>
             </div>
           )}
         </div>

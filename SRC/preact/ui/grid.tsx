@@ -1,17 +1,28 @@
 /**
  * AG Grid integration — result grid, preview grid, column definitions.
  *
- * Provides Preact components that manage AG Grid lifecycle via refs and
- * effects. All rendering is done through JSX — no innerHTML.
+ * Provides React components that wrap <AgGridReact> for declarative AG Grid
+ * lifecycle management. All rendering is done through JSX — no innerHTML.
+ *
+ * Migrated from imperative `agGrid.createGrid()` pattern to declarative
+ * `<AgGridReact>` components. Grid lifecycle (create/destroy) is now managed
+ * by React reconciliation. External refresh functions use module-level API
+ * refs populated via `onGridReady` callbacks.
  *
  * Ported from `SRC/js/ui/grid.ts`. Key differences:
  * - No window assignments (renderResults, loadPreview, clearExclusions)
  * - State mutations go through store.update() instead of direct db mutation
- * - Column rename uses Preact RenameModal rendered via createPortal
- * - No import from SRC/js/ — uses preact catalog and utils
+ * - Column rename uses RenameModal rendered via createPortal
+ * - No import from SRC/js/ — uses catalog and utils
  */
 
-import { useRef, useEffect, useState, useCallback } from 'preact/hooks';
+import { useRef, useState, useCallback, useMemo } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import type { GridApi, GridReadyEvent, ColDef, RowClassParams, RowStyle, IsFullWidthRowParams, ColumnState } from 'ag-grid-community';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import IconButton from '@mui/material/IconButton';
 import type { ColSourceEntry, ColumnType, OverlayDescriptor, BandResultSet } from '../types';
 import { getStore } from '../core/store';
 import { colLabel, getTableColor, setColLabel } from '../core/utils';
@@ -187,20 +198,30 @@ export function createBandRowStyler(
   };
 }
 
-// ── Grid instance tracking ───────────────────────────────────────────────────
+// ── Grid API tracking ────────────────────────────────────────────────────────
+//
+// These module-level variables are intentionally retained as singletons.
+// External callers (app.tsx) invoke refreshResultGridLayout() and
+// refreshPreviewGridLayout() via requestAnimationFrame after tab switches
+// and visibility changes. These functions need synchronous access to the
+// GridApi without going through React state or refs. The onGridReady
+// callbacks populate these refs, and they are effectively "global" because
+// there is only one result grid and one preview grid at any time.
+// A ref-based approach would require plumbing callbacks through the component
+// tree, which is more complex than the current pattern for these singletons.
 
-let gridResult: AGridApi | null = null;
-let gridPreview: AGridApi | null = null;
+let _resultGridApi: GridApi | null = null;
+let _previewGridApi: GridApi | null = null;
 
 /**
  * Refreshes the result grid layout (row heights, cells, redraw).
  * Call after the grid container becomes visible or resizes.
  */
 export function refreshResultGridLayout(): void {
-  if (!gridResult) return;
-  try { (gridResult as unknown as Record<string, () => void>).resetRowHeights?.(); } catch { /* ignore */ }
-  try { gridResult.refreshCells?.({ force: true }); } catch { /* ignore */ }
-  try { (gridResult as unknown as Record<string, () => void>).redrawRows?.(); } catch { /* ignore */ }
+  if (!_resultGridApi) return;
+  try { _resultGridApi.resetRowHeights(); } catch { /* ignore */ }
+  try { _resultGridApi.refreshCells({ force: true }); } catch { /* ignore */ }
+  try { _resultGridApi.redrawRows(); } catch { /* ignore */ }
 }
 
 /**
@@ -208,18 +229,32 @@ export function refreshResultGridLayout(): void {
  * Call after the grid container becomes visible or resizes.
  */
 export function refreshPreviewGridLayout(): void {
-  if (!gridPreview) return;
-  try { (gridPreview as unknown as Record<string, () => void>).resetRowHeights?.(); } catch { /* ignore */ }
-  try { gridPreview.refreshCells?.({ force: true }); } catch { /* ignore */ }
-  try { (gridPreview as unknown as Record<string, () => void>).redrawRows?.(); } catch { /* ignore */ }
+  if (!_previewGridApi) return;
+  try { _previewGridApi.resetRowHeights(); } catch { /* ignore */ }
+  try { _previewGridApi.refreshCells({ force: true }); } catch { /* ignore */ }
+  try { _previewGridApi.redrawRows(); } catch { /* ignore */ }
 }
 
 function _saveResultColState(): void {
-  if (gridResult) {
-    const colState = gridResult.getColumnState() as unknown as Record<string, unknown> | null;
+  if (_resultGridApi) {
+    const colState = _resultGridApi.getColumnState() as unknown as Record<string, unknown> | null;
     getStore().update(draft => { draft.colState = colState; });
   }
 }
+
+// ── Shared default column definition ─────────────────────────────────────────
+
+const DEFAULT_COL_DEF: ColDef = {
+  sortable: true,
+  resizable: true,
+  filter: true,
+  floatingFilter: true,
+  minWidth: 80,
+  cellRenderer: (params: { value: unknown }) => {
+    const v = params.value;
+    return v == null ? '' : String(v);
+  },
+};
 
 // ── Result grid component ────────────────────────────────────────────────────
 
@@ -233,9 +268,11 @@ interface ResultGridProps {
  * and column rename. Shows an empty state when no rows match.
  * Right-clicking the column header "⋯" button opens a context menu for
  * overriding the column type (String/Number/Date/Boolean).
+ *
+ * Uses declarative <AgGridReact> — grid lifecycle is managed by React.
  */
 export function ResultGrid({ result, onRenameDone }: ResultGridProps) {
-  const gridRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<AgGridReact>(null);
   const [ctxMenu, setCtxMenu] = useState<{x: number; y: number; items: CtxMenuItem[]} | null>(null);
 
   const onTypeContextMenu = (e: MouseEvent, tid: string, col: string): void => {
@@ -255,10 +292,8 @@ export function ResultGrid({ result, onRenameDone }: ResultGridProps) {
     setCtxMenu({ x: e.clientX, y: e.clientY, items });
   };
 
-  useEffect(() => {
-    const el = gridRef.current;
-    if (!el) return;
-
+  // Compute grid data (rowData, columnDefs, band-specific options) via useMemo
+  const gridData = useMemo(() => {
     const { rows, totalsRow, cols } = result as {
       rows: Record<string, unknown>[];
       totalsRow: Record<string, unknown> | null;
@@ -272,14 +307,17 @@ export function ResultGrid({ result, onRenameDone }: ResultGridProps) {
       ? bandResult.parentRows.length > 0
       : rows.length > 0 || totalsRow !== null;
 
-    if (gridResult) { gridResult.destroy(); gridResult = null; }
-
-    if (!hasData) return;
+    if (!hasData) {
+      return { hasData: false, rowData: [], columnDefs: [] as ColDef[], getRowStyle: undefined,
+        isFullWidthRow: undefined, fullWidthCellRenderer: undefined, embedFullWidthRows: undefined };
+    }
 
     let tableData: Record<string, unknown>[];
-    let colDefs: Record<string, unknown>[];
+    let colDefs: ColDef[];
     let bandStyler: (params: { data: Record<string, unknown> }) => Record<string, string> | undefined;
-    let options: Record<string, unknown>;
+    let isFullWidthRow: ((params: { data: Record<string, unknown> }) => boolean) | undefined;
+    let fullWidthCellRenderer: unknown;
+    let embedFullWidthRows: boolean | undefined;
 
     if (bandResult) {
       // ── Overlay band path ───────────────────────────────────────────
@@ -295,108 +333,73 @@ export function ResultGrid({ result, onRenameDone }: ResultGridProps) {
       tableData = gridRows;
       colDefs = makeResultCols(supersetCols, onRenameDone, onTypeContextMenu);
       bandStyler = createBandRowStyler(gridRows);
-
-      options = {
-        rowData: tableData,
-        columnDefs: colDefs,
-        defaultColDef: {
-          sortable: true,
-          resizable: true,
-          filter: true,
-          floatingFilter: true,
-          minWidth: 80,
-          cellRenderer: (params: { value: unknown }) => {
-            const v = params.value;
-            return v == null ? '' : String(v);
-          },
-        },
-        isFullWidthRow: (params: { data: Record<string, unknown> }) => params.data?._isBandHeader === true,
-        fullWidthCellRenderer: BandHeaderRenderer,
-        embedFullWidthRows: true,
-        getRowStyle: (params: { data: Record<string, unknown> }) => bandStyler(params),
-        pagination: true,
-        paginationPageSize: 500,
-        paginationPageSizeSelector: [100, 250, 500, 1000, 5000],
-        multiSortKey: 'ctrl',
-        onColumnMoved: () => _saveResultColState(),
-        onColumnResized: () => _saveResultColState(),
-        onColumnVisible: () => _saveResultColState(),
-      };
+      isFullWidthRow = (params: { data: Record<string, unknown> }) => params.data?._isBandHeader === true;
+      fullWidthCellRenderer = BandHeaderRenderer;
+      embedFullWidthRows = true;
     } else {
       // ── Standard (non-band) path ───────────────────────────────────
       tableData = totalsRow ? [...rows, { ...totalsRow, _isTotalsRow: true }] : rows;
       colDefs = makeResultCols(cols, onRenameDone, onTypeContextMenu);
       bandStyler = createBandRowStyler(rows);
-
-      options = {
-        rowData: tableData,
-        columnDefs: colDefs,
-        defaultColDef: {
-          sortable: true,
-          resizable: true,
-          filter: true,
-          floatingFilter: true,
-          minWidth: 80,
-          cellRenderer: (params: { value: unknown }) => {
-            const v = params.value;
-            return v == null ? '' : String(v);
-          },
-        },
-        getRowStyle: (params: { data: Record<string, unknown> }) => bandStyler(params),
-        pagination: true,
-        paginationPageSize: 500,
-        paginationPageSizeSelector: [100, 250, 500, 1000, 5000],
-        multiSortKey: 'ctrl',
-        onColumnMoved: () => _saveResultColState(),
-        onColumnResized: () => _saveResultColState(),
-        onColumnVisible: () => _saveResultColState(),
-      };
     }
 
-    gridResult = agGrid.createGrid(el, options);
-
-    requestAnimationFrame(() => requestAnimationFrame(() => refreshResultGridLayout()));
-
-    const state = getStore().getState();
-    if (state.colState) {
-      gridResult.applyColumnState(state.colState as unknown as Array<Record<string, unknown>>);
-    }
-
-    return () => { if (gridResult) { gridResult.destroy(); gridResult = null; } };
+    return {
+      hasData: true,
+      rowData: tableData,
+      columnDefs: colDefs,
+      getRowStyle: (params: RowClassParams): RowStyle | undefined => bandStyler!(params as unknown as { data: Record<string, unknown> }),
+      isFullWidthRow: isFullWidthRow as ((params: IsFullWidthRowParams) => boolean) | undefined,
+      fullWidthCellRenderer,
+      embedFullWidthRows,
+    };
   }, [result, onRenameDone]);
 
-  const resultRows = (result as Record<string, unknown>).rows as Record<string, unknown>[];
-  const resultTotalsRow = (result as Record<string, unknown>).totalsRow as Record<string, unknown> | null;
-  const resultCols = (result as Record<string, unknown>).cols as string[];
-  const bandResult = (result as Record<string, unknown>).bandResult as BandResultSet | undefined;
+  // onGridReady: store API ref and apply saved column state
+  const onGridReady = useCallback((params: GridReadyEvent) => {
+    _resultGridApi = params.api;
+    const state = getStore().getState();
+    if (state.colState) {
+      params.api.applyColumnState({
+        state: state.colState as unknown as ColumnState[],
+        applyOrder: true,
+      });
+    }
+  }, []);
 
-  // For display count: when bands active, show parent rows + superset columns
-  const displayRows = bandResult ? bandResult.parentRows : resultRows;
-  const hasTotalsRow = resultTotalsRow !== null;
-  // Compute superset column count for band path
-  const displayCols = bandResult
-    ? [...bandResult.parentCols, ...bandResult.bandResults.flatMap(br => br.cols)]
-    : resultCols;
-  const hasData = displayRows.length > 0 || hasTotalsRow;
+  const hasData = gridData.hasData;
+
+  if (!hasData) {
+    return (
+      <div className="empty">
+        <div className="empty-icon">{'\u{1F50D}'}</div>
+        <div>No rows matched your query</div>
+      </div>
+    );
+  }
 
   return (
     <>
-      {hasData ? (
-        <>
-          <span class="results-count" style="font-size:0.76rem;color:var(--muted)">
-            {hasTotalsRow
-              ? displayRows.length.toLocaleString() + ' rows + 1 totals row \u00b7 ' + displayCols.length + ' columns'
-              : displayRows.length.toLocaleString() + ' rows \u00b7 ' + displayCols.length + ' columns'}
-          </span>
-          <div ref={gridRef} class="ag-theme-balham-dark" style="height:100%;width:100%" />
-          {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={ctxMenu.items} onClose={() => setCtxMenu(null)} />}
-        </>
-      ) : (
-        <div class="empty">
-          <div class="empty-icon">{'\u{1F50D}'}</div>
-          <div>No rows matched your query</div>
-        </div>
-      )}
+      <AgGridReact
+        ref={gridRef}
+        className="ag-theme-balham-dark"
+        containerStyle={{ height: '100%', width: '100%' }}
+        rowData={gridData.rowData}
+        columnDefs={gridData.columnDefs}
+        defaultColDef={DEFAULT_COL_DEF}
+        pagination={true}
+        paginationPageSize={500}
+        paginationPageSizeSelector={[100, 250, 500, 1000, 5000]}
+        multiSortKey="ctrl"
+        onColumnMoved={() => _saveResultColState()}
+        onColumnResized={() => _saveResultColState()}
+        onColumnVisible={() => _saveResultColState()}
+        onGridReady={onGridReady}
+        getRowStyle={gridData.getRowStyle}
+        isFullWidthRow={gridData.isFullWidthRow}
+        fullWidthCellRenderer={gridData.fullWidthCellRenderer}
+        embedFullWidthRows={gridData.embedFullWidthRows}
+      />
+      {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={ctxMenu.items} onClose={() => setCtxMenu(null)} />}
     </>
   );
 }
@@ -413,15 +416,20 @@ interface PreviewGridProps {
  * controls. Shows empty/error states via JSX.
  * Right-clicking the column header "⋯" button opens a context menu for
  * overriding the column type (String/Number/Date/Boolean).
+ *
+ * Uses declarative <AgGridReact> — grid lifecycle is managed by React.
  */
 export function PreviewGrid({ tableId }: PreviewGridProps) {
-  const gridRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<AgGridReact>(null);
   const [ctxMenu, setCtxMenu] = useState<{x: number; y: number; items: CtxMenuItem[]} | null>(null);
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
 
+  const state = getStore().getState();
+  const table = tableId ? state.tables[tableId] : undefined;
+
   const showPreviewColumnMenu = useCallback((e: MouseEvent, col: string): void => {
-    const state = getStore().getState();
-    const currentType: ColumnType = state.columnTypeOverrides?.[tableId]?.[col] ?? state.tables[tableId]?.colTypes?.[col] ?? 'string';
+    const st = getStore().getState();
+    const currentType: ColumnType = st.columnTypeOverrides?.[tableId]?.[col] ?? st.tables[tableId]?.colTypes?.[col] ?? 'string';
     const items: CtxMenuItem[] = (['string', 'number', 'date', 'boolean'] as ColumnType[]).map(type => ({
       label: 'Type: ' + type.charAt(0).toUpperCase() + type.slice(1),
       checked: currentType === type,
@@ -450,27 +458,22 @@ export function PreviewGrid({ tableId }: PreviewGridProps) {
     setCtxMenu({ x: e.clientX, y: e.clientY, items });
   }, [tableId]);
 
-  useEffect(() => {
-    const el = gridRef.current;
-    if (!el) return;
-
-    const state = getStore().getState();
-
-    if (gridPreview) { gridPreview.destroy(); gridPreview = null; }
-
-    if (!tableId || !state.tables[tableId]) return;
-
+  // Compute preview row data via useMemo (keyed on tableId)
+  const previewRows = useMemo(() => {
+    if (!tableId || !state.tables[tableId]) return null;
     const t = state.tables[tableId];
     const cap = 10000;
-
-    let rows: Record<string, unknown>[];
     try {
-      rows = execQuery(`SELECT "_rowno", ${t.cols.map(c => quoteId(c)).join(', ')} FROM ${quoteId(tableId)} LIMIT ${cap}`);
+      return execQuery(`SELECT "_rowno", ${t.cols.map(c => quoteId(c)).join(', ')} FROM ${quoteId(tableId)} LIMIT ${cap}`);
     } catch {
-      return;
+      return null;
     }
+  }, [tableId]);
 
-    const excludeColDef: Record<string, unknown> = {
+  // Compute column definitions via useMemo
+  const columnDefs = useMemo(() => {
+    if (!tableId || !table) return [];
+    const excludeColDef: ColDef = {
       headerName: '',
       field: '_rowno',
       width: 44,
@@ -487,7 +490,7 @@ export function PreviewGrid({ tableId }: PreviewGridProps) {
         const isExcl = excludedSet.has(rowno);
         const btn = document.createElement('button');
         const rowData = params.data;
-        const preview = t.cols
+        const preview = table.cols
           .filter(c => c !== '_rowno')
           .map(c => rowData[c] == null ? '' : String(rowData[c]))
           .filter(v => v !== '')
@@ -503,76 +506,74 @@ export function PreviewGrid({ tableId }: PreviewGridProps) {
             const set = draft.excludedRows[tableId];
             if (set.has(rowno)) set.delete(rowno); else set.add(rowno);
           });
-          if (gridPreview) {
-            gridPreview.refreshCells({ force: true });
-            (gridPreview as unknown as Record<string, () => void>).redrawRows?.();
+          if (_previewGridApi) {
+            _previewGridApi.refreshCells({ force: true });
+            _previewGridApi.redrawRows();
           }
         });
         return btn;
       },
     };
+    return [excludeColDef, ...makePreviewCols(tableId, table.cols, showPreviewColumnMenu)];
+  }, [tableId, table, showPreviewColumnMenu]);
 
-    gridPreview = agGrid.createGrid(el, {
-      rowData: rows,
-      columnDefs: [excludeColDef, ...makePreviewCols(tableId, t.cols, showPreviewColumnMenu)],
-      defaultColDef: {
-        sortable: true,
-        resizable: true,
-        filter: true,
-        floatingFilter: true,
-        minWidth: 80,
-        cellRenderer: (params: { value: unknown }) => {
-          const v = params.value;
-          return v == null ? '' : String(v);
-        },
-      },
-      pagination: true,
-      paginationPageSize: 200,
-      paginationPageSizeSelector: [100, 200, 500, 1000],
-      multiSortKey: 'ctrl',
-      getRowStyle: (params: { data: Record<string, unknown> }) => {
-        const rowno = params.data && params.data._rowno as number;
-        const st = getStore().getState();
-        const excludedSet = st.excludedRows[tableId] || new Set<number>();
-        if (excludedSet.has(rowno)) {
-          return {
-            color: '#c0392b',
-            textDecoration: 'line-through',
-            background: 'rgba(220,50,50,0.08)',
-          };
-        }
-      },
-    } as Record<string, unknown>);
+  // onGridReady: store API ref for external refresh and exclude-button cell refresh
+  const onGridReady = useCallback((params: GridReadyEvent) => {
+    _previewGridApi = params.api;
+  }, []);
 
-    requestAnimationFrame(() => requestAnimationFrame(() => refreshPreviewGridLayout()));
+  // getRowStyle: strikethrough excluded rows
+  const getRowStyle = useCallback((params: RowClassParams): RowStyle | undefined => {
+    const rowno = params.data && (params.data as Record<string, unknown>)._rowno as number;
+    const st = getStore().getState();
+    const excludedSet = st.excludedRows[tableId] || new Set<number>();
+    if (excludedSet.has(rowno)) {
+      return {
+        color: '#c0392b',
+        textDecoration: 'line-through',
+        background: 'rgba(220,50,50,0.08)',
+      };
+    }
+    return undefined;
+  }, [tableId]);
 
-    return () => { if (gridPreview) { gridPreview.destroy(); gridPreview = null; } };
-  }, [tableId, showPreviewColumnMenu]);
+  // ── Early returns (after all hooks) ──────────────────────────────────────
 
-  const state = getStore().getState();
-
-  if (!tableId || !state.tables[tableId]) {
+  if (!tableId || !table) {
     return (
-      <div class="empty">
-        <div class="empty-icon">{'\u{1F446}'}</div>
+      <div className="empty">
+        <div className="empty-icon">{'\u{1F446}'}</div>
         <div>Select a table above</div>
       </div>
     );
   }
 
+  // Probe query to check table is queryable
+  let probeError: string | null = null;
   try {
-    const t = state.tables[tableId];
-    execQuery(`SELECT "_rowno", ${t.cols.map(c => quoteId(c)).join(', ')} FROM ${quoteId(tableId)} LIMIT 1`);
+    execQuery(`SELECT "_rowno", ${table.cols.map(c => quoteId(c)).join(', ')} FROM ${quoteId(tableId)} LIMIT 1`);
   } catch (ex) {
+    probeError = (ex as Error).message;
+  }
+
+  if (probeError) {
     return (
-      <div class="empty">
-        <div class="empty-icon">{'\u274C'}</div>
-        <div>{(ex as Error).message}</div>
+      <div className="empty">
+        <div className="empty-icon">{'\u274C'}</div>
+        <div>{probeError}</div>
       </div>
     );
   }
 
-  const t = state.tables[tableId];
+  if (!previewRows) {
+    return (
+      <div className="empty">
+        <div className="empty-icon">{'\u274C'}</div>
+        <div>Failed to load preview data</div>
+      </div>
+    );
+  }
+
   const excluded = state.excludedRows[tableId] || new Set<number>();
   const excCount = excluded.size;
   const cap = 10000;
@@ -580,15 +581,15 @@ export function PreviewGrid({ tableId }: PreviewGridProps) {
   return (
     <>
       {excCount > 0 && (
-        <div style="padding:4px 10px;font-size:12px;background:rgba(255,170,0,0.12);border-bottom:1px solid rgba(255,170,0,0.3);color:#c9a020;display:flex;align-items:center;gap:8px;">
+        <div style={{ padding: '4px 10px', fontSize: '12px', background: 'rgba(255,170,0,0.12)', borderBottom: '1px solid rgba(255,170,0,0.3)', color: '#c9a020', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span>{'\u26A0'} {excCount} row{excCount > 1 ? 's' : ''} excluded from reports</span>
           <button
-            style="font-size:11px;padding:1px 7px;border-radius:3px;border:1px solid #c9a020;background:transparent;color:#c9a020;cursor:pointer"
+            style={{ fontSize: '11px', padding: '1px 7px', borderRadius: '3px', border: '1px solid #c9a020', background: 'transparent', color: '#c9a020', cursor: 'pointer' }}
             onClick={() => {
               getStore().update(draft => { draft.excludedRows[tableId] = new Set<number>(); });
-              if (gridPreview) {
-                gridPreview.refreshCells({ force: true });
-                (gridPreview as unknown as Record<string, () => void>).redrawRows?.();
+              if (_previewGridApi) {
+                _previewGridApi.refreshCells({ force: true });
+                _previewGridApi.redrawRows();
               }
             }}
           >
@@ -596,12 +597,25 @@ export function PreviewGrid({ tableId }: PreviewGridProps) {
           </button>
         </div>
       )}
-      <span style="font-size:0.76rem;color:var(--muted);padding:2px 4px">
-        {t.rowCount.toLocaleString()} rows \u00b7 {t.cols.length} cols
+      <span style={{ fontSize: '0.76rem', color: 'var(--muted)', padding: '2px 4px' }}>
+        {table.rowCount.toLocaleString()} rows \u00b7 {table.cols.length} cols
         {excCount ? ' \u00b7 ' + excCount + ' excluded' : ''}
-        {t.rowCount > cap ? ' (preview: first ' + cap.toLocaleString() + ')' : ''}
+        {table.rowCount > cap ? ' (preview: first ' + cap.toLocaleString() + ')' : ''}
       </span>
-      <div ref={gridRef} class="ag-theme-balham-dark" style="height:100%;width:100%" />
+      <AgGridReact
+        ref={gridRef}
+        className="ag-theme-balham-dark"
+        containerStyle={{ height: '100%', width: '100%' }}
+        rowData={previewRows}
+        columnDefs={columnDefs as ColDef[]}
+        defaultColDef={DEFAULT_COL_DEF}
+        pagination={true}
+        paginationPageSize={200}
+        paginationPageSizeSelector={[100, 200, 500, 1000]}
+        multiSortKey="ctrl"
+        getRowStyle={getRowStyle as (params: RowClassParams) => RowStyle | undefined}
+        onGridReady={onGridReady}
+      />
       {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={ctxMenu.items} onClose={() => setCtxMenu(null)} />}
       {renameTarget && (
         <RenameModal
@@ -614,6 +628,151 @@ export function PreviewGrid({ tableId }: PreviewGridProps) {
   );
 }
 
+// ── Column header React component ─────────────────────────────────────────────
+
+/**
+ * Props for the ColumnHeader React component used as AG Grid headerComponent.
+ * AG Grid merges headerComponentParams with its internal header params, so
+ * this interface includes both custom props and the AG Grid params we use.
+ */
+export interface ColumnHeaderProps {
+  /** Display label text */
+  label: string;
+  /** Table color for the left stripe (null = no stripe) */
+  color: string | null;
+  /** User-defined rename label (shown in tooltip) */
+  renamed: string | undefined;
+  /** Original physical column name (shown in tooltip) */
+  origCol?: string | null;
+  /** Callback for left-click on ⋯ button (rename or trigger menu) */
+  onRename: (() => void) | null;
+  /** Callback for × button click (clear rename) */
+  onClear: (() => void) | null;
+  /** Callback for right-click on ⋯ button (context menu) */
+  onContextMenu: ((e: MouseEvent) => void) | null;
+  /** Optional separate left-click handler for ⋯ (overrides onRename for left-click) */
+  onMoreClick?: ((e: ReactMouseEvent) => void) | null;
+  /** AG Grid sort callback — provided by grid via headerComponentParams merge */
+  progressSort?: (multiSort?: boolean) => void;
+}
+
+/**
+ * React functional component for AG Grid column headers.
+ * Replaces the old imperative `_makeHeaderComponent` class factory.
+ *
+ * Renders a flex row with:
+ * - A 3px color bar on the left (when color is provided)
+ * - The column label text with text-overflow: ellipsis (click to sort)
+ * - A "⋯" button for rename / context menu
+ * - An "×" button for clearing rename
+ *
+ * Used as `headerComponent` in column definitions with custom props passed
+ * via `headerComponentParams`. AG Grid merges its internal params (e.g.
+ * progressSort) with the custom params before passing to this component.
+ */
+export function ColumnHeader(props: ColumnHeaderProps) {
+  const { label, color, renamed, origCol, onRename, onClear, onContextMenu, onMoreClick, progressSort } = props;
+
+  const handleLabelClick = (e: ReactMouseEvent): void => {
+    if (progressSort) progressSort(e.shiftKey);
+  };
+
+  const handleMoreClick = (e: ReactMouseEvent): void => {
+    e.stopPropagation();
+    if (onMoreClick) {
+      onMoreClick(e);
+    } else if (onRename) {
+      onRename();
+    }
+  };
+
+  const handleMoreContextMenu = (e: ReactMouseEvent): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onContextMenu) onContextMenu(e.nativeEvent);
+  };
+
+  const handleClearClick = (e: ReactMouseEvent): void => {
+    e.stopPropagation();
+    if (onClear) onClear();
+  };
+
+  const showMore = !!(onMoreClick || onRename || onContextMenu);
+
+  const tooltip = origCol
+    ? (renamed ? `Original: ${origCol}` : origCol)
+    : undefined;
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: '3px', width: '100%', overflow: 'hidden' }}>
+      {color && (
+        <Box
+          sx={{
+            width: 3,
+            flexShrink: 0,
+            alignSelf: 'stretch',
+            background: color,
+            borderRadius: '1px',
+            mr: '2px',
+          }}
+        />
+      )}
+      <Typography
+        noWrap
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          cursor: 'pointer',
+          fontSize: 'inherit',
+          fontWeight: 'inherit',
+          lineHeight: 'inherit',
+          color: 'inherit',
+        }}
+        onClick={handleLabelClick}
+        title={tooltip}
+      >
+        {label}
+      </Typography>
+      {showMore && (
+        <IconButton
+          size="small"
+          onClick={handleMoreClick}
+          onContextMenu={handleMoreContextMenu}
+          title="Rename column"
+          sx={{
+            padding: '0 2px',
+            flexShrink: 0,
+            color: '#aaa',
+            fontSize: '13px',
+            lineHeight: 1,
+            '&:hover': { background: 'rgba(255,255,255,0.08)' },
+          }}
+        >
+          {'\u22ef'}
+        </IconButton>
+      )}
+      {onClear && (
+        <IconButton
+          size="small"
+          onClick={handleClearClick}
+          title={`Clear rename (original: ${origCol ?? ''})`}
+          sx={{
+            padding: '0 1px',
+            flexShrink: 0,
+            color: '#aaa',
+            fontSize: '10px',
+            lineHeight: 1,
+            minWidth: 'auto',
+            '&:hover': { background: 'rgba(255,255,255,0.08)' },
+          }}
+        >
+          {'\u00d7'}
+        </IconButton>
+      )}
+    </Box>
+  );
+}
+
 // ── Column definitions ───────────────────────────────────────────────────────
 
 /**
@@ -621,7 +780,7 @@ export function PreviewGrid({ tableId }: PreviewGridProps) {
  * Includes color stripe, rename button, clear rename button,
  * and an optional onTypeContextMenu callback for column type overrides.
  */
-function makeResultCols(cols: string[], onRenameDone?: () => void, onTypeContextMenu?: ((e: MouseEvent, tid: string, col: string) => void) | null): Record<string, unknown>[] {
+function makeResultCols(cols: string[], onRenameDone?: () => void, onTypeContextMenu?: ((e: MouseEvent, tid: string, col: string) => void) | null): ColDef[] {
   const colMap = buildColSourceMap();
   const state = getStore().getState();
   const dataCols = cols.filter(c => c !== '_rowno' && c !== '_row_type' && c !== '_isTotalsRow' && c !== '_band_id' && c !== '_isBandHeader');
@@ -648,20 +807,21 @@ function makeResultCols(cols: string[], onRenameDone?: () => void, onTypeContext
       floatingFilter: true,
       sortable: true,
       resizable: true,
-      headerComponent: _makeHeaderComponent(
-        dispLabel,
+      headerComponent: ColumnHeader,
+      headerComponentParams: {
+        label: dispLabel,
         color,
         renamed,
-        (src && src.kind !== 'calc') ? src.col : null,
-        doRename,
-        (src && src.kind !== 'calc' && renamed)
+        origCol: (src && src.kind !== 'calc') ? src.col : null,
+        onRename: (src && src.kind !== 'calc') ? doRename : null,
+        onClear: (src && src.kind !== 'calc' && renamed)
           ? () => {
               setColLabel(src.tid, src.col, src.col);
               if (onRenameDone) onRenameDone();
             }
           : null,
-        onTypeContextMenu && src && src.kind !== 'calc' ? (e: MouseEvent) => onTypeContextMenu(e, src.tid, src.col) : null,
-      ),
+        onContextMenu: onTypeContextMenu && src && src.kind !== 'calc' ? (e: MouseEvent) => onTypeContextMenu(e, src.tid, src.col) : null,
+      },
       cellRenderer: (params: { value: unknown }) => {
         const v = params.value;
         return v == null ? '' : String(v);
@@ -675,7 +835,7 @@ function makeResultCols(cols: string[], onRenameDone?: () => void, onTypeContext
  * Includes color stripe, rename button, clear rename button,
  * and an optional onTypeContextMenu callback for column type overrides.
  */
-function makePreviewCols(tid: string, physCols: string[], onShowPreviewMenu?: ((e: MouseEvent, col: string) => void) | null): Record<string, unknown>[] {
+function makePreviewCols(tid: string, physCols: string[], onShowPreviewMenu?: ((e: MouseEvent, col: string) => void) | null): ColDef[] {
   const color = getTableColor(tid);
   const state = getStore().getState();
 
@@ -700,7 +860,17 @@ function makePreviewCols(tid: string, physCols: string[], onShowPreviewMenu?: ((
       floatingFilter: true,
       sortable: true,
       resizable: true,
-      headerComponent: _makeHeaderComponent(label, color, renamed, c, null, doClear, null, showMenu),
+      headerComponent: ColumnHeader,
+      headerComponentParams: {
+        label,
+        color,
+        renamed,
+        origCol: c,
+        onRename: null,
+        onClear: doClear,
+        onContextMenu: showMenu ? (e: MouseEvent) => showMenu(e) : null,
+        onMoreClick: showMenu ? (e: ReactMouseEvent) => showMenu(e.nativeEvent) : null,
+      },
       cellRenderer: (params: { value: unknown }) => {
         const v = params.value;
         return v == null ? '' : String(v);
@@ -709,72 +879,4 @@ function makePreviewCols(tid: string, physCols: string[], onShowPreviewMenu?: ((
   });
 }
 
-/**
- * Creates an AG Grid header component class with color stripe, rename controls,
- * and an optional context menu trigger on the "⋯" button.
- */
-function _makeHeaderComponent(
-  label: string,
-  color: string | null,
-  renamed: string | undefined,
-  origCol: string | null,
-  onRename: (() => void) | null,
-  onClear: (() => void) | null,
-  onContextMenu: ((e: MouseEvent) => void) | null = null,
-  onShowMenu: ((e: MouseEvent) => void) | null = null,
-): unknown {
-  return class {
-    _params!: Record<string, unknown>;
-    _gui!: HTMLElement;
 
-    init(params: Record<string, unknown>): void {
-      this._params = params;
-      this._gui = document.createElement('div');
-      this._gui.style.cssText = 'display:flex;align-items:center;gap:3px;width:100%;overflow:hidden';
-
-      if (color) {
-        const stripe = document.createElement('span');
-        stripe.style.cssText = `width:3px;flex-shrink:0;align-self:stretch;background:${color};border-radius:1px;margin-right:2px`;
-        this._gui.appendChild(stripe);
-      }
-
-      const txt = document.createElement('span');
-      txt.style.cssText = 'flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer';
-      txt.textContent = label;
-      if (origCol) txt.title = renamed ? `Original: ${origCol}` : origCol;
-      txt.addEventListener('click', (e: MouseEvent) => (params.progressSort as (shift: boolean) => void)(e.shiftKey));
-      this._gui.appendChild(txt);
-
-      if (onShowMenu || onRename || onContextMenu) {
-        const more = document.createElement('button');
-        more.textContent = '\u22ef';
-        more.title = 'Rename column';
-        more.style.cssText = 'background:none;border:none;cursor:pointer;font-size:13px;padding:0 2px;color:#aaa;flex-shrink:0;line-height:1';
-        more.addEventListener('click', (e: MouseEvent) => {
-          e.stopPropagation();
-          if (onShowMenu) onShowMenu(e);
-          else if (onRename) onRename();
-        });
-        more.addEventListener('contextmenu', (e: MouseEvent) => {
-          e.preventDefault(); e.stopPropagation();
-          if (onShowMenu) onShowMenu(e);
-          else if (onContextMenu) onContextMenu(e);
-        });
-        this._gui.appendChild(more);
-      }
-
-      if (onClear) {
-        const clr = document.createElement('button');
-        clr.textContent = '\u00d7';
-        clr.title = `Clear rename (original: ${origCol})`;
-        clr.style.cssText = 'background:none;border:none;cursor:pointer;font-size:10px;padding:0 1px;color:#aaa;flex-shrink:0;line-height:1';
-        clr.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); onClear(); });
-        this._gui.appendChild(clr);
-      }
-    }
-
-    getGui(): HTMLElement { return this._gui; }
-    destroy(): void {}
-    refresh(): boolean { return false; }
-  };
-}

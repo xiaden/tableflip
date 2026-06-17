@@ -2,14 +2,15 @@
  * Calc stage — calculated column configuration section.
  *
  * Configures a calculated column with alias, mode (math/text/compare/date),
- * and mode-specific options via calc-builder Preact components.
+ * and mode-specific options via calc-builder React components.
  * Uses store for state access.
  *
  * Ported from SRC/js/ui/views/pipeline-card.tsx (CalcStageComponent sub-component).
  */
 
-import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useState, useCallback } from 'react';
 import { getStore } from '../../core/store';
+import { useStore } from '../useStore';
 import { buildReportSpecFromState } from '../../core/state';
 import { colLabel } from '../../core/utils';
 import { buildColSourceMap, projectedCols } from '../../catalog/column-catalog';
@@ -26,7 +27,13 @@ import { Tip } from '../components/tip';
 import { ContextMenu, type CtxMenuItem } from '../components/context-menu';
 import { resolveRenameTarget, RenameModal, type RenameTarget } from '../components/rename-modal';
 import { calcModeComponents, type ColOption } from '../components/calc-builder';
-import type { AppState, CalcStage, CalcMode } from '../../types';
+import TextField from '@mui/material/TextField';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Button from '@mui/material/Button';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import type { CalcStage, CalcMode } from '../../types';
 
 export interface CalcStageProps {
   /** Index of this calc stage in the calcStages array. */
@@ -34,11 +41,9 @@ export interface CalcStageProps {
 }
 
 export function CalcStageSection({ i }: CalcStageProps) {
-  const [state, setState] = useState<AppState>(getStore().getState());
+  const state = useStore(s => s);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; items: CtxMenuItem[] } | null>(null);
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
-
-  useEffect(() => getStore().subscribe(s => setState(s)), []);
 
   const calc = state.calcStages[i];
   if (!calc) return null;
@@ -175,6 +180,17 @@ export function CalcStageSection({ i }: CalcStageProps) {
           if (text) text.length = Math.max(1, parseInt(val, 10) || 1);
           break;
         }
+        case 'textOperation': {
+          const op = val;
+          const defaults: Record<string, () => Record<string, unknown>> = {
+            combine:   () => ({ parts: [{ type: 'column', value: '' }] }),
+            left:      () => ({ source: { type: 'column', value: '' }, count: 1 }),
+            right:     () => ({ source: { type: 'column', value: '' }, count: 1 }),
+            substring: () => ({ source: { type: 'column', value: '' }, start: 1, length: 1 }),
+          };
+          calcDraft.text = { operation: op, ...defaults[op]?.() };
+          break;
+        }
         case 'compareMode': {
           const compare = calcDraft.compare as { compareMode?: string } | undefined;
           if (compare) compare.compareMode = val;
@@ -223,6 +239,41 @@ export function CalcStageSection({ i }: CalcStageProps) {
     });
   }, [updateCalc]);
 
+  const handleTextAddPart = useCallback(() => {
+    updateCalc(calcDraft => {
+      const text = calcDraft.text as { parts?: Array<{ type: string; value: string }> } | undefined;
+      if (text) {
+        (text.parts ??= []).push({ type: 'column', value: '' });
+      }
+    });
+  }, [updateCalc]);
+
+  const handleTextRemovePart = useCallback((j: number) => {
+    updateCalc(calcDraft => {
+      const text = calcDraft.text as { parts?: Array<{ type: string; value: string }> } | undefined;
+      if (text?.parts && text.parts.length > 1) {
+        text.parts.splice(j, 1);
+      }
+    });
+  }, [updateCalc]);
+
+  const handleTextPartChange = useCallback((j: number, prop: string, val: string) => {
+    updateCalc(calcDraft => {
+      const text = calcDraft.text as { parts?: Array<{ type: string; value: string }> } | undefined;
+      if (!text?.parts?.[j]) return;
+      const part = text.parts[j];
+      switch (prop) {
+        case 'type':
+          part.type = val;
+          part.value = '';
+          break;
+        case 'value':
+          part.value = val;
+          break;
+      }
+    });
+  }, [updateCalc]);
+
   const removeCalcStage = useCallback(() => {
     getStore().update(draft => { draft.calcStages.splice(i, 1); });
     _afterCombineChange();
@@ -240,37 +291,63 @@ export function CalcStageSection({ i }: CalcStageProps) {
 
   return (
     <>
-      <div class={stageClasses}>
-        <div class="pl-stage-label">
+      <div className={stageClasses}>
+        <div className="pl-stage-label">
           Calculated column <Tip text={'Create a virtual column from existing columns — it does not change your source data.\n\n• Math: add, subtract, multiply, divide columns, or compute rolling averages and percentages\n• Text: join, trim, or extract parts of text\n• Compare: if/then logic — return one value if a condition is met, another if not\n• Date: pull out the year, month, day, or other parts from a date column'} />
-          <label class="pl-enable-toggle" title={calcEnabled ? 'Disable this calculated column' : 'Enable this calculated column'}>
-            <input type="checkbox" checked={calcEnabled} onChange={e => handleEnabledChange((e.target as HTMLInputElement).checked)} />
-            <span class="pl-enable-label">{calcEnabled ? 'Enabled' : 'Disabled'}</span>
-          </label>
+          <FormControlLabel
+            className="pl-enable-toggle"
+            control={
+              <Checkbox
+                checked={calcEnabled}
+                onChange={e => handleEnabledChange(e.target.checked)}
+                size="small"
+                sx={{ py: 0, px: 0.5 }}
+              />
+            }
+            label={<span className="pl-enable-label">{calcEnabled ? 'Enabled' : 'Disabled'}</span>}
+            title={calcEnabled ? 'Disable this calculated column' : 'Enable this calculated column'}
+          />
         </div>
-        {calcVMsg && <div class="pl-lookup-error">{calcVBlocked ? '⛔' : '⚠'} {calcVMsg}</div>}
-        <div class="pl-lookup-header" style="gap:8px;flex-wrap:wrap">
-          <input
-            type="text"
+        {calcVMsg && <div className="pl-lookup-error">{calcVBlocked ? '⛔' : '⚠'} {calcVMsg}</div>}
+        <div className="pl-lookup-header" style={{ gap: 8, flexWrap: 'wrap', display: 'flex', alignItems: 'center' }}>
+          <TextField
             placeholder="Output column name"
             value={calc.alias || ''}
-            style="flex:1;min-width:180px"
-            onChange={e => handleAliasChange((e.target as HTMLInputElement).value)}
+            onChange={e => handleAliasChange(e.target.value)}
+            size="small"
+            sx={{ flex: 1, minWidth: 180, '& input': { py: 0.5, px: 1, fontSize: '0.78rem' } }}
           />
-          <button class="btn btn-danger" style="flex-shrink:0" onClick={removeCalcStage}>{'✕'}</button>
+          <Button variant="contained" color="error" size="small" sx={{ flexShrink: 0, minWidth: 'unset', py: 0.25, px: 1 }} onClick={removeCalcStage}>{'✕'}</Button>
         </div>
-        <div class="tab-row" style="margin-top:8px">
-          {(['math', 'text', 'compare', 'date'] as CalcMode[]).map(m => (
-            <label key={m} class="tab-opt">
-              <input type="radio" name={`calcMode_${i}`} value={m} checked={mode === m} onChange={() => handleModeChange(m)} />
-              <span>{m.charAt(0).toUpperCase() + m.slice(1)}</span>
-            </label>
-          ))}
+        <div className="tab-row" style={{ marginTop: 8 }}>
+          <ToggleButtonGroup
+            value={mode}
+            exclusive
+            onChange={(_e, val) => { if (val) handleModeChange(val as CalcMode); }}
+            size="small"
+            sx={{
+              '& .MuiToggleButton-root': {
+                py: 0.25, px: 1, fontSize: '0.75rem', textTransform: 'none',
+                color: 'rgba(255,255,255,0.7)',
+                '&.Mui-selected': { color: '#fff', bgcolor: 'rgba(255,255,255,0.12)' },
+              },
+            }}
+          >
+            {(['math', 'text', 'compare', 'date'] as CalcMode[]).map(m => (
+              <ToggleButton key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</ToggleButton>
+            ))}
+          </ToggleButtonGroup>
         </div>
-        <Builder calc={calc} i={i} cols={cols} colOptsFor={colOptsFor} onPropChange={handlePropChange} onCondChange={handleCondChange} />
+        <Builder
+          calc={calc} i={i} cols={cols} colOptsFor={colOptsFor}
+          onPropChange={handlePropChange} onCondChange={handleCondChange}
+          onTextPartChange={handleTextPartChange}
+          onTextAddPart={handleTextAddPart}
+          onTextRemovePart={handleTextRemovePart}
+        />
         {alias && (
-          <div class="pl-lookup-cols" style="margin-top:8px">
-            <span style="font-size:0.7rem;color:var(--muted);flex-shrink:0;align-self:center">Output:</span>
+          <div className="pl-lookup-cols" style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--muted)', flexShrink: 0, alignSelf: 'center' }}>Output:</span>
             <Tip text="This chip represents your new calculated column. Double-click it to show or hide it in the report. Right-click to rename it — the name field above will update too." />
             <Chip
               col={alias}

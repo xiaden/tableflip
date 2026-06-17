@@ -15,17 +15,18 @@ window.assetUrl = p => `${p}?v=${window.__ASSET_VER}`;
 </script>
 
 <!-- XLSX runtime (pinned, local bundle) -->
-<script>document.write('<script src="' + assetUrl('js/vendor/xlsx.bundle.js') + '"><\/script>');</script>
+<script>document.write('<script src="' + assetUrl('/js/vendor/xlsx.bundle.js') + '"><\/script>');</script>
 <!-- AG Grid Community + sql.js runtimes (pinned, local bundles) -->
-<script>document.write('<link rel="stylesheet" href="' + assetUrl('css/ag-grid.min.css') + '">');</script>
-<script>document.write('<link rel="stylesheet" href="' + assetUrl('css/ag-theme-balham-dark.min.css') + '">');</script>
-<script>document.write('<script src="' + assetUrl('js/vendor/ag-grid-community.min.js') + '"><\/script>');</script>
-<script>document.write('<script src="' + assetUrl('js/wasm/sql-wasm.js') + '"><\/script>');</script>
+<script>document.write('<link rel="stylesheet" href="' + assetUrl('/css/ag-grid.min.css') + '">');</script>
+<script>document.write('<link rel="stylesheet" href="' + assetUrl('/css/ag-theme-balham-dark.min.css') + '">');</script>
+<script>document.write('<script src="' + assetUrl('/js/vendor/ag-grid-community.min.js') + '"><\/script>');</script>
+<script>document.write('<script src="' + assetUrl('/js/wasm/sql-wasm.js') + '"><\/script>');</script>
 
-<script>document.write('<link rel="stylesheet" href="' + assetUrl('css/style.css') + '">');</script>
+<script>document.write('<link rel="stylesheet" href="' + assetUrl('/css/style.css') + '">');</script>
 </head>
 
 <body>
 <div id="app"></div>
+<script type="module" src="/preact/main.tsx"></script>
 </body>
 </html>
