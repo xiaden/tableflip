@@ -267,7 +267,7 @@ describe('Integration: Full Pipeline', () => {
       expect(plan.calculatedColumns[0].sql).toContain('*');
 
       // The calc column should appear in the plan's column list
-      expect(plan.cols).toContain('DoubleAmount');
+      expect(plan.selectedColumns).toContain('DoubleAmount');
 
       // The colMap should include the calc column
       expect(plan.colMap.has('DoubleAmount')).toBe(true);

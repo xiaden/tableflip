@@ -32,6 +32,8 @@ export function ordersColMap(): Map<string, ColMapEntry> {
     ['Status', { tid: 'Orders', col: 'Status' }],
     ['Amount', { tid: 'Orders', col: 'Amount', colType: 'number' }],
     ['OrderDate', { tid: 'Orders', col: 'OrderDate', colType: 'date' }],
+    ['ShipDate', { tid: 'Orders', col: 'ShipDate', colType: 'date' }],
+    ['TermMonths', { tid: 'Orders', col: 'TermMonths', colType: 'number' }],
     ['Region', { tid: 'Orders', col: 'Region' }],
   ]);
 }

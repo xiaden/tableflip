@@ -163,8 +163,11 @@ export interface AggregateSpec {
  * @property colState - Per-column UI state (selection, expansion, etc.)
  * @property sorts - Array of sort specifications
  * @property result - Last query result set (null if not yet run)
-  * @property detailBands - Array of detail band specifications for 1:N child row fan-out
-  */
+   * @property detailBands - Array of detail band specifications for 1:N child row fan-out
+   * @property includeSourceColumn - Whether to include a source sheet name column in output
+   * @property sourceColumnName - Column header label for the source sheet column
+   * @property stackAliases - Per-sheet display aliases for stacked sheet names (keyed by table ID)
+   */
 export interface AppState {
   tables: Record<string, DbTable>;
   excludedRows: Record<string, Set<number>>;
@@ -198,6 +201,9 @@ export interface AppState {
   previewTableId: string | null;
   detailBands: DetailBandSpec[];
   columnTypeOverrides: Record<string, Record<string, ColumnType>>;
+  includeSourceColumn: boolean;
+  sourceColumnName: string;
+  stackAliases: Record<string, string>;
 }
 
 /**
@@ -205,7 +211,7 @@ export interface AppState {
  * @property id - Unique report identifier (null for new reports)
  * @property name - User-visible report name
  * @property enabled - Whether this report is active
- * @property pipeline - Pipeline configuration (base table, stacks, lookups, calcs)
+ * @property pipeline - Pipeline configuration (base table, stacks, lookups, calcs, source column options)
  * @property outputColumns - Explicit output column order ([] = project nothing; populated lazily with all projected aliases)
  * @property filters - Filter specifications
  * @property sorts - Sort specifications
@@ -213,8 +219,7 @@ export interface AppState {
  * @property mergeDisplay - Merged column display configuration
  * @property outputDefinition - Full output column definitions (null = auto)
  * @property publish - Publish settings for table export
-  * @property pipeline.detailBands - Optional detail band specifications for 1:N child row fan-out
-  */
+ */
 export interface ReportSpec {
   id: string | null;
   name: string;
@@ -226,6 +231,9 @@ export interface ReportSpec {
     lookups: LookupSpec[];
     calculatedColumns: CalcStage[];
     detailBands?: DetailBandSpec[];
+    includeSourceColumn?: boolean;
+    sourceColumnName?: string;
+    stackAliases?: Record<string, string>;
   };
   outputColumns: string[];
   filters: FilterSpec[];

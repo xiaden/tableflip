@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildQueryPlan } from '../../query/query-plan';
-import { makeReportSpec, standardTables, normalizeSql } from './helpers';
+import { makeReportSpec, standardTables } from './helpers';
 
 describe('query-plan', () => {
   const tables = standardTables();
@@ -9,12 +9,12 @@ describe('query-plan', () => {
     it('should build a detail mode plan (aggMode=none)', () => {
       const spec = makeReportSpec();
       const plan = buildQueryPlan(spec, tables);
-      expect(plan.sql).toBeTruthy();
       expect(plan.aggMode).toBe('none');
       expect(plan.source.base).toBe('Orders');
       expect(plan.colMap).toBeInstanceOf(Map);
       expect(plan.colMap.size).toBeGreaterThan(0);
-      expect(plan.cols.length).toBeGreaterThan(0);
+      expect(plan.selectedColumns.length).toBeGreaterThan(0);
+      expect(plan.sourceCatalog).toBeInstanceOf(Map);
     });
 
     it('should build a group mode plan', () => {
@@ -34,11 +34,10 @@ describe('query-plan', () => {
       });
       const plan = buildQueryPlan(spec, tables);
       expect(plan.aggMode).toBe('group');
-      const norm = normalizeSql(plan.sql);
-      expect(norm).toContain('GROUP BY');
-      expect(norm).toContain('SUM');
-      expect(plan.cols).toContain('Company');
-      expect(plan.cols).toContain('Total');
+      expect(plan.groupBy).toContain('Company');
+      expect(plan.selectedColumns).toContain('Company');
+      expect(plan.selectedColumns).toContain('Total');
+      expect(plan.aggregates.length).toBe(1);
     });
 
     it('should build a totals mode plan', () => {
@@ -58,8 +57,7 @@ describe('query-plan', () => {
       });
       const plan = buildQueryPlan(spec, tables);
       expect(plan.aggMode).toBe('totals');
-      const norm = normalizeSql(plan.sql);
-      expect(norm).toContain('SUM');
+      expect(plan.colTotals).toEqual({ Amount: 'SUM' });
     });
 
     it('should build a subtotals mode plan', () => {
@@ -80,8 +78,8 @@ describe('query-plan', () => {
       });
       const plan = buildQueryPlan(spec, tables);
       expect(plan.aggMode).toBe('subtotals');
-      const norm = normalizeSql(plan.sql);
-      expect(norm).toContain('UNION ALL');
+      expect(plan.subtotalBy).toEqual(['Company']);
+      expect(plan.subtotalFns).toEqual({ Amount: 'SUM' });
     });
 
     it('should include source plan with base and stacks', () => {
@@ -222,10 +220,11 @@ describe('query-plan', () => {
       expect(plan.source.stacks).toEqual(['Contacts']);
     });
 
-    it('should return empty params for detail query without filters', () => {
+    it('should include sourceCatalog', () => {
       const spec = makeReportSpec();
       const plan = buildQueryPlan(spec, tables);
-      expect(plan.params).toEqual([]);
+      expect(plan.sourceCatalog).toBeInstanceOf(Map);
+      expect(plan.sourceCatalog.has('Orders')).toBe(true);
     });
   });
 });

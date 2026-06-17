@@ -40,7 +40,7 @@ This is a static web app.
 ## 📁 Repository layout
 
 - `SRC/index.html` — app entry page
-- `SRC/style.css` — app styles
+- `SRC/public/css/style.css` — app styles
 - `SRC/js/` — app modules and bundled third-party runtimes
 - `SRC/THIRD-PARTY-NOTICES.txt` — third-party attribution and license notices
 

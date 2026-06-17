@@ -89,10 +89,10 @@ function getHint(mode: AggMode, state: AppState): string | null {
 // ── Totals Section ────────────────────────────────────────────────────────────
 
 function TotalsSection({ cols }: { cols: string[] }) {
-  const state = useStore(s => s);
+  const { selCols, colTotals } = useStore(s => ({ selCols: s.selCols, colTotals: s.colTotals }));
 
   const colMap = buildColSourceMap();
-  const selSet = state.selCols;
+  const selSet = selCols;
   const visibleCols = cols.filter(c => !selSet || selSet.has(c));
 
   const handleTotalChange = useCallback((col: string, val: string) => {
@@ -109,7 +109,7 @@ function TotalsSection({ cols }: { cols: string[] }) {
   return (
     <>
       {visibleCols.map(col => {
-        const cur = state.colTotals[col] || 'skip';
+        const cur = colTotals[col] || 'skip';
         const label = _syncColDisplayLabel(col, colMap);
         return (
           <div key={col} className="totals-row">
@@ -119,10 +119,7 @@ function TotalsSection({ cols }: { cols: string[] }) {
                 className="totals-fn-sel"
                 value={cur}
                 onChange={e => handleTotalChange(col, e.target.value as string)}
-                sx={{
-                  '& .MuiSelect-select': { py: 0.5, px: 1, fontSize: '0.78rem', minHeight: 'unset' },
-                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
-                }}
+                sx={{ minWidth: 150 }}
               >
                 {TOTAL_FNS.map(f => (
                   <MenuItem key={f} value={f}>{TOTAL_LABELS[f]}</MenuItem>
@@ -139,11 +136,11 @@ function TotalsSection({ cols }: { cols: string[] }) {
 // ── Subtotals Section ─────────────────────────────────────────────────────────
 
 function SubtotalsSection({ cols }: { cols: string[] }) {
-  const state = useStore(s => s);
+  const { subtotalBy, selCols, subtotalFns } = useStore(s => ({ subtotalBy: s.subtotalBy, selCols: s.selCols, subtotalFns: s.subtotalFns }));
 
   const colMap = buildColSourceMap();
-  const subtotalBy = state.subtotalBy || [];
-  const selSet = state.selCols;
+  const subBy = subtotalBy || [];
+  const selSet = selCols;
 
   // Initialize default subtotal fns for calc columns (moved from render phase)
   useEffect(() => {
@@ -176,11 +173,11 @@ function SubtotalsSection({ cols }: { cols: string[] }) {
     });
   }, []);
 
-  if (subtotalBy.length === 0) {
+  if (subBy.length === 0) {
     return <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>Click columns above to choose group keys — then configure subtotal rows here.</span>;
   }
 
-  const visibleCols = cols.filter(c => (!selSet || selSet.has(c)) && !subtotalBy.includes(c));
+  const visibleCols = cols.filter(c => (!selSet || selSet.has(c)) && !subBy.includes(c));
 
   if (!visibleCols.length) {
     return <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>All columns are group keys.</span>;
@@ -197,7 +194,7 @@ function SubtotalsSection({ cols }: { cols: string[] }) {
           return op === 'ROLLAVG' || op === 'PCTTOTAL';
         })();
 
-        const cur = state.subtotalFns[col] || 'skip';
+        const cur = subtotalFns[col] || 'skip';
         const label = _syncColDisplayLabel(col, colMap);
         const fnList = isAdvancedCalc ? ['skip' as const] : SUBTOTAL_FNS;
 
@@ -209,10 +206,7 @@ function SubtotalsSection({ cols }: { cols: string[] }) {
                 className="totals-fn-sel"
                 value={cur}
                 onChange={e => handleSubtotalFnChange(col, e.target.value as string)}
-                sx={{
-                  '& .MuiSelect-select': { py: 0.5, px: 1, fontSize: '0.78rem', minHeight: 'unset' },
-                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
-                }}
+                sx={{ minWidth: 150 }}
               >
                 {fnList.map(f => (
                   <MenuItem key={f} value={f}>{SUBTOTAL_LABELS[f]}</MenuItem>
@@ -229,13 +223,11 @@ function SubtotalsSection({ cols }: { cols: string[] }) {
 // ── Aggregate Items Section ───────────────────────────────────────────────────
 
 function AggregateItems({ cols }: { cols: string[] }) {
-  const state = useStore(s => s);
+  const { selCols, aggregates, groupBy } = useStore(s => ({ selCols: s.selCols, aggregates: s.aggregates, groupBy: s.groupBy }));
 
   const colMap = buildColSourceMap();
-  const selSet = state.selCols;
+  const selSet = selCols;
   const visibleCols = selSet ? cols.filter(c => selSet.has(c)) : cols;
-  const aggregates = state.aggregates;
-  const groupBy = state.groupBy;
 
   if (!aggregates.length) {
     const msg = groupBy.length > 0
@@ -265,11 +257,6 @@ function AggregateItems({ cols }: { cols: string[] }) {
     });
   }, []);
 
-  const compactSelectSx = {
-    '& .MuiSelect-select': { py: 0.5, px: 1, fontSize: '0.78rem', minHeight: 'unset' },
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
-  };
-
   return (
     <>
       {aggregates.map((agg, i) => {
@@ -290,46 +277,40 @@ function AggregateItems({ cols }: { cols: string[] }) {
                 padding: '1px 5px', flexShrink: 0, alignSelf: 'center',
               }} title="Auto-added — edit or delete to customize.">auto</span>
             )}
-            <TextField
-              className="agg-alias"
-              placeholder={placeholder}
-              value={agg.alias}
-              onChange={e => handleAliasChange(i, e.target.value)}
-              size="small"
-              sx={{
-                width: 120,
-                '& input': { py: 0.5, px: 1, fontSize: '0.78rem' },
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
-              }}
-            />
-            <span className="agg-eq">=</span>
-            <FormControl size="small">
-              <Select
-                value={agg.fn}
-                onChange={e => handleFnChange(i, e.target.value as string)}
-                sx={compactSelectSx}
-              >
-                {AGG_FNS.map(f => (
-                  <MenuItem key={f} value={f}>{AGG_LABELS[f]}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            {needsCol && (
-              <>
-                <span className="agg-eq">of</span>
-                <FormControl size="small">
-                  <Select
-                    value={agg.col}
-                    onChange={e => handleColChange(i, e.target.value as string)}
-                    sx={compactSelectSx}
-                  >
-                    {visibleCols.map(c => (
-                      <MenuItem key={c} value={c}>{_syncColDisplayLabel(c, colMap)}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </>
-            )}
+              <TextField
+                className="agg-alias"
+                placeholder={placeholder}
+                value={agg.alias}
+                onChange={e => handleAliasChange(i, e.target.value)}
+                size="small"
+                sx={{ width: 120 }}
+              />
+              <span className="agg-eq">=</span>
+              <FormControl size="small">
+                <Select
+                  value={agg.fn}
+                  onChange={e => handleFnChange(i, e.target.value as string)}
+                >
+                  {AGG_FNS.map(f => (
+                    <MenuItem key={f} value={f}>{AGG_LABELS[f]}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              {needsCol && (
+                <>
+                  <span className="agg-eq">of</span>
+                  <FormControl size="small">
+                    <Select
+                      value={agg.col}
+                      onChange={e => handleColChange(i, e.target.value as string)}
+                    >
+                      {visibleCols.map(c => (
+                        <MenuItem key={c} value={c}>{_syncColDisplayLabel(c, colMap)}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </>
+              )}
             <Button
               variant="contained"
               color="error"
@@ -361,29 +342,28 @@ function AggregateItems({ cols }: { cols: string[] }) {
  * validation invalidation.
  */
 export function LayoutCard() {
-  const state = useStore(s => s);
+  const { base, aggMode, tables, colOrder, selCols, groupBy, subtotalGrandTotal, subtotalSpacer, subtotalOnTop, subtotalStrategy, mergeGroupUnderline } = useStore(s => ({ base: s.base, aggMode: s.aggMode, tables: s.tables, colOrder: s.colOrder, selCols: s.selCols, groupBy: s.groupBy, subtotalGrandTotal: s.subtotalGrandTotal, subtotalSpacer: s.subtotalSpacer, subtotalOnTop: s.subtotalOnTop, subtotalStrategy: s.subtotalStrategy, mergeGroupUnderline: s.mergeGroupUnderline }));
 
-  const base = state.base;
   if (!base) return null;
 
-  const mode: AggMode = state.aggMode || 'none';
-  const reportSpec = buildReportSpecFromState(state);
-  const sourceCatalog = buildSourceCatalog(state.tables);
+  const mode: AggMode = aggMode || 'none';
+  const reportSpec = buildReportSpecFromState(getStore().getState());
+  const sourceCatalog = buildSourceCatalog(tables);
   const projected = projectedCols(reportSpec, sourceCatalog);
-  const allCols = state.colOrder
-    ? state.colOrder.filter(c => projected.includes(c))
+  const allCols = colOrder
+    ? colOrder.filter(c => projected.includes(c))
     : projected;
-  const selSet = state.selCols;
+  const selSet = selCols;
   const cols = selSet ? allCols.filter(c => selSet.has(c)) : allCols;
 
-  const hint = getHint(mode, state);
+  const hint = getHint(mode, getStore().getState());
 
   const handleModeChange = useCallback((_: React.MouseEvent<HTMLElement>, newMode: string | null) => {
     if (newMode) setAggMode(newMode as AggMode);
   }, []);
 
   return (
-    <Card id="layoutCard" className="card" sx={{ background: 'transparent', boxShadow: 'none' }}>
+    <Card id="layoutCard" className="card">
       <CardContent>
         {/* Aggregation mode tabs */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 1 }}>
@@ -440,7 +420,7 @@ export function LayoutCard() {
               </Typography>
             </Box>
             <AggregateItems cols={cols} />
-            {(state.groupBy.length > 0) && (
+            {(groupBy.length > 0) && (
               <Box id="aggAddRow" sx={{ mt: 0.75 }}>
                 <Button
                   variant="text"
@@ -481,38 +461,38 @@ export function LayoutCard() {
               <FormControlLabel
                 control={
                   <Checkbox
-                    checked={state.subtotalGrandTotal !== false}
+                    checked={subtotalGrandTotal !== false}
                     onChange={e => setSubtotalGrandTotal(e.target.checked)}
                     size="small"
                     sx={{ py: 0, px: 0.5 }}
                   />
                 }
                 label={<span>Grand total <Tip text="Adds one final total row at the very bottom, combining all groups together." /></span>}
-                sx={{ cursor: 'pointer', '& .MuiFormControlLabel-label': { fontSize: '0.76rem' } }}
+                sx={{ cursor: 'pointer' }}
               />
               <FormControlLabel
                 control={
                   <Checkbox
-                    checked={!!state.subtotalSpacer}
+                    checked={!!subtotalSpacer}
                     onChange={e => setSubtotalSpacer(e.target.checked)}
                     size="small"
                     sx={{ py: 0, px: 0.5 }}
                   />
                 }
                 label={<span>Spacer rows <Tip text="Inserts an empty row after each subtotal block to make the report easier to read." /></span>}
-                sx={{ cursor: 'pointer', '& .MuiFormControlLabel-label': { fontSize: '0.76rem' } }}
+                sx={{ cursor: 'pointer' }}
               />
               <FormControlLabel
                 control={
                   <Checkbox
-                    checked={!!state.subtotalOnTop}
+                    checked={!!subtotalOnTop}
                     onChange={e => setSubtotalOnTop(e.target.checked)}
                     size="small"
                     sx={{ py: 0, px: 0.5 }}
                   />
                 }
                 label={<span>Headers on top <Tip text="Shows each group's subtotal row before that group's detail rows instead of after." /></span>}
-                sx={{ cursor: 'pointer', '& .MuiFormControlLabel-label': { fontSize: '0.76rem' } }}
+                sx={{ cursor: 'pointer' }}
               />
             </Box>
             <Box sx={{ mb: 1 }}>
@@ -520,7 +500,7 @@ export function LayoutCard() {
                 Strategy <Tip text={"'Combined' groups all keys at once — like a PivotTable with multiple row fields.\n\n'Nested' produces subtotals at each level — like an outline with sub-groups."} />:
               </Typography>
               <ToggleButtonGroup
-                value={state.subtotalStrategy || 'combined'}
+                value={subtotalStrategy || 'combined'}
                 exclusive
                 onChange={(_: React.MouseEvent<HTMLElement>, val: string | null) => { if (val) setSubtotalStrategy(val); }}
                 size="small"
@@ -547,14 +527,14 @@ export function LayoutCard() {
           <FormControlLabel
             control={
               <Checkbox
-                checked={state.mergeGroupUnderline}
+                checked={mergeGroupUnderline}
                 onChange={e => setMergeGroupUnderline(e.target.checked)}
                 size="small"
                 sx={{ py: 0, px: 0.5 }}
               />
             }
             label={<span>Underline merged groups <Tip text="Adds a subtle line at the end of each merged block to help visually separate groups." /></span>}
-            sx={{ display: 'flex', cursor: 'pointer', fontSize: '0.76rem', mt: 0.75, '& .MuiFormControlLabel-label': { fontSize: '0.76rem' } }}
+            sx={{ display: 'flex', cursor: 'pointer', fontSize: '0.76rem', mt: 0.75 }}
           />
         </Box>
       </CardContent>

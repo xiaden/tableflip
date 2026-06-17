@@ -57,7 +57,7 @@ export interface DetailBandStageProps {
 }
 
 export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedAsBase }: DetailBandStageProps) {
-  const state = useStore(s => s);
+  const { detailBands, tables, lookups } = useStore(s => ({ detailBands: s.detailBands, tables: s.tables, lookups: s.lookups }));
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; items: CtxMenuItem[] } | null>(null);
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
 
@@ -74,16 +74,15 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
     }
   }, [i]);
 
-  const band = state.detailBands[i];
+  const band = detailBands[i];
   if (!band) return null;
 
-  const tables = state.tables;
   const rt = band.rightId && tables[band.rightId] ? tables[band.rightId] : null;
 
   // Build reportSpec for projectedColsUpToLookup — bands use all lookups
   // since bands are always after all lookups in the pipeline.
-  const lookupCount = (state.lookups || []).length;
-  const reportSpec = buildReportSpecFromState(state);
+  const lookupCount = (lookups || []).length;
+  const reportSpec = buildReportSpecFromState(getStore().getState());
   const sourceCatalog = buildSourceCatalog(tables);
   const leftCols = projectedColsUpToLookup(lookupCount, reportSpec, sourceCatalog);
   const rightCols = rt ? rt.cols : [];
@@ -101,7 +100,7 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
 
   // Compute which tables are already used by other bands
   const usedAsBand = new Set(
-    (state.detailBands || []).map((b, idx) => idx !== i ? b.rightId : '').filter(Boolean),
+    (detailBands || []).map((b, idx) => idx !== i ? b.rightId : '').filter(Boolean),
   );
 
   const stageClasses = [
@@ -245,11 +244,6 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
     });
   }, [updateBand]);
 
-  const compactSelectSx = {
-    '& .MuiSelect-select': { py: 0.5, px: 1, fontSize: '0.78rem', minHeight: 'unset' },
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
-  };
-
   return (
     <>
       <div className={stageClasses}>
@@ -275,7 +269,7 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
           <Select
             value={band.rightId || ''}
             onChange={e => handleRightIdChange(e.target.value as string)}
-            sx={{ minWidth: 180, ...compactSelectSx }}
+            sx={{ minWidth: 180 }}
             displayEmpty
           >
             <MenuItem value="">{'\u2014'} pick a sheet {'\u2014'}</MenuItem>
@@ -300,7 +294,7 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
                 <Select
                   value={pair.left || ''}
                   onChange={e => handleKpLeftChange(pi, e.target.value as string)}
-                  sx={{ minWidth: 140, ...compactSelectSx }}
+                  sx={{ minWidth: 140 }}
                   displayEmpty
                 >
                   <MenuItem value="">{'\u2014'} column {'\u2014'}</MenuItem>
@@ -316,7 +310,7 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
                 <Select
                   value={pair.right || ''}
                   onChange={e => handleKpRightChange(pi, e.target.value as string)}
-                  sx={{ minWidth: 140, ...compactSelectSx }}
+                  sx={{ minWidth: 140 }}
                   displayEmpty
                 >
                   <MenuItem value="">{'\u2014'} column {'\u2014'}</MenuItem>
@@ -394,7 +388,7 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
                   <Select
                     value={s.col}
                     onChange={e => handleSortColChange(si, e.target.value as string)}
-                    sx={{ ...compactSelectSx }}
+                    
                     displayEmpty
                   >
                     <MenuItem value="">{'\u2014'} column {'\u2014'}</MenuItem>
@@ -407,7 +401,7 @@ export function DetailBandStage({ i, sortedIds, usedAsLookup, usedAsStack, usedA
                   <Select
                     value={s.dir}
                     onChange={e => handleSortDirChange(si, e.target.value as string)}
-                    sx={compactSelectSx}
+                   
                   >
                     <MenuItem value="ASC">{'\u2191'} A {'\u2192'} Z</MenuItem>
                     <MenuItem value="DESC">{'\u2193'} Z {'\u2192'} A</MenuItem>

@@ -110,16 +110,58 @@ function validateDateMode(ctx: CalcValidatorCtx): string | null {
   const { calc, cols } = ctx;
   const date = calc.date as Record<string, unknown> | undefined;
   if (!date || typeof date !== 'object') return 'Date mode requires a date configuration object.';
-  if (date.operation !== 'extract') return `Unknown date operation "${date.operation}".`;
 
-  const source = date.source as Record<string, unknown> | undefined;
-  if (!source || typeof source !== 'object') return 'Date extract requires a source.';
-  if (source.type !== 'column') return `Date source has invalid type "${source.type}".`;
-  if (!source.value) return 'Date source column is required.';
-  if (!cols.has(source.value as string)) return `Date source column "${source.value}" is not available.`;
+  const op = date.operation as string;
+  if (!['extract', 'duration', 'add', 'subtract'].includes(op)) return `Unknown date operation "${op}".`;
 
-  const validParts = ['year', 'month', 'day', 'dow', 'week', 'quarter', 'julian'];
-  if (!date.part || !validParts.includes(date.part as string)) return `Unknown date part "${date.part}".`;
+  const validUnits = ['days', 'weeks', 'months', 'years'];
+
+  if (op === 'extract') {
+    const source = date.source as Record<string, unknown> | undefined;
+    if (!source || typeof source !== 'object') return 'Date extract requires a source.';
+    if (source.type !== 'column') return `Date source has invalid type "${source.type}".`;
+    if (!source.value) return 'Date source column is required.';
+    if (!cols.has(source.value as string)) return `Date source column "${source.value}" is not available.`;
+
+    const validParts = ['year', 'month', 'day', 'dow', 'week', 'quarter', 'julian'];
+    if (!date.part || !validParts.includes(date.part as string)) return `Unknown date part "${date.part}".`;
+    return null;
+  }
+
+  if (op === 'duration') {
+    const source = date.source as Record<string, unknown> | undefined;
+    const source2 = date.source2 as Record<string, unknown> | undefined;
+    if (!source || typeof source !== 'object') return 'Duration requires a start date source.';
+    if (source.type !== 'column') return `Duration start date has invalid type "${source.type}".`;
+    if (!source.value) return 'Duration start date column is required.';
+    if (!cols.has(source.value as string)) return `Duration start date column "${source.value}" is not available.`;
+
+    if (!source2 || typeof source2 !== 'object') return 'Duration requires an end date source.';
+    if (source2.type !== 'column') return `Duration end date has invalid type "${source2.type}".`;
+    if (!source2.value) return 'Duration end date column is required.';
+    if (!cols.has(source2.value as string)) return `Duration end date column "${source2.value}" is not available.`;
+
+    if (!date.unit || !validUnits.includes(date.unit as string)) return `Duration unit must be one of: ${validUnits.join(', ')}.`;
+    return null;
+  }
+
+  if (op === 'add' || op === 'subtract') {
+    const source = date.source as Record<string, unknown> | undefined;
+    const operand = date.operand as Record<string, unknown> | undefined;
+    if (!source || typeof source !== 'object') return `${op === 'add' ? 'Add' : 'Subtract'} requires a source date.`;
+    if (source.type !== 'column') return `${op === 'add' ? 'Add' : 'Subtract'} source has invalid type "${source.type}".`;
+    if (!source.value) return `${op === 'add' ? 'Add' : 'Subtract'} source column is required.`;
+    if (!cols.has(source.value as string)) return `${op === 'add' ? 'Add' : 'Subtract'} source column "${source.value}" is not available.`;
+
+    if (!operand || typeof operand !== 'object') return `${op === 'add' ? 'Add' : 'Subtract'} requires an operand.`;
+    if (!['column', 'number'].includes(operand.type as string)) return `${op === 'add' ? 'Add' : 'Subtract'} operand has invalid type "${operand.type}".`;
+    if (!operand.value && operand.value !== '0') return `${op === 'add' ? 'Add' : 'Subtract'} operand value is required.`;
+    if (operand.type === 'column' && !cols.has(operand.value as string)) return `${op === 'add' ? 'Add' : 'Subtract'} operand column "${operand.value}" is not available.`;
+    if (operand.type === 'number' && isNaN(Number(operand.value))) return `${op === 'add' ? 'Add' : 'Subtract'} operand must be a valid number.`;
+
+    if (!date.unit || !validUnits.includes(date.unit as string)) return `${op === 'add' ? 'Add' : 'Subtract'} unit must be one of: ${validUnits.join(', ')}.`;
+    return null;
+  }
 
   return null;
 }

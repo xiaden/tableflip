@@ -1,130 +1,26 @@
 /**
  * Report execution engine.
  *
- * Orchestrates: build query plan → execute SQL → build result set.
- * Ported from SRC/js/report/engine.ts — zero imports from SRC/js/.
- * Pure function — no global state dependency.
+ * Orchestrates: build query plan configs → pipeline engine execution → build result set.
  *
- * Dispatches to mode-specific handlers based on aggregation mode:
- * - **detail bands** (none + enabled bands): parent query + per-band queries + BandResultSet
- * - **detail** (none): simple SELECT with WHERE, JOINs, ORDER BY
- * - **totals**: detail rows + a single aggregate totals row
- * - **subtotals**: detail rows interleaved with subtotal/spacing/grand-total rows
- * - **group**: GROUP BY with aggregate expressions
+ * The pipeline engine (pipeline-engine.ts) runs six sequential stage functions
+ * that each create a temp table. This module handles:
+ * - Detail bands: parent rows from pipeline + per-band queries + BandResultSet
+ * - Delegating all aggregation modes to the pipeline engine
  */
 
-import type { ReportSpec, DbTable, AggMode, BandResult, BandResultSet } from '../types';
+import type { ReportSpec, DbTable, BandResult, BandResultSet } from '../types';
 export type { BandResult } from '../types';
 import type { ColMapEntry } from '../catalog/column-catalog';
-import type { BuiltQueryPlan } from '../query/query-plan';
+import type { QueryPlanConfigs } from '../query/query-plan';
 import { buildQueryPlan } from '../query/query-plan';
-import { buildSourceCatalog } from '../catalog/source-catalog';
-import { buildColumnCatalog } from '../catalog/column-catalog';
-import { buildDetailQuery } from '../query/sql-detail';
 import { buildBandQuery } from '../query/sql-detail-bands';
 import type { BandQueryResult } from '../query/sql-detail-bands';
-import { buildCalcExpressions } from '../query/sql-calcs';
-import { execQuery } from '../core/sqldb';
+import { execQuery, quoteId } from '../core/sqldb';
 import { buildResultSet } from './result-set';
 import type { ResultSet } from './result-set';
-
-// ── Mode Dispatchers ─────────────────────────────────────────────────────────
-
-/**
- * Detail mode — no aggregation.
- * Executes the plan's SQL directly and returns the result set.
- */
-function runDetailMode(plan: BuiltQueryPlan): ResultSet {
-  const rows = execQuery(plan.sql, plan.params);
-  return buildResultSet(plan.cols, rows, { aggMode: 'none' });
-}
-
-/**
- * Totals mode — detail rows plus a single aggregate totals row.
- *
- * Builds a separate detail query for the raw data rows, executes the
- * totals query from the plan, and combines them: the detail rows form
- * the body, and the single totals row is attached as metadata.
- * New aggregate columns (not present in the detail query) are padded
- * with null so both result sets have the same column shape.
- */
-function runTotalsMode(
-  plan: BuiltQueryPlan,
-  reportSpec: ReportSpec,
-  tables: Record<string, DbTable>,
-): ResultSet {
-  // Rebuild source catalog + column catalog for the detail query.
-  // (buildQueryPlan already does this internally, but does not expose
-  // the intermediate catalog objects — so we rebuild here.)
-  const sourceCatalog = buildSourceCatalog(tables);
-  const catalogCtx: Record<string, unknown> = {
-    base: reportSpec.pipeline.base,
-    baseCols: reportSpec.pipeline.baseCols,
-    stacks: reportSpec.pipeline.stacks,
-    lookups: reportSpec.pipeline.lookups,
-    calcStages: reportSpec.pipeline.calculatedColumns,
-    detailBands: reportSpec.pipeline.detailBands || [],
-  };
-  const { colMap } = buildColumnCatalog(catalogCtx, sourceCatalog);
-
-  // Build calcExprs map for the detail query
-  const calcStages = reportSpec.pipeline.calculatedColumns || [];
-  const calculatedColumns = buildCalcExpressions(calcStages, colMap);
-  const calcExprs = new Map<string, string>();
-  for (const col of calculatedColumns) {
-    calcExprs.set(col.alias, col.sql);
-  }
-
-  // Build and execute the detail query (all data rows, no aggregation)
-  const detail = buildDetailQuery(reportSpec, colMap, sourceCatalog, calcExprs);
-  const detailRows = execQuery(detail.sql, detail.params);
-
-  // Execute the totals query (from the plan — a single aggregated row)
-  const totalsRows = execQuery(plan.sql, plan.params);
-
-  // Pad detail rows for aggregate columns not present in the detail result.
-  // The totals query may introduce extra columns (e.g. SUM, AVG) that the
-  // detail query does not select — these need null placeholders.
-  const newAggCols = plan.cols.slice(detail.cols.length);
-  const paddedRows = newAggCols.length
-    ? detailRows.map(r => {
-        const row = { ...r };
-        for (const c of newAggCols) row[c] = null;
-        return row;
-      })
-    : detailRows;
-
-  return buildResultSet(plan.cols, paddedRows, {
-    aggMode: 'totals',
-    totalsRow: totalsRows[0] || null,
-  });
-}
-
-/**
- * Subtotals mode — detail rows interleaved with subtotal, spacer,
- * and grand-total rows via UNION ALL.
- *
- * The plan's SQL already contains the complete UNION ALL query with
- * internal marker columns for hierarchical ordering. We just execute
- * it and attach subtotal metadata.
- */
-function runSubtotalsMode(plan: BuiltQueryPlan): ResultSet {
-  const rows = execQuery(plan.sql, plan.params);
-  return buildResultSet(plan.cols, rows, {
-    aggMode: 'subtotals',
-    hasSubtotals: true,
-    allCols: plan.cols,
-  });
-}
-
-/**
- * Grouped mode — aggregated rows with GROUP BY.
- * Executes the plan's SQL directly and returns the result set.
- */
-function runGroupedMode(plan: BuiltQueryPlan): ResultSet {
-  const rows = execQuery(plan.sql, plan.params);
-  return buildResultSet(plan.cols, rows, { aggMode: 'group' });
-}
+import { getPipelineEngine } from './pipeline-engine';
+import type { PipelineState } from './pipeline-engine';
 
 // ── Detail Bands Helpers ────────────────────────────────────────────────────────
 
@@ -179,38 +75,36 @@ export function buildBandChildIndex(bandResults: BandResult[]): BandChildIndex {
 /**
  * Detail bands mode — parent rows combined with child rows from detail bands.
  *
- * Executes the parent query (detail SQL), then for each enabled band, extracts
- * parent key values and runs a batched WHERE IN query to fetch all child rows
- * at once. Returns a {@link ResultSet} with `bandResult` populated — columns
- * and rows contain only parent data; band data is in `bandResult.bandResults`.
+ * Reads parent rows from the pipeline's final temp table (stage 4 — sort output,
+ * which is the final output for detail mode since aggregation is pass-through).
+ * For each enabled band, extracts parent key values and runs a batched WHERE IN
+ * query to fetch all child rows at once. Returns a {@link ResultSet} with
+ * `bandResult` populated — columns and rows contain only parent data; band data
+ * is in `bandResult.bandResults`.
  *
- * @param plan           - The built query plan (contains parent SQL, params, and column list).
+ * @param pipelineState  - Pipeline state with temp table names from execution.
+ * @param configs        - Query plan configs (colMap, sourceCatalog).
  * @param reportSpec     - The typed report specification (contains detailBands, pipeline).
  * @param tables         - Raw table definitions keyed by table ID.
  * @returns A {@link ResultSet} with parent-only columns/rows and `bandResult` populated.
  */
 export function runDetailBandsMode(
-  plan: BuiltQueryPlan,
+  pipelineState: PipelineState,
+  configs: QueryPlanConfigs,
   reportSpec: ReportSpec,
-  tables: Record<string, DbTable>,
+  _tables: Record<string, DbTable>,
 ): ResultSet {
-  // 1. Execute parent query (same as detail mode)
-  const parentRows = execQuery(plan.sql, plan.params);
+  // 1. Read parent rows from pipeline's sort stage output (stage 4)
+  // For detail mode, aggregation is pass-through, so stage 4 (sorts) is the
+  // final meaningful output. Stage 5 (aggregation) returns the same table.
+  const finalStageTable = pipelineState.tempTableNames[4] || pipelineState.tempTableNames[5];
+  const parentRows = execQuery('SELECT * FROM ' + quoteId(finalStageTable));
 
-  // 2. Build catalogs for band query construction
-  const sourceCatalog = buildSourceCatalog(tables);
-  const catalogCtx: Record<string, unknown> = {
-    base: reportSpec.pipeline.base,
-    baseCols: reportSpec.pipeline.baseCols,
-    stacks: reportSpec.pipeline.stacks,
-    lookups: reportSpec.pipeline.lookups,
-    calcStages: reportSpec.pipeline.calculatedColumns,
-    detailBands: reportSpec.pipeline.detailBands || [],
-  };
-  const { colMap } = buildColumnCatalog(catalogCtx, sourceCatalog);
+  // 2. Use configs directly (no catalog rebuilding needed)
+  const { colMap, sourceCatalog } = configs;
 
-  // 3. Determine parent columns from actual row data (defensive — plan.cols
-  //    may include band columns that the parent SQL does not SELECT)
+  // 3. Determine parent columns from actual row data (defensive — selectedColumns
+  //    may include band columns that the parent pipeline does not SELECT)
   const parentCols: string[] = [];
   if (parentRows.length > 0) {
     const seen = new Set<string>();
@@ -316,9 +210,9 @@ export function runPreviewQuery(sql: string, params?: unknown[]): Record<string,
 /**
  * Run a report — the main entry point for report execution.
  *
- * Orchestrates: build query plan → execute SQL → build result set.
- * Dispatches to the appropriate mode handler based on the report's
- * aggregation mode (none, totals, subtotals, group).
+ * Orchestrates: build query plan configs → pipeline engine execution → result set.
+ * For detail bands (aggMode=none with enabled bands), the pipeline result is
+ * augmented with band query results.
  *
  * @param reportSpec     - The typed report specification defining the full
  *                         report pipeline (base table, lookups, calc stages,
@@ -326,30 +220,26 @@ export function runPreviewQuery(sql: string, params?: unknown[]): Record<string,
  * @param tables         - Raw table definitions keyed by table ID. Each entry
  *                         contains id, name, cols, and rowCount.
  * @returns A {@link ResultSet} with columns, rows, and metadata.
- * @throws If the reportSpec has no base table defined or the aggregation
- *         mode produces no output.
+ * @throws If the reportSpec has no base table defined.
  */
 export function runReport(
   reportSpec: ReportSpec,
   tables: Record<string, DbTable>,
 ): ResultSet {
-  const plan = buildQueryPlan(reportSpec, tables);
+  const configs = buildQueryPlan(reportSpec, tables);
+  const engine = getPipelineEngine();
+
+  // Fresh run — drop any previous temp tables
+  engine.cleanup();
 
   // Detail bands dispatch: when enabled bands exist and aggMode is 'none',
   // use the detail bands mode (returns ResultSet with bandResult populated).
   const enabledBands = (reportSpec.pipeline.detailBands || []).filter(b => b.enabled !== false && b.rightId);
-  if (enabledBands.length > 0 && plan.aggMode === 'none') {
-    return runDetailBandsMode(plan, reportSpec, tables);
+  if (enabledBands.length > 0 && configs.aggMode === 'none') {
+    engine.execute(reportSpec, tables, configs);
+    return runDetailBandsMode(engine.getState(), configs, reportSpec, tables);
   }
 
-  switch (plan.aggMode as AggMode) {
-    case 'totals':
-      return runTotalsMode(plan, reportSpec, tables);
-    case 'subtotals':
-      return runSubtotalsMode(plan);
-    case 'group':
-      return runGroupedMode(plan);
-    default:
-      return runDetailMode(plan);
-  }
+  // All other modes — pipeline engine handles aggregation
+  return engine.execute(reportSpec, tables, configs);
 }

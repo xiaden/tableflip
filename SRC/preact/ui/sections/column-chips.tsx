@@ -27,12 +27,12 @@ import { Chip } from '../components/chip';
 import { ContextMenu, type CtxMenuItem } from '../components/context-menu';
 import { resolveRenameTarget, RenameModal, type RenameTarget } from '../components/rename-modal';
 import type { ColMapEntry } from '../../catalog/column-catalog';
-import type { AppState, AggregateSpec } from '../../types';
+import type { AppState, AggregateSpec, CalcStage } from '../../types';
 
 /** Build tooltip string for a column chip. */
-function _buildTooltip(c: string, src: ColMapEntry | undefined, state: AppState): string {
+function _buildTooltip(c: string, src: ColMapEntry | undefined, calcStages: CalcStage[], tables: AppState['tables']): string {
   if (src?.kind === 'calc') {
-    const calc = state.calcStages?.[src.idx];
+    const calc = calcStages?.[src.idx];
     const mode = calc?.mode || 'unknown';
     if (mode === 'math') {
       const math = calc?.math as { steps?: Array<{ type?: string }> } | undefined;
@@ -50,7 +50,7 @@ function _buildTooltip(c: string, src: ColMapEntry | undefined, state: AppState)
     return `Calculated column: ${mode}`;
   }
   if (src) {
-    const tbl = state.tables[src.tid];
+    const tbl = tables[src.tid];
     const tblAny = tbl as unknown as Record<string, unknown>;
     const samples = tblAny?.samples as Record<string, string[]> | undefined;
     const vals = (samples?.[src.col] || []).slice(0, 3);
@@ -90,7 +90,7 @@ function _chipAtPoint(el: HTMLElement, x: number, y: number, dragCol: string | n
 }
 
 export function ColumnChips() {
-  const state = useStore(s => s);
+  const { base, lookups, calcStages, aggMode, groupBy, selCols, colOrder, aggregates, subtotalBy, tables } = useStore(s => ({ base: s.base, lookups: s.lookups, calcStages: s.calcStages, aggMode: s.aggMode, groupBy: s.groupBy, selCols: s.selCols, colOrder: s.colOrder, aggregates: s.aggregates, subtotalBy: s.subtotalBy, tables: s.tables }));
   const containerRef = useRef<HTMLDivElement>(null);
   const dragColRef = useRef<string | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; items: CtxMenuItem[] } | null>(null);
@@ -98,18 +98,16 @@ export function ColumnChips() {
 
   useEffect(() => {
     _afterCombineChange();
-  }, [state.base, state.lookups.length, state.calcStages.length]);
+  }, [base, lookups.length, calcStages.length]);
 
-  const base = state.base;
   if (!base) return null;
 
   const colMap = buildColSourceMap();
-  const mode = state.aggMode || 'none';
+  const mode = aggMode || 'none';
 
-  const groupSet = new Set(state.groupBy);
+  const groupSet = new Set(groupBy);
   const showBadges = mode === 'group' && groupSet.size > 0;
-  const selSet = state.selCols;
-  const colOrder = state.colOrder;
+  const selSet = selCols;
 
   const handleDblClick = useCallback((col: string) => {
     const currentMode = getStore().getState().aggMode || 'none';
@@ -218,11 +216,11 @@ export function ColumnChips() {
 
           if (selSet && !selSet.has(c)) return null;
 
-          const tip = _buildTooltip(c, src, state);
+          const tip = _buildTooltip(c, src, calcStages, tables);
 
           if (mode === 'group') {
             const isOn = groupSet.has(c);
-            const hasAgg = state.aggregates.some(a => a.col === c);
+            const hasAgg = aggregates.some((a: AggregateSpec) => a.col === c);
             const isOrphan = showBadges && !isOn && !hasAgg;
             const badge = isOrphan ? '⚠' : '';
             const badgeTip = isOrphan ? 'This column has no calculation — it will be left out of the report. Click the ⚠ to add a calculation automatically.' : '';
@@ -241,7 +239,7 @@ export function ColumnChips() {
               />
             );
           } else if (mode === 'subtotals') {
-            const isOn = (state.subtotalBy || []).includes(c);
+            const isOn = (subtotalBy || []).includes(c);
             return (
               <Chip
                 key={c} col={c} label={label} colorClass={colorCls} selected={isOn}

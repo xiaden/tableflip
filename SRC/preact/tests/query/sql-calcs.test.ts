@@ -311,6 +311,137 @@ describe('sql-calcs', () => {
       expect(result[0].sql).toContain('%d');
     });
 
+    it('should handle date mode: duration in days', () => {
+      const calcs: CalcStage[] = [{
+        alias: 'DaysBetween',
+        mode: 'date',
+        date: {
+          operation: 'duration',
+          source: { type: 'column', value: 'OrderDate' },
+          source2: { type: 'column', value: 'ShipDate' },
+          unit: 'days',
+        },
+        enabled: true,
+      }];
+      const result = buildCalcExpressions(calcs, colMap);
+      expect(result.length).toBe(1);
+      expect(result[0].sql).toContain('julianday');
+      expect(result[0].sql).toContain('OrderDate');
+      expect(result[0].sql).toContain('ShipDate');
+    });
+
+    it('should handle date mode: duration in weeks', () => {
+      const calcs: CalcStage[] = [{
+        alias: 'WeeksBetween',
+        mode: 'date',
+        date: {
+          operation: 'duration',
+          source: { type: 'column', value: 'OrderDate' },
+          source2: { type: 'column', value: 'ShipDate' },
+          unit: 'weeks',
+        },
+        enabled: true,
+      }];
+      const result = buildCalcExpressions(calcs, colMap);
+      expect(result.length).toBe(1);
+      expect(result[0].sql).toContain('julianday');
+      expect(result[0].sql).toContain('/ 7');
+    });
+
+    it('should handle date mode: duration in months', () => {
+      const calcs: CalcStage[] = [{
+        alias: 'MonthsBetween',
+        mode: 'date',
+        date: {
+          operation: 'duration',
+          source: { type: 'column', value: 'OrderDate' },
+          source2: { type: 'column', value: 'ShipDate' },
+          unit: 'months',
+        },
+        enabled: true,
+      }];
+      const result = buildCalcExpressions(calcs, colMap);
+      expect(result.length).toBe(1);
+      expect(result[0].sql).toContain('* 12');
+      expect(result[0].sql).toContain('%m');
+    });
+
+    it('should handle date mode: duration in years', () => {
+      const calcs: CalcStage[] = [{
+        alias: 'YearsBetween',
+        mode: 'date',
+        date: {
+          operation: 'duration',
+          source: { type: 'column', value: 'OrderDate' },
+          source2: { type: 'column', value: 'ShipDate' },
+          unit: 'years',
+        },
+        enabled: true,
+      }];
+      const result = buildCalcExpressions(calcs, colMap);
+      expect(result.length).toBe(1);
+      expect(result[0].sql).toContain('%Y');
+    });
+
+    it('should handle date mode: add days with number operand', () => {
+      const calcs: CalcStage[] = [{
+        alias: 'FutureDate',
+        mode: 'date',
+        date: {
+          operation: 'add',
+          source: { type: 'column', value: 'OrderDate' },
+          operand: { type: 'number', value: '7' },
+          unit: 'days',
+        },
+        enabled: true,
+      }];
+      const result = buildCalcExpressions(calcs, colMap);
+      expect(result.length).toBe(1);
+      expect(result[0].sql).toContain('date(');
+      expect(result[0].sql).toContain('+');
+      expect(result[0].sql).toContain("'7'");
+      expect(result[0].sql).toContain('days');
+    });
+
+    it('should handle date mode: add months with column operand', () => {
+      const calcs: CalcStage[] = [{
+        alias: 'FutureDate',
+        mode: 'date',
+        date: {
+          operation: 'add',
+          source: { type: 'column', value: 'OrderDate' },
+          operand: { type: 'column', value: 'TermMonths' },
+          unit: 'months',
+        },
+        enabled: true,
+      }];
+      const result = buildCalcExpressions(calcs, colMap);
+      expect(result.length).toBe(1);
+      expect(result[0].sql).toContain('date(');
+      expect(result[0].sql).toContain('TermMonths');
+      expect(result[0].sql).toContain('months');
+    });
+
+    it('should handle date mode: subtract days', () => {
+      const calcs: CalcStage[] = [{
+        alias: 'PastDate',
+        mode: 'date',
+        date: {
+          operation: 'subtract',
+          source: { type: 'column', value: 'OrderDate' },
+          operand: { type: 'number', value: '30' },
+          unit: 'days',
+        },
+        enabled: true,
+      }];
+      const result = buildCalcExpressions(calcs, colMap);
+      expect(result.length).toBe(1);
+      expect(result[0].sql).toContain('date(');
+      expect(result[0].sql).toContain('-');
+      expect(result[0].sql).toContain("'30'");
+      expect(result[0].sql).toContain('days');
+    });
+
     // ── Skip conditions ───────────────────────────────────────────────────
 
     it('should skip disabled calc stages', () => {

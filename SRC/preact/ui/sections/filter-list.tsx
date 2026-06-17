@@ -102,11 +102,6 @@ function FilterRow({ f, i, cols, colMap }: FilterRowProps) {
 
   const datalistId = 'fdl_' + i;
 
-  const compactSelectSx = {
-    '& .MuiSelect-select': { py: 0.5, px: 1, fontSize: '0.78rem', minHeight: 'unset' },
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
-  };
-
   return (
     <div className={`filter-row${fEnabled ? '' : ' pl-stage-disabled'}`} style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
       <FormControlLabel
@@ -126,7 +121,7 @@ function FilterRow({ f, i, cols, colMap }: FilterRowProps) {
         <Select
           value={f.col}
           onChange={e => handleColChange(e.target.value as string)}
-          sx={{ minWidth: 140, ...compactSelectSx }}
+          sx={{ minWidth: 140 }}
           displayEmpty
         >
           <MenuItem value="">Column{'…'}</MenuItem>
@@ -142,7 +137,7 @@ function FilterRow({ f, i, cols, colMap }: FilterRowProps) {
           className="fop"
           value={f.op}
           onChange={e => handleOpChange(e.target.value as string)}
-          sx={{ minWidth: 120, ...compactSelectSx }}
+          sx={{ minWidth: 120 }}
         >
           {FILTER_OPS.map(op => <MenuItem key={op} value={op}>{op}</MenuItem>)}
         </Select>
@@ -157,7 +152,7 @@ function FilterRow({ f, i, cols, colMap }: FilterRowProps) {
               value={v}
               onChange={e => handleValChange(j, e.target.value)}
               size="small"
-              sx={{ width: 120, '& input': { py: 0.5, px: 1, fontSize: '0.78rem' } }}
+              sx={{ width: 120 }}
             />
             {j > 0 && (
               <Button
@@ -189,13 +184,12 @@ function FilterRow({ f, i, cols, colMap }: FilterRowProps) {
 }
 
 export function FilterList() {
-  const state = useStore(s => s);
+  const { tables, filters } = useStore(s => ({ tables: s.tables, filters: s.filters }));
 
-  const reportSpec = buildReportSpecFromState(state);
-  const sourceCatalog = buildSourceCatalog(state.tables);
+  const reportSpec = buildReportSpecFromState(getStore().getState());
+  const sourceCatalog = buildSourceCatalog(tables);
   const cols = projectedCols(reportSpec, sourceCatalog);
   const colMap = buildColSourceMap();
-  const filters = state.filters;
 
   if (!filters.length) {
     return <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>No filters — all rows returned</span>;

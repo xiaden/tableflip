@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { buildPreview } from '../../report/preview-builder';
-import type { AppState } from '../../types';
+import type { AppState, ReportSpec } from '../../types';
 import { createAppState } from '../../core/state';
 import { createTable, insertRows } from '../../core/sqldb';
+import { runReport } from '../../report/engine';
+import { getPipelineEngine } from '../../report/pipeline-engine';
 
 const ORDERS_COLS = ['OrderId', 'Company', 'Contact', 'Status', 'Amount', 'OrderDate', 'Region'];
 
@@ -17,30 +19,73 @@ function st(overrides: Partial<AppState> = {}): AppState {
   });
 }
 
+/** Convert AppState to ReportSpec for runReport(). */
+function toReportSpec(state: AppState): ReportSpec {
+  return {
+    id: null,
+    name: 'test',
+    enabled: true,
+    pipeline: {
+      base: state.base,
+      baseCols: state.baseCols,
+      stacks: state.stacks || [],
+      lookups: state.lookups || [],
+      calculatedColumns: state.calcStages || [],
+      detailBands: state.detailBands || [],
+    },
+    outputColumns: state.colOrder || [],
+    filters: state.filters || [],
+    sorts: state.sorts || [],
+    aggregation: {
+      mode: state.aggMode,
+      groupBy: state.groupBy || [],
+      aggregates: state.aggregates || [],
+      colTotals: state.colTotals || {},
+      subtotalBy: state.subtotalBy || [],
+      subtotalFns: state.subtotalFns || {},
+      subtotalGrandTotal: state.subtotalGrandTotal,
+      subtotalSpacer: state.subtotalSpacer,
+      subtotalOnTop: state.subtotalOnTop,
+      subtotalStrategy: state.subtotalStrategy || 'combined',
+    },
+    mergeDisplay: { mergedCols: state.mergedCols || [], mergeGroupUnderline: state.mergeGroupUnderline },
+    outputDefinition: null,
+    publish: { enabled: false, tableName: '' },
+  };
+}
+
+/** Run the pipeline for a given state, populating pipeline temp tables. */
+function runPipeline(state: AppState) {
+  const engine = getPipelineEngine();
+  engine.cleanup();
+  const spec = toReportSpec(state);
+  return runReport(spec, state.tables);
+}
+
 describe('buildPreview', () => {
   // ── Base preview ────────────────────────────────────────────────────────
 
   describe('base preview', () => {
-    it('returns rows from the base table capped at 5', () => {
+    it('returns error when pipeline has not been run', () => {
+      getPipelineEngine().cleanup();
       const result = buildPreview('base', st());
-      expect(result.error).toBeNull();
-      expect(result.rows.length).toBeGreaterThan(0);
-      expect(result.rows.length).toBeLessThanOrEqual(5);
-      expect(result.headers).toEqual(ORDERS_COLS);
-    });
-
-    it('returns error when base table is empty string', () => {
-      const result = buildPreview('base', st({ base: '' }));
-      expect(result.error).toBe('No base table selected');
+      expect(result.error).toBe('Run the report to see this preview');
       expect(result.rows).toEqual([]);
     });
 
-    it('returns error when base table does not exist', () => {
-      const result = buildPreview('base', st({ base: 'Missing' }));
-      expect(result.error).toBe('No base table selected');
+    it('returns rows from pipeline temp table after running report', () => {
+      const state = st();
+      runPipeline(state);
+      const result = buildPreview('base', state);
+      expect(result.error).toBeNull();
+      expect(result.rows.length).toBeGreaterThan(0);
+      expect(result.rows.length).toBeLessThanOrEqual(5);
+      // Headers are physical column names from temp table
+      expect(result.headers.length).toBeGreaterThan(0);
+      expect(result.headers).toContain('OrderId');
     });
 
-    it('includes stacked tables via UNION ALL', () => {
+    it('includes stacked tables via pipeline base stage', () => {
       // Create a second table with same columns
       createTable('Orders2', ORDERS_COLS);
       insertRows('Orders2', ORDERS_COLS, [
@@ -56,6 +101,7 @@ describe('buildPreview', () => {
         },
       });
 
+      runPipeline(state);
       const result = buildPreview('base', state);
       expect(result.error).toBeNull();
       // Should have rows from both tables (capped at 5)
@@ -63,7 +109,7 @@ describe('buildPreview', () => {
       expect(result.rows.length).toBeLessThanOrEqual(5);
     });
 
-    it('pads missing columns with NULL in stacked tables', () => {
+    it('pads missing columns with NULL in stacked tables via pipeline', () => {
       // Create a stacked table with fewer columns
       createTable('OrdersPartial', ['OrderId', 'Company', 'Amount']);
       insertRows('OrdersPartial', ['OrderId', 'Company', 'Amount'], [
@@ -78,9 +124,10 @@ describe('buildPreview', () => {
         },
       });
 
+      runPipeline(state);
       const result = buildPreview('base', state);
       expect(result.error).toBeNull();
-      // Find a row from the partial table (those not in Orders base)
+      // Find a row from the partial table
       const partialRow = result.rows.find(r => r['Company'] === 'PartialCo');
       if (partialRow) {
         // Missing columns should be null
@@ -93,32 +140,20 @@ describe('buildPreview', () => {
       }
     });
 
-    it('uses user-defined column labels in headers', () => {
+    it('headers are physical column names from temp table', () => {
       const state = st({
         columnLabels: {
           Orders: { Company: 'Company Name', Amount: 'Total Amount' },
         },
       });
 
+      runPipeline(state);
       const result = buildPreview('base', state);
       expect(result.error).toBeNull();
-      expect(result.headers).toContain('Company Name');
-      expect(result.headers).toContain('Total Amount');
-      // Unlabeled columns keep their physical names
+      // Headers come from temp table column names (physical), not user labels
       expect(result.headers).toContain('OrderId');
-    });
-
-    it('returns error for empty base table with no columns', () => {
-      // Error is returned before any SQL execution — no table creation needed
-      const state = st({
-        base: 'EmptyTbl',
-        tables: {
-          ...st().tables,
-          EmptyTbl: { id: 'EmptyTbl', name: 'Empty', cols: [], rowCount: 0 },
-        },
-      });
-      const result = buildPreview('base', state);
-      expect(result.error).toBe('Base table has no columns');
+      expect(result.headers).toContain('Company');
+      expect(result.headers).toContain('Amount');
     });
   });
 
@@ -155,24 +190,26 @@ describe('buildPreview', () => {
       });
     }
 
-    it('returns joined preview rows for lk0', () => {
+    it('returns error when pipeline has not been run for lk', () => {
+      getPipelineEngine().cleanup();
+      const result = buildPreview('lk0', st());
+      expect(result.error).toBe('Run the report to see this preview');
+    });
+
+    it('returns joined preview rows for lk0 after running pipeline', () => {
       const state = setupContactsState();
+      runPipeline(state);
       const result = buildPreview('lk0', state);
 
       expect(result.error).toBeNull();
       expect(result.rows.length).toBeGreaterThan(0);
       expect(result.rows.length).toBeLessThanOrEqual(5);
-      // Should include joined columns
+      // Should include base columns
       const firstRow = result.rows[0];
       expect(firstRow).toHaveProperty('OrderId');
     });
 
-    it('returns error when no base table for lk', () => {
-      const result = buildPreview('lk0', st({ base: '' }));
-      expect(result.error).toBe('No base table selected');
-    });
-
-    it('returns data only for lookups up to the specified depth', () => {
+    it('returns data for lookups up to the specified depth', () => {
       // Add two lookups but only preview lk0
       const state = setupContactsState();
       // Add a second (invalid) lookup — should not affect lk0 preview
@@ -198,12 +235,13 @@ describe('buildPreview', () => {
         ],
       });
 
+      runPipeline(s2);
       const result = buildPreview('lk0', s2);
       expect(result.error).toBeNull();
       expect(result.rows.length).toBeGreaterThan(0);
     });
 
-    it('skips disabled lookups when building preview', () => {
+    it('works with disabled lookups (pipeline skips them)', () => {
       const state = createAppState({
         tables: {
           Orders: { id: 'Orders', name: 'Orders', cols: ORDERS_COLS, rowCount: 8 },
@@ -220,9 +258,10 @@ describe('buildPreview', () => {
         }],
       });
 
+      runPipeline(state);
       const result = buildPreview('lk0', state);
       expect(result.error).toBeNull();
-      // With no enabled lookups, this should show base-only data
+      // With no enabled lookups, stage 1 is pass-through from stage 0
       expect(result.rows.length).toBeGreaterThan(0);
     });
   });
@@ -230,7 +269,13 @@ describe('buildPreview', () => {
   // ── Calc preview ────────────────────────────────────────────────────────
 
   describe('calc preview', () => {
-    it('returns preview with a simple calc column', () => {
+    it('returns error when pipeline has not been run for calc', () => {
+      getPipelineEngine().cleanup();
+      const result = buildPreview('calc0', st());
+      expect(result.error).toBe('Run the report to see this preview');
+    });
+
+    it('returns preview with a simple calc column after running pipeline', () => {
       const state = createAppState({
         tables: {
           Orders: { id: 'Orders', name: 'Orders', cols: ORDERS_COLS, rowCount: 8 },
@@ -250,6 +295,7 @@ describe('buildPreview', () => {
         }],
       });
 
+      runPipeline(state);
       const result = buildPreview('calc0', state);
       expect(result.error).toBeNull();
       expect(result.rows.length).toBeGreaterThan(0);
@@ -295,6 +341,7 @@ describe('buildPreview', () => {
         }],
       });
 
+      runPipeline(state);
       const result = buildPreview('calc0', state);
       expect(result.error).toBeNull();
       expect(result.rows.length).toBeGreaterThan(0);
@@ -491,6 +538,7 @@ describe('buildPreview', () => {
         }],
       });
 
+      runPipeline(state);
       const result = buildPreview('lk0', state);
       // With required=true and no matching keys, result may be empty
       expect(result.error).toBeNull();

@@ -10,7 +10,9 @@ applyTo: SRC/preact/report/**
 
 ## File Naming
 
-- `engine.ts` — Single entry point `runReport()`; mode dispatchers (`runDetailMode`, `runTotalsMode`, `runSubtotalsMode`, `runGroupedMode`); detail bands stitching (`runDetailBandsMode`, `interleaveRows`, `crossProductRows`)
+- `engine.ts` — Single entry point `runReport()`; pipeline engine integration (`PipelineEngine.execute()`); detail bands stitching (`runDetailBandsMode`, `interleaveRows`, `crossProductRows`)
+- `pipeline-engine.ts` — `PipelineEngine` class orchestrating six sequential stage functions; `PipelineState` interface; singleton accessors (`getPipelineEngine`, `getPipelineState`); `getTempTableColumns()` helper
+- `pipeline-stages/` — Six stage functions (`executeBaseStage`, `executeLookupStage`, `executeCalcStage`, `executeFilterStage`, `executeSortStage`, `executeAggregationStage`); each creates a temp table
 - `result-set.ts` — `buildResultSet()` and the `ResultSet` / `ResultSetMetadata` types
 - `validation.ts` — `deriveValidation()`, `getValidation()`, `invalidateValidation()`, and all validation types
 - `calc-validator.ts` — `checkCalcError()` for per-stage calc validation (pure, delegates to mode validators)
@@ -27,34 +29,34 @@ applyTo: SRC/preact/report/**
 | `../core/store` | ✅ | Only `validation.ts` — `getStore()` used in `getValidation()` cache pattern |
 | `../core/sqldb` | ✅ | Only `engine.ts` — `execQuery()` for SQL execution |
 | `../catalog/` | ✅ | `buildSourceCatalog`, `buildColumnCatalog`, `buildColSourceMap` — used by `engine.ts` and `validation.ts` for column resolution |
-| `../query/` | ✅ | `buildQueryPlan`, `buildDetailQuery`, `buildBandQuery`, `buildCalcExpressions`, `validateLookupSpec` — used by `engine.ts` and `validation.ts` |
+| `../query/` | ✅ | `buildQueryPlan`, `buildBandQuery`, `validateLookupSpec` — used by `engine.ts` and `validation.ts` |
 | Siblings (`./`) | ✅ | e.g., `engine.ts` → `./result-set`; `validation.ts` → `./calc-validator`, `./aggregation-constants` |
 | `../ui/` | ❌ | Report layer must not import UI components or rendering logic |
 | Node builtins / vendor libs | ❌ | No filesystem, no XLSX, no AG Grid |
 
 ## Forbidden Patterns
 
-1. **SQL generation** — Do not produce `SELECT`, `JOIN`, `WHERE`, `GROUP BY`, or `UNION ALL` fragments outside the Query layer. The `runReport()` entry point calls `buildQueryPlan()` and mode-specific SQL builders from `../query/`. No function in this layer should hand-write SQL strings.
+1. **SQL generation** — Do not produce `SELECT`, `JOIN`, `WHERE`, `GROUP BY`, or `UNION ALL` fragments outside the Query layer. The `runReport()` entry point calls `buildQueryPlan()` for configs, then `PipelineEngine.execute()` runs the pipeline stages. No function in this layer should hand-write SQL strings.
 
 2. **UI rendering** — No Preact components, no DOM manipulation, no JSX. Output publishing produces data structures (`PublishedOutput`), not rendered views.
 
 3. **State mutation outside validation cache** — The only mutable state in this layer is the validation cache (`_validationCache` / `_validationCacheState` in `validation.ts`). No other module should hold mutable module-level state.
 
-4. **Calling `execQuery()` outside `engine.ts`** — SQL execution is the engine's responsibility. No other file in this layer (or any other layer) should call `execQuery()` for report results.
+4. **Calling `execQuery()` outside `engine.ts` and `pipeline-engine.ts`** — SQL execution is the engine's responsibility. No other file in this layer (or any other layer) should call `execQuery()` for report results.
 
 5. **Direct store mutation** — This layer reads state (via `getValidation()` → `getStore()`) but never writes to the store.
 
-6. **Importing from catalog/query in non-engine/non-validation files** — Catalog and query imports are limited to `engine.ts` (for execution) and `validation.ts` (for validation). Other files (`result-set.ts`, `report-output.ts`, `report-graph.ts`, `output-layout.ts`, `aggregation-constants.ts`) must not import from `../catalog/` or `../query/`.
+6. **Importing from catalog/query in non-engine/non-validation files** — Catalog and query imports are limited to `engine.ts` (for execution) and `validation.ts` (for validation). Other files (`result-set.ts`, `report-output.ts`, `report-graph.ts`, `output-layout.ts`, `aggregation-constants.ts`, `pipeline-engine.ts`) must not import from `../catalog/` or `../query/`.
 
 ## Required Patterns
 
-1. **`runReport()` is the only execution entry point** — No other function should call `execQuery()` for report results. All report SQL execution flows through `engine.ts`'s public API. Mode dispatchers are private helpers called by `runReport()`.
+1. **`runReport()` is the only execution entry point** — No other function should call `execQuery()` for report results. All report SQL execution flows through `engine.ts`'s public API. `runReport()` delegates to `PipelineEngine.execute()` which runs the six pipeline stages sequentially.
 
-2. **`buildResultSet()` is the only result set constructor** — Every mode handler (`runDetailMode`, `runTotalsMode`, `runSubtotalsMode`, `runGroupedMode`, `runDetailBandsMode`) calls `buildResultSet()` to produce its final `ResultSet`. Do not construct `ResultSet` objects inline.
+2. **`buildResultSet()` is the only result set constructor** — `PipelineEngine.execute()` and `runDetailBandsMode()` call `buildResultSet()` to produce the final `ResultSet`. Do not construct `ResultSet` objects inline.
 
 3. **`invalidateValidation()` must be called after any state mutation** — After any DB-affecting or config-changing state change, call `invalidateValidation()` or validation results stay stale. See `state-applier.ts` in the Core layer for the canonical pattern.
 
-4. **`deriveValidation()` is pure** — Takes explicit parameters (`state`, `projectedColsList`, `colMap`, `sourceCatalog`) for testability. The store-caching wrapper `getValidation()` reads state, builds catalogs, then delegates to `deriveValidation()`.
+4. **`deriveValidation()` is pure** — Takes explicit parameters (`state`, `projectedColsList`, `colMap`, `sourceCatalog`, `pipelineState`) for testability. The store-caching wrapper `getValidation()` reads state, builds catalogs, then delegates to `deriveValidation()`.
 
 5. **Validation result shape** — `ValidationResult` must always have:
    - `reportStatus: 'healthy' | 'blocked'` — overall report health

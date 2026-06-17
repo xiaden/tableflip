@@ -2,7 +2,8 @@ import type { AppState, WorkspaceState, ReportSpec, LookupSpec, FilterSpec, Sort
 
 /**
  * Creates a default AppState with sensible defaults, then applies optional overrides.
- * Defaults include empty tables, no base table, no filters/sorts, and aggMode 'none'.
+ * Defaults include empty tables, no base table, no filters/sorts, aggMode 'none',
+ * source column disabled, and empty stack aliases.
  * @param overrides - Partial state to merge over defaults
  * @returns Complete AppState object
  */
@@ -40,6 +41,9 @@ export function createAppState(overrides?: Partial<AppState>): AppState {
     previewTableId: null,
     detailBands: [],
     columnTypeOverrides: {},
+    includeSourceColumn: false,
+    sourceColumnName: 'Source Sheet',
+    stackAliases: {},
   }, overrides || {});
 }
 
@@ -64,7 +68,8 @@ export function createWorkspaceState(overrides?: Partial<WorkspaceState>): Works
 
 /**
  * Creates a default ReportSpec for a new report.
- * Defaults: name "New Report", enabled, no base table, aggMode 'none'.
+ * Defaults: name "New Report", enabled, no base table, aggMode 'none',
+ * source column disabled, and empty stack aliases.
  * @param overrides - Partial report spec to merge over defaults
  * @returns Complete ReportSpec object
  */
@@ -80,6 +85,9 @@ export function createReportSpec(overrides?: Partial<ReportSpec>): ReportSpec {
       lookups: [],
       calculatedColumns: [],
       detailBands: [],
+      includeSourceColumn: false,
+      sourceColumnName: 'Source Sheet',
+      stackAliases: {},
     },
     outputColumns: [],
     filters: [],
@@ -148,12 +156,12 @@ export function createDetailBandSpec(overrides?: Partial<DetailBandSpec>): Detai
  * Builds a ReportSpec-shaped object suitable for projectedCols() and
  * buildColumnCatalog() from the current AppState.
  *
- * Consolidates the 13 inline `{ base, lookups, calcStages }` constructions
- * scattered across the UI layer into a single helper, ensuring detailBands
- * is always included so band columns appear in the catalog.
+ * Consolidates the scattered inline `{ base, lookups, calcStages }` constructions
+ * into a single helper, ensuring detailBands and source-column fields are
+ * always included so the catalog and pipeline have full context.
  *
  * @param state - The current AppState (or a mutable draft thereof)
- * @returns Flat object with base, lookups, calcStages, and detailBands
+ * @returns Flat object with base, lookups, calcStages, detailBands, and source column/stack alias fields
  */
 export function buildReportSpecFromState(state: AppState): Record<string, unknown> {
   return {
@@ -163,6 +171,9 @@ export function buildReportSpecFromState(state: AppState): Record<string, unknow
     lookups: state.lookups,
     calcStages: state.calcStages,
     detailBands: state.detailBands || [],
+    includeSourceColumn: state.includeSourceColumn,
+    sourceColumnName: state.sourceColumnName,
+    stackAliases: state.stackAliases || {},
   };
 }
 

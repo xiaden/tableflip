@@ -44,12 +44,33 @@ interface CalcModeText {
   length?: number;
 }
 
+/** Date source - column reference or literal text */
+interface DateSource {
+  type: 'column' | 'text';
+  value: string;
+}
+
+/** Date operand - column reference or literal number */
+interface DateOperand {
+  type: 'column' | 'number';
+  value: string;
+}
+
+/** Duration unit for date difference calculations */
+type DurationUnit = 'days' | 'weeks' | 'months' | 'years';
+
+/** Arithmetic unit for date add/subtract operations */
+type ArithmeticUnit = 'days' | 'weeks' | 'months' | 'years';
+
 interface CalcModeDate {
   operation: string;
-  source?: { type: string; value: string };
+  source?: DateSource;
+  source2?: DateSource;
   part?: string;
   output?: string;
   inputFormat?: DateInputFormat;
+  unit?: DurationUnit | ArithmeticUnit;
+  operand?: DateOperand;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────────
@@ -301,6 +322,45 @@ function renderModeDate(
     };
     return `CAST(strftime('${partFormat[part]}', ${src}) AS INTEGER)`;
   }
+
+  if (op === 'duration') {
+    const inputFormat = getDateInputFormat(date);
+    const src1 = renderDateSource(date!.source!, colMap, trail, inputFormat);
+    const src2 = renderDateSource(date!.source2!, colMap, trail, inputFormat);
+    const unit = date!.unit || 'days';
+
+    if (unit === 'days') {
+      return `CAST(julianday(${src2}) - julianday(${src1}) AS INTEGER)`;
+    }
+    if (unit === 'weeks') {
+      return `CAST((julianday(${src2}) - julianday(${src1})) / 7 AS INTEGER)`;
+    }
+    if (unit === 'months') {
+      return `(CAST(strftime('%Y', ${src2}) AS INTEGER) - CAST(strftime('%Y', ${src1}) AS INTEGER)) * 12 + (CAST(strftime('%m', ${src2}) AS INTEGER) - CAST(strftime('%m', ${src1}) AS INTEGER))`;
+    }
+    if (unit === 'years') {
+      return `CAST(strftime('%Y', ${src2}) AS INTEGER) - CAST(strftime('%Y', ${src1}) AS INTEGER)`;
+    }
+    throw new Error(`Unknown duration unit "${unit}" in calc "${alias}"`);
+  }
+
+  if (op === 'add' || op === 'subtract') {
+    const inputFormat = getDateInputFormat(date);
+    const src = renderDateSource(date!.source!, colMap, trail, inputFormat);
+    const unit = date!.unit || 'days';
+    const sign = op === 'add' ? '+' : '-';
+
+    let operandExpr: string;
+    if (date!.operand!.type === 'column') {
+      const colRef = resolveRef(date!.operand!.value, colMap);
+      operandExpr = `CAST(${colRef} AS TEXT)`;
+    } else {
+      operandExpr = `'${date!.operand!.value}'`;
+    }
+
+    return `date(${src}, '${sign}' || ${operandExpr} || ' ${unit}')`;
+  }
+
   throw new Error(`Unknown date operation "${op}" in calc "${alias}"`);
 }
 
@@ -315,6 +375,10 @@ function renderDateSource(
   if (source.type === 'column') {
     const expr = resolveRef(source.value, colMap);
     return normalizeDateExpr(expr, format ?? null);
+  }
+  if (source.type === 'text') {
+    // Literal date string - escape single quotes
+    return `'${source.value.replace(/'/g, "''")}'`;
   }
   throw new Error(`Unsupported date source type "${source.type}"`);
 }

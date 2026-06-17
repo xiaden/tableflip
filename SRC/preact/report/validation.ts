@@ -11,12 +11,15 @@
 
 import type { AppState } from '../types';
 import { getStore } from '../core/store';
+import { execQuery, quoteId } from '../core/sqldb';
 import type { SourceTableEntry } from '../catalog/source-catalog';
 import { buildSourceCatalog } from '../catalog/source-catalog';
 import type { ColMapEntry } from '../catalog/column-catalog';
 import { buildColSourceMap, projectedCols, projectedColsUpToLookup } from '../catalog/column-catalog';
 import { validateLookupSpec } from '../query/lookup-resolver';
 import { checkCalcError } from './calc-validator';
+import type { PipelineState } from './pipeline-engine';
+import { getPipelineEngine } from './pipeline-engine';
 import {
   aggregateNeedsColumn,
   isValidAggregateFn,
@@ -127,10 +130,26 @@ export function getValidation(): ValidationResult {
       calcStages: currentState.calcStages,
     };
     const proj = projectedCols(reportSpec, sourceCatalog);
-    _validationCache = deriveValidation(currentState, proj, colMap, sourceCatalog);
+    const pipelineState = getPipelineEngine().getState();
+    _validationCache = deriveValidation(currentState, proj, colMap, sourceCatalog, pipelineState);
     _validationCacheState = currentState;
   }
   return _validationCache;
+}
+
+// ── Temp Table Schema Helper ──────────────────────────────────────────────────
+
+/**
+ * Read actual column names from a temp table via PRAGMA table_info.
+ * Returns an empty array if the table doesn't exist.
+ */
+function getTempTableColumns(tableName: string): string[] {
+  try {
+    const rows = execQuery(`PRAGMA table_info(${quoteId(tableName)})`);
+    return (rows as Array<{name: string}>).map(r => r.name);
+  } catch {
+    return [];
+  }
 }
 
 // ── Core Validation Logic ────────────────────────────────────────────────────
@@ -146,6 +165,7 @@ export function getValidation(): ValidationResult {
  * @param projectedColsList - Column aliases available in the report pipeline.
  * @param colMap         - Column alias → source mapping.
  * @param sourceCatalog  - Table ID → table metadata mapping.
+ * @param pipelineState  - Optional pipeline state for temp-table-based column validation. When present, reads actual column schemas via PRAGMA table_info(). Falls back to projected column set when absent.
  * @returns A ValidationResult with per-card and per-item status.
  */
 export function deriveValidation(
@@ -153,6 +173,7 @@ export function deriveValidation(
   projectedColsList: string[],
   colMap: Map<string, ColMapEntry>,
   sourceCatalog: Map<string, SourceTableEntry>,
+  pipelineState?: PipelineState,
 ): ValidationResult {
   const items: Record<string, ValidationItem> = {};
 
@@ -184,6 +205,28 @@ export function deriveValidation(
   }
 
   const projected = new Set(projectedColsList);
+
+  // When pipeline state is available, read actual column lists from temp tables
+  const stageCols: string[][] = [];
+  if (pipelineState && pipelineState.validUpToStage >= 0) {
+    for (let i = 0; i <= pipelineState.validUpToStage && i < pipelineState.tempTableNames.length; i++) {
+      stageCols.push(getTempTableColumns(pipelineState.tempTableNames[i]));
+    }
+  }
+
+  // Column availability check — uses temp table columns when available,
+  // falls back to projected column set when pipeline hasn't been run.
+  // minStage: the pipeline stage index at which this column should exist
+  // (3=filters, 4=sorts, 5=aggregation).
+  function colAvailable(col: string, minStage: number): boolean {
+    if (pipelineState && pipelineState.validUpToStage >= minStage) {
+      const stageIdx = Math.min(minStage, pipelineState.validUpToStage);
+      if (stageIdx < stageCols.length && stageCols[stageIdx].length > 0) {
+        return stageCols[stageIdx].includes(col);
+      }
+    }
+    return projected.has(col);
+  }
 
   // ── Base Table ───────────────────────────────────────────────────────────
 
@@ -410,7 +453,7 @@ export function deriveValidation(
     let resolved = true;
     const issues: ValidationIssue[] = [];
 
-    if (f.col && !projected.has(f.col)) {
+    if (f.col && !colAvailable(f.col, 3)) {
       resolved = false;
       issues.push(mkIssue(
         `filter_${i}_missing_col`, 'filter', 'filterSort', `filter_${i}`,
@@ -445,7 +488,7 @@ export function deriveValidation(
     let resolved = true;
     const issues: ValidationIssue[] = [];
 
-    if (s.col && !projected.has(s.col)) {
+    if (s.col && !colAvailable(s.col, 4)) {
       resolved = false;
       issues.push(mkIssue(
         `sort_${i}_missing_col`, 'sort', 'filterSort', `sort_${i}`,
@@ -462,7 +505,7 @@ export function deriveValidation(
   if (state.aggMode === 'group') {
     for (let i = 0; i < (state.groupBy || []).length; i++) {
       const col = state.groupBy[i];
-      const resolved = projected.has(col);
+      const resolved = colAvailable(col, 5);
       const issues: ValidationIssue[] = [];
       if (!resolved) {
         issues.push(mkIssue(
@@ -480,7 +523,7 @@ export function deriveValidation(
       const issues: ValidationIssue[] = [];
       let resolved = true;
       const needsCol = aggregateNeedsColumn(agg.fn);
-      if (needsCol && agg.col && agg.col !== '*' && !projected.has(agg.col)) {
+      if (needsCol && agg.col && agg.col !== '*' && !colAvailable(agg.col, 5)) {
         resolved = false;
         issues.push(mkIssue(
           `agg_${i}_missing_col`, 'aggregate', 'aggregation', `agg_${i}`,
@@ -504,7 +547,7 @@ export function deriveValidation(
   if (state.aggMode === 'totals') {
     for (const [col, fn] of Object.entries(state.colTotals || {})) {
       if (!fn || fn === 'skip') continue;
-      let resolved = projected.has(col);
+      let resolved = colAvailable(col, 5);
       const issues: ValidationIssue[] = [];
       if (!resolved) {
         issues.push(mkIssue(
@@ -553,7 +596,7 @@ export function deriveValidation(
     // Validate subtotal-by columns
     for (let i = 0; i < (state.subtotalBy || []).length; i++) {
       const col = state.subtotalBy[i];
-      const resolved = projected.has(col);
+      const resolved = colAvailable(col, 5);
       const issues: ValidationIssue[] = [];
       if (!resolved) {
         issues.push(mkIssue(
@@ -568,7 +611,7 @@ export function deriveValidation(
     // Validate subtotal functions per column
     for (const [col, fn] of Object.entries(state.subtotalFns || {})) {
       if (!fn || fn === 'skip') continue;
-      let resolved = projected.has(col);
+      let resolved = colAvailable(col, 5);
       const issues: ValidationIssue[] = [];
       if (!resolved) {
         issues.push(mkIssue(

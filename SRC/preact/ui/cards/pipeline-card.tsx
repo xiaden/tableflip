@@ -30,6 +30,9 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import TextField from '@mui/material/TextField';
 
 /**
  * Pipeline card — combines all pipeline stages into a single card.
@@ -48,20 +51,26 @@ import Box from '@mui/material/Box';
  * are recomputed when pipeline state changes.
  */
 export function PipelineCard() {
-  const state = useStore(s => s);
+  const { tables, base, lookups: _lookups, calcStages: _calcStages, detailBands: _detailBands, stacks: _stacks, includeSourceColumn, sourceColumnName } = useStore(s => ({
+    tables: s.tables,
+    base: s.base,
+    lookups: s.lookups,
+    calcStages: s.calcStages,
+    detailBands: s.detailBands,
+    stacks: s.stacks,
+    includeSourceColumn: s.includeSourceColumn,
+    sourceColumnName: s.sourceColumnName,
+  }));
+  const lookups = _lookups || [];
+  const calcStages = _calcStages || [];
+  const detailBands = _detailBands || [];
+  const stacks = _stacks || [];
   const [previews, setPreviews] = useState<Record<string, PreviewResult>>({});
 
   // Clear preview cache on any store state change
   useEffect(() => getStore().subscribe(() => {
     setPreviews({});
   }), []);
-
-  const tables = state.tables;
-  const base = state.base;
-  const lookups = state.lookups || [];
-  const calcStages = state.calcStages || [];
-  const detailBands = state.detailBands || [];
-  const stacks = state.stacks || [];
 
   const ids = Object.keys(tables);
   const sortedIds = ids.sort((a, b) => tables[a].name.localeCompare(tables[b].name));
@@ -125,7 +134,7 @@ export function PipelineCard() {
   const hasBase = !!(base && tables[base]);
 
   return (
-    <Card id="pipeline" className="pipeline" sx={{ background: 'transparent', boxShadow: 'none' }}>
+    <Card id="pipeline" className="pipeline">
       <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
         <div className="pl-top-pair">
           <BaseStage sortedIds={sortedIds} />
@@ -145,6 +154,28 @@ export function PipelineCard() {
                   Include rows from <Tip text="Add sheets with the same columns to get more rows — like stacking spreadsheets on top of each other. For example: Jan Sales + Feb Sales + Mar Sales." />
                 </div>
                 <StackSheets sortedIds={sortedIds} usedAsLookup={usedAsLookup} usedAsStack={usedAsStack} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={!!includeSourceColumn}
+                        onChange={e => getStore().update(draft => { draft.includeSourceColumn = e.target.checked; })}
+                        size="small"
+                        sx={{ py: 0, px: 0.5 }}
+                      />
+                    }
+                    label="Show source sheet column"
+                  />
+                  {includeSourceColumn && (
+                    <TextField
+                      value={sourceColumnName || 'Source Sheet'}
+                      onChange={e => getStore().update(draft => { draft.sourceColumnName = e.target.value; })}
+                      size="small"
+                      placeholder="Source Sheet"
+                      sx={{ mt: 0.5, minWidth: 180, '& .MuiInputBase-input': { fontSize: '0.82rem' } }}
+                    />
+                  )}
+                </div>
               </div>
             </>
           )}

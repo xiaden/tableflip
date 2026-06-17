@@ -1,7 +1,7 @@
 /**
  * State schema version — increment when the saved config format changes.
  */
-export const STATE_VERSION = 2;
+export const STATE_VERSION = 3;
 
 /**
  * Keys that appear in a recognizable report configuration payload.
@@ -13,6 +13,7 @@ export const RECOGNIZABLE_KEYS = [
   'filters', 'sorts', 'colOrder', 'selCols', 'aggMode',
   'aggregates', 'colTotals', 'subtotalBy', 'subtotalFns', 'subtotalStrategy',
   'detailBands',
+  'includeSourceColumn', 'sourceColumnName', 'stackAliases',
 ];
 
 /**

@@ -18,22 +18,23 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 
 export function MergeToggles() {
-  const state = useStore(s => s);
+  const { result, tables, selCols, colOrder, mergedCols } = useStore(s => ({
+    result: s.result, tables: s.tables, selCols: s.selCols,
+    colOrder: s.colOrder, mergedCols: s.mergedCols,
+  }));
 
-  const resultCols = (state.result?.cols as string[]) || null;
-  const reportSpec = buildReportSpecFromState(state);
-  const sourceCatalog = buildSourceCatalog(state.tables);
+  const resultCols = (result?.cols as string[]) || null;
+  const reportSpec = buildReportSpecFromState(getStore().getState());
+  const sourceCatalog = buildSourceCatalog(tables);
   const projected = projectedCols(reportSpec, sourceCatalog);
   const cols = resultCols || projected;
 
   if (!cols.length) return null;
 
   const baseDisplayCols = cols.filter(c => c !== '_rowno' && c !== '_row_type' && c !== '_isTotalsRow' && c !== '_band_id');
-  const selCols = state.selCols;
   const visibleDisplayCols = selCols
     ? baseDisplayCols.filter(c => selCols.has(c))
     : baseDisplayCols;
-  const colOrder = state.colOrder;
   const orderedFromLayout = colOrder
     ? colOrder.filter(c => visibleDisplayCols.includes(c))
     : [];
@@ -46,8 +47,7 @@ export function MergeToggles() {
     return <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>No result columns</span>;
   }
 
-  const mergedCols = state.mergedCols || [];
-  const mergedSet = new Set(mergedCols);
+  const mergedSet = new Set(mergedCols || []);
   const colMap = buildColSourceMap();
 
   const toggle = useCallback((c: string, checked: boolean) => {
@@ -78,7 +78,7 @@ export function MergeToggles() {
               />
             }
             label={label}
-            sx={{ display: 'flex', cursor: 'pointer', fontSize: '0.76rem', fontWeight: 'normal', mt: 0.5, '& .MuiFormControlLabel-label': { fontSize: '0.76rem' } }}
+            sx={{ display: 'flex', cursor: 'pointer', fontWeight: 'normal', mt: 0.5 }}
           />
         );
       })}

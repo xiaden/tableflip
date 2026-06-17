@@ -394,5 +394,17 @@ export function hydrateState(
     }
   }
 
+  // ── Source column & stack aliases ──────────────────────────────────
+  next.includeSourceColumn = payload.includeSourceColumn === true;
+  next.sourceColumnName = typeof payload.sourceColumnName === 'string' && payload.sourceColumnName.length > 0
+    ? payload.sourceColumnName
+    : 'Source Sheet';
+  next.stackAliases = {};
+  if (payload.stackAliases && typeof payload.stackAliases === 'object' && !Array.isArray(payload.stackAliases)) {
+    for (const [k, v] of Object.entries(payload.stackAliases as Record<string, unknown>)) {
+      if (typeof v === 'string') next.stackAliases[k] = v;
+    }
+  }
+
   return { next, brokenRefs, nextExcludedRows };
 }

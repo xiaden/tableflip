@@ -30,13 +30,11 @@ import Typography from '@mui/material/Typography';
  * to the section components' addFilter/addSort handlers.
  */
 export function FilterSortCard() {
-  const state = useStore(s => s);
-
-  const base = state.base;
+  const { base } = useStore(s => ({ base: s.base }));
   if (!base) return null;
 
   return (
-    <Card id="filterSortCard" className="card" sx={{ background: 'transparent', boxShadow: 'none' }}>
+    <Card id="filterSortCard" className="card">
       <CardContent>
         {/* Filters section */}
         <Box sx={{ mb: 1.5 }}>

@@ -40,15 +40,12 @@ export interface BaseStageProps {
 }
 
 export function BaseStage({ sortedIds }: BaseStageProps) {
-  const state = useStore(s => s);
+  const { base, tables, aggMode } = useStore(s => ({ base: s.base, tables: s.tables, aggMode: s.aggMode || 'none' }));
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; items: CtxMenuItem[] } | null>(null);
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
 
-  const base = state.base;
-  const tables = state.tables;
   const baseTable = base && tables[base] ? tables[base] : null;
   const allCols = baseTable ? baseTable.cols : [];
-  const aggMode = state.aggMode || 'none';
 
   const handleBaseChange = useCallback((val: string) => {
     getStore().update(draft => {

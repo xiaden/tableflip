@@ -3,17 +3,16 @@
  *
  * Verifies end-to-end that:
  * 1. Band columns appear in colMap (available for UI column picker)
- * 2. Main query SQL is valid and does not reference band columns
+ * 2. Band columns do NOT appear in selectedColumns (projected output list)
  * 3. Band columns can be extracted for band-specific queries via buildBandQuery()
  * 4. The full pipeline works: buildQueryPlan → colMap → buildBandQuery
  */
 import { describe, it, expect } from 'vitest';
 import { buildQueryPlan } from '../../query/query-plan';
-import { buildColumnCatalog } from '../../catalog/column-catalog';
+import { buildColumnCatalog, projectedCols } from '../../catalog/column-catalog';
 import { buildSourceCatalog } from '../../catalog/source-catalog';
 import { buildBandQuery } from '../../query/sql-detail-bands';
-import { execQuery } from '../../core/sqldb';
-import { projectedCols } from '../../catalog/column-catalog';
+import { getPipelineEngine } from '../../report/pipeline-engine';
 import type { DetailBandSpec, DbTable } from '../../types';
 import { makeReportSpec, sqlContains } from '../query/helpers';
 
@@ -64,10 +63,10 @@ describe('Integration — Band Columns in Catalog → Query Pipeline', () => {
     });
   });
 
-  // ── Main query SQL is valid without band columns ─────────────────────────
+  // ── Main query configs exclude band columns ──────────────────────────────
 
-  describe('main query SQL validity', () => {
-    it('should produce valid SQL that does not reference band columns', () => {
+  describe('main query configs exclude band columns', () => {
+    it('should not include band columns in selectedColumns', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
@@ -79,14 +78,14 @@ describe('Integration — Band Columns in Catalog → Query Pipeline', () => {
         },
       });
       const plan = buildQueryPlan(spec, tablesWithItems());
-      // SQL should not contain band column aliases
-      expect(sqlContains(plan.sql, '_band_0_Product')).toBe(false);
-      expect(sqlContains(plan.sql, '_band_0_Qty')).toBe(false);
-      // SQL should contain base table reference
-      expect(sqlContains(plan.sql, '"Orders"')).toBe(true);
+      // selectedColumns should not contain band column aliases
+      expect(plan.selectedColumns).not.toContain('_band_0_Product');
+      expect(plan.selectedColumns).not.toContain('_band_0_Qty');
+      // Source base table should be Orders
+      expect(plan.source.base).toBe('Orders');
     });
 
-    it('should execute main query SQL without errors', () => {
+    it('should execute via pipeline engine without errors', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
@@ -97,15 +96,17 @@ describe('Integration — Band Columns in Catalog → Query Pipeline', () => {
           detailBands: [makeBand()],
         },
       });
-      const plan = buildQueryPlan(spec, tablesWithItems());
-      // The SQL should be executable — no references to non-existent band columns
-      const rows = execQuery(plan.sql, plan.params);
-      expect(Array.isArray(rows)).toBe(true);
+      const tables = tablesWithItems();
+      const engine = getPipelineEngine();
+      engine.cleanup();
+      const result = engine.execute(spec, tables);
+      expect(Array.isArray(result.rows)).toBe(true);
       // Rows should have base columns but NOT band columns
-      if (rows.length > 0) {
-        expect(rows[0]).toHaveProperty('OrderId');
-        expect(rows[0]).not.toHaveProperty('_band_0_Product');
+      if (result.rows.length > 0) {
+        expect(result.rows[0]).toHaveProperty('OrderId');
+        expect(result.rows[0]).not.toHaveProperty('_band_0_Product');
       }
+      engine.cleanup();
     });
   });
 
@@ -188,7 +189,7 @@ describe('Integration — Band Columns in Catalog → Query Pipeline', () => {
   // ── Full pipeline: colMap → main query + band query ──────────────────────
 
   describe('full pipeline: main query + band query', () => {
-    it('should produce a valid main query and a valid band query from the same colMap', () => {
+    it('should produce valid configs and a valid band query from the same colMap', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
@@ -204,9 +205,8 @@ describe('Integration — Band Columns in Catalog → Query Pipeline', () => {
       const sourceCatalog = buildSourceCatalog(tables);
       const band = makeBand();
 
-      // 1. Main query: no band columns
-      expect(plan.cols).not.toContain('_band_0_Product');
-      expect(sqlContains(plan.sql, '_band_0_Product')).toBe(false);
+      // 1. selectedColumns: no band columns
+      expect(plan.selectedColumns).not.toContain('_band_0_Product');
 
       // 2. Band columns are in colMap
       expect(plan.colMap.has('_band_0_Product')).toBe(true);
@@ -229,9 +229,12 @@ describe('Integration — Band Columns in Catalog → Query Pipeline', () => {
       expect(bandQuery.cols).toContain('_band_0_Qty');
       expect(sqlContains(bandQuery.sql, '"Items"')).toBe(true);
 
-      // 5. Main query executes successfully (Orders table exists in test DB)
-      const mainRows = execQuery(plan.sql, plan.params);
-      expect(Array.isArray(mainRows)).toBe(true);
+      // 5. Pipeline engine executes successfully (Orders table exists in test DB)
+      const engine = getPipelineEngine();
+      engine.cleanup();
+      const result = engine.execute(spec, tables);
+      expect(Array.isArray(result.rows)).toBe(true);
+      engine.cleanup();
 
       // 6. Band query SQL is structurally valid (Items table may not exist in test DB,
       //    so we verify SQL structure rather than executing)

@@ -56,7 +56,7 @@ export interface LookupStageProps {
 }
 
 export function LookupStage({ i, sortedIds, usedAsLookup, usedAsStack }: LookupStageProps) {
-  const state = useStore(s => s);
+  const { lookups, tables, base, aggMode } = useStore(s => ({ lookups: s.lookups, tables: s.tables, base: s.base, aggMode: s.aggMode }));
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; items: CtxMenuItem[] } | null>(null);
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
 
@@ -72,14 +72,11 @@ export function LookupStage({ i, sortedIds, usedAsLookup, usedAsStack }: LookupS
     }
   }, [i]);
 
-  const lk = state.lookups[i];
+  const lk = lookups[i];
   if (!lk) return null;
 
-  const tables = state.tables;
-  const base = state.base;
-  const aggMode = state.aggMode || 'none';
   const rt = lk.rightId && tables[lk.rightId] ? tables[lk.rightId] : null;
-  const reportSpec = buildReportSpecFromState(state);
+  const reportSpec = buildReportSpecFromState(getStore().getState());
   const sourceCatalog = buildSourceCatalog(tables);
   const leftCols = projectedColsUpToLookup(i, reportSpec, sourceCatalog);
   const rightCols = rt ? rt.cols : [];
@@ -213,11 +210,6 @@ export function LookupStage({ i, sortedIds, usedAsLookup, usedAsStack }: LookupS
     _afterCombineChange();
   }, [i, lk.rightId]);
 
-  const compactSelectSx = {
-    '& .MuiSelect-select': { py: 0.5, px: 1, fontSize: '0.78rem', minHeight: 'unset' },
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
-  };
-
   return (
     <>
       <div className={stageClasses}>
@@ -243,7 +235,7 @@ export function LookupStage({ i, sortedIds, usedAsLookup, usedAsStack }: LookupS
             <Select
               value={lk.rightId || ''}
               onChange={e => handleRightIdChange(e.target.value as string)}
-              sx={{ minWidth: 180, ...compactSelectSx }}
+              sx={{ minWidth: 180 }}
               displayEmpty
             >
               <MenuItem value="">{'—'} pick a sheet {'—'}</MenuItem>
@@ -263,7 +255,7 @@ export function LookupStage({ i, sortedIds, usedAsLookup, usedAsStack }: LookupS
                   <Select
                     value={pair.left || ''}
                     onChange={e => handleKpLeftChange(pi, e.target.value as string)}
-                    sx={{ minWidth: 140, ...compactSelectSx }}
+                    sx={{ minWidth: 140 }}
                     displayEmpty
                   >
                     <MenuItem value="">{'—'} column {'—'}</MenuItem>
@@ -279,7 +271,7 @@ export function LookupStage({ i, sortedIds, usedAsLookup, usedAsStack }: LookupS
                   <Select
                     value={pair.right || ''}
                     onChange={e => handleKpRightChange(pi, e.target.value as string)}
-                    sx={{ minWidth: 140, ...compactSelectSx }}
+                    sx={{ minWidth: 140 }}
                     displayEmpty
                   >
                     <MenuItem value="">{'—'} column {'—'}</MenuItem>
@@ -329,7 +321,7 @@ export function LookupStage({ i, sortedIds, usedAsLookup, usedAsStack }: LookupS
             <span style={{ fontSize: '0.7rem', color: 'var(--muted)', flexShrink: 0, alignSelf: 'center' }}>Bring in:</span>
             <Tip text="These are the columns from the lookup sheet. Click a chip to include or exclude it from the report. Right-click any chip to rename it." />
             {rt.cols.map(c => {
-              const isLayoutVisible = _isSourceVisibleInLayout(lk.rightId, c, lkColMap, aggMode);
+              const isLayoutVisible = _isSourceVisibleInLayout(lk.rightId, c, lkColMap, aggMode || 'none');
               return (
                 <Chip
                   key={c}
@@ -344,7 +336,7 @@ export function LookupStage({ i, sortedIds, usedAsLookup, usedAsStack }: LookupS
                   dataAttrs={{ 'data-li': String(i), 'data-lcc': c }}
                   onClick={() => {
                     const colMap2 = buildColSourceMap();
-                    const visible = _isSourceVisibleInLayout(lk.rightId, c, colMap2, aggMode);
+                    const visible = _isSourceVisibleInLayout(lk.rightId, c, colMap2, aggMode || 'none');
                     if (visible) _hideLookupLayoutAliasesSafely(lk.rightId, c, i);
                     else _showLayoutAliasesForSource(lk.rightId, c);
                     _afterCombineChange();

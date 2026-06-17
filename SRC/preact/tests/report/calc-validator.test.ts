@@ -302,6 +302,116 @@ describe('calc-validator', () => {
         };
         expect(checkCalcError(calc, 0, ['D'])).toBeTruthy();
       });
+
+      it('should return null for valid duration operation', () => {
+        const calc: CalcStage = {
+          alias: 'DaysBetween',
+          mode: 'date',
+          date: {
+            operation: 'duration',
+            source: { type: 'column', value: 'StartDate' },
+            source2: { type: 'column', value: 'EndDate' },
+            unit: 'days',
+          },
+        };
+        expect(checkCalcError(calc, 0, ['StartDate', 'EndDate'])).toBeNull();
+      });
+
+      it('should return error for duration with missing source2', () => {
+        const calc: CalcStage = {
+          alias: 'X',
+          mode: 'date',
+          date: {
+            operation: 'duration',
+            source: { type: 'column', value: 'StartDate' },
+            unit: 'days',
+          },
+        };
+        expect(checkCalcError(calc, 0, ['StartDate'])).toBeTruthy();
+      });
+
+      it('should return error for duration with invalid unit', () => {
+        const calc: CalcStage = {
+          alias: 'X',
+          mode: 'date',
+          date: {
+            operation: 'duration',
+            source: { type: 'column', value: 'StartDate' },
+            source2: { type: 'column', value: 'EndDate' },
+            unit: 'invalid',
+          },
+        };
+        expect(checkCalcError(calc, 0, ['StartDate', 'EndDate'])).toBeTruthy();
+      });
+
+      it('should return null for valid add operation with number operand', () => {
+        const calc: CalcStage = {
+          alias: 'FutureDate',
+          mode: 'date',
+          date: {
+            operation: 'add',
+            source: { type: 'column', value: 'OrderDate' },
+            operand: { type: 'number', value: '7' },
+            unit: 'days',
+          },
+        };
+        expect(checkCalcError(calc, 0, ['OrderDate'])).toBeNull();
+      });
+
+      it('should return null for valid add operation with column operand', () => {
+        const calc: CalcStage = {
+          alias: 'FutureDate',
+          mode: 'date',
+          date: {
+            operation: 'add',
+            source: { type: 'column', value: 'OrderDate' },
+            operand: { type: 'column', value: 'DaysToAdd' },
+            unit: 'days',
+          },
+        };
+        expect(checkCalcError(calc, 0, ['OrderDate', 'DaysToAdd'])).toBeNull();
+      });
+
+      it('should return error for add with missing operand', () => {
+        const calc: CalcStage = {
+          alias: 'X',
+          mode: 'date',
+          date: {
+            operation: 'add',
+            source: { type: 'column', value: 'OrderDate' },
+            unit: 'days',
+          },
+        };
+        expect(checkCalcError(calc, 0, ['OrderDate'])).toBeTruthy();
+      });
+
+      it('should return error for add with invalid operand number', () => {
+        const calc: CalcStage = {
+          alias: 'X',
+          mode: 'date',
+          date: {
+            operation: 'add',
+            source: { type: 'column', value: 'OrderDate' },
+            operand: { type: 'number', value: 'not-a-number' },
+            unit: 'days',
+          },
+        };
+        expect(checkCalcError(calc, 0, ['OrderDate'])).toBeTruthy();
+      });
+
+      it('should return null for valid subtract operation', () => {
+        const calc: CalcStage = {
+          alias: 'PastDate',
+          mode: 'date',
+          date: {
+            operation: 'subtract',
+            source: { type: 'column', value: 'OrderDate' },
+            operand: { type: 'number', value: '30' },
+            unit: 'days',
+          },
+        };
+        expect(checkCalcError(calc, 0, ['OrderDate'])).toBeNull();
+      });
     });
   });
 });

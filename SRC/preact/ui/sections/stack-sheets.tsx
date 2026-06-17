@@ -15,6 +15,7 @@ import { _afterCombineChange } from '../../query/layout-selection';
 import Chip from '@mui/material/Chip';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import TextField from '@mui/material/TextField';
 
 export interface StackSheetsProps {
   /** All table IDs sorted by name. */
@@ -26,12 +27,8 @@ export interface StackSheetsProps {
 }
 
 export function StackSheets({ sortedIds, usedAsLookup, usedAsStack }: StackSheetsProps) {
-  const state = useStore(s => s);
+  const { base, tables, stacks, includeSourceColumn, stackAliases } = useStore(s => ({ base: s.base, tables: s.tables, stacks: s.stacks || [], includeSourceColumn: s.includeSourceColumn, stackAliases: s.stackAliases }));
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
-
-  const base = state.base;
-  const tables = state.tables;
-  const stacks = state.stacks || [];
 
   const addStack = useCallback((id: string) => {
     if (!id || !tables[id] || id === base) return;
@@ -44,6 +41,14 @@ export function StackSheets({ sortedIds, usedAsLookup, usedAsStack }: StackSheet
   const removeStack = useCallback((id: string) => {
     getStore().update(draft => {
       draft.stacks = draft.stacks.filter(s => s !== id);
+    });
+    _afterCombineChange();
+  }, []);
+
+  const onAliasChange = useCallback((id: string, value: string) => {
+    getStore().update(draft => {
+      if (!draft.stackAliases) draft.stackAliases = {};
+      draft.stackAliases[id] = value;
     });
     _afterCombineChange();
   }, []);
@@ -70,18 +75,29 @@ export function StackSheets({ sortedIds, usedAsLookup, usedAsStack }: StackSheet
   return (
     <div className="pl-stack-sheets" style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
       {stacks.filter(id => tables[id]).map(id => (
-        <Chip
-          key={id}
-          label={tables[id].name}
-          onDelete={() => removeStack(id)}
-          deleteIcon={<span>{'×'}</span>}
-          sx={{
-            fontSize: '0.76rem',
-            borderLeft: `3px solid ${getTableColor(id)}`,
-            '& .MuiChip-deleteIcon': { fontSize: '0.85rem' },
-          }}
-          className="pl-stack-chip"
-        />
+        <span key={id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <Chip
+            label={tables[id].name}
+            onDelete={() => removeStack(id)}
+            deleteIcon={<span>{'×'}</span>}
+            sx={{
+              fontSize: '0.76rem',
+              borderLeft: `3px solid ${getTableColor(id)}`,
+              '& .MuiChip-deleteIcon': { fontSize: '0.85rem' },
+            }}
+            className="pl-stack-chip"
+          />
+          {includeSourceColumn === true && (
+            <TextField
+              value={stackAliases?.[id] ?? ''}
+              onChange={e => onAliasChange(id, e.target.value)}
+              placeholder={tables[id].name}
+              size="small"
+              variant="outlined"
+              sx={{ width: 90, '& .MuiInputBase-input': { fontSize: '0.76rem', py: '2px' } }}
+            />
+          )}
+        </span>
       ))}
       {stackAvail.length > 0 && (
         <>

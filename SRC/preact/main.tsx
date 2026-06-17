@@ -4,16 +4,19 @@
  * Replaces the old Preact entry point (preact/app.ts). Bootstraps the application by:
  * 1. Initializing the SQLite WASM runtime
  * 2. Creating the reactive state store
- * 3. Mounting the React App component via createRoot
+ * 3. Mounting the React App component via createRoot inside a MUI ThemeProvider
  *
- * Note: initTooltipEngine() from the old entry point is intentionally omitted.
- * Tooltips will be replaced by MUI <Tooltip> components in a later phase.
+ * The MUI theme (theme.ts) provides a dark palette matching the app's CSS custom
+ * properties and compact component sizing. CssBaseline applies a consistent baseline.
  */
 
 import { createRoot } from 'react-dom/client';
+import { ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
 import { initDb } from './core/sqldb';
 import { initStore } from './core/store';
 import { App } from './ui/app';
+import theme from './ui/theme';
 
 /**
  * Bootstrap the application.
@@ -26,13 +29,18 @@ async function main(): Promise<void> {
   // 2. Initialize the reactive state store
   initStore();
 
-  // 3. Mount the root App component
+  // 3. Mount the root App component inside MUI ThemeProvider with CssBaseline
   const container = document.getElementById('app');
   if (!container) {
     throw new Error('Root element #app not found in document');
   }
   const root = createRoot(container);
-  root.render(<App />);
+  root.render(
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <App />
+    </ThemeProvider>,
+  );
 
   // 4. Remove loading overlay if present
   const overlay = document.getElementById('loadingOverlay');

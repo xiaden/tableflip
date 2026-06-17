@@ -62,11 +62,6 @@ function SortRow({ s, i, cols, colMap }: SortRowProps) {
     _afterCombineChange();
   }, [i]);
 
-  const compactSelectSx = {
-    '& .MuiSelect-select': { py: 0.5, px: 1, fontSize: '0.78rem', minHeight: 'unset' },
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
-  };
-
   return (
     <div className={`sort-row${sEnabled ? '' : ' pl-stage-disabled'}`} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
       <span className="sort-level">{i + 1}.</span>
@@ -74,7 +69,6 @@ function SortRow({ s, i, cols, colMap }: SortRowProps) {
         <Select
           value={s.col}
           onChange={e => handleColChange(e.target.value as string)}
-          sx={compactSelectSx}
           displayEmpty
         >
           <MenuItem value="">{'—'} column {'—'}</MenuItem>
@@ -89,7 +83,6 @@ function SortRow({ s, i, cols, colMap }: SortRowProps) {
         <Select
           value={s.dir}
           onChange={e => handleDirChange(e.target.value as string)}
-          sx={compactSelectSx}
         >
           <MenuItem value="ASC">{'↑'} A {'→'} Z</MenuItem>
           <MenuItem value="DESC">{'↓'} Z {'→'} A</MenuItem>
@@ -114,16 +107,13 @@ function SortRow({ s, i, cols, colMap }: SortRowProps) {
 }
 
 export function SortList() {
-  const state = useStore(s => s);
+  const { selCols, tables, colOrder, sorts } = useStore(s => ({ selCols: s.selCols, tables: s.tables, colOrder: s.colOrder, sorts: s.sorts }));
 
-  const selCols = state.selCols;
-  const reportSpec = buildReportSpecFromState(state);
-  const sourceCatalog = buildSourceCatalog(state.tables);
+  const reportSpec = buildReportSpecFromState(getStore().getState());
+  const sourceCatalog = buildSourceCatalog(tables);
   const allCols = projectedCols(reportSpec, sourceCatalog);
-  const colOrder = state.colOrder || allCols;
-  const cols = colOrder.filter(c => !selCols || selCols.has(c));
+  const cols = (colOrder || allCols).filter(c => !selCols || selCols.has(c));
   const colMap = buildColSourceMap();
-  const sorts = state.sorts;
 
   if (!sorts.length) {
     return <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>No sort — rows returned in natural order</span>;

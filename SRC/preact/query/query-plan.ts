@@ -1,29 +1,24 @@
 /**
- * Query plan builder — orchestrates all query modules into a complete query plan.
+ * Query plan builder — orchestrates all query modules into stage configs.
  *
- * This is the top-level entry point for SQL query generation. It:
+ * This is the top-level entry point for query plan construction. It:
  *   1. Builds a source catalog from the raw table definitions
  *   2. Builds a column catalog from the report spec + source catalog
  *   3. Expands and validates lookups via the lookup resolver
  *   4. Generates calculated column SQL expressions
  *   5. Generates WHERE, JOINs, and aggregate SELECT expressions
- *   6. Dispatches to the appropriate query builder (detail, grouped, totals,
- *      or subtotals) based on the aggregation mode
- *   7. Returns a complete BuiltQueryPlan with the final SQL, params, and
- *      projected column list
+ *   6. Returns a QueryPlanConfigs with all intermediate data needed by the
+ *      pipeline engine's stage functions
  *
  * All functions are pure — no global state dependency.
  */
 
 import type { ReportSpec, DbTable, AggMode } from '../types';
 import type { ColMapEntry } from '../catalog/column-catalog';
+import type { SourceTableEntry } from '../catalog/source-catalog';
 import { buildSourceCatalog } from '../catalog/source-catalog';
 import { buildColumnCatalog } from '../catalog/column-catalog';
 import { buildCalcExpressions } from './sql-calcs';
-import { buildDetailQuery } from './sql-detail';
-import { buildGroupedQuery } from './sql-grouped';
-import { buildTotalsQuery } from './sql-totals';
-import { buildSubtotalsQuery } from './sql-subtotals';
 
 // ── Types ───────────────────────────────────────────────────────────────────────
 
@@ -60,12 +55,14 @@ export interface JoinPlan {
 }
 
 /**
- * Complete query plan — all intermediate data plus the final SQL query.
+ * Complete query plan configs — all intermediate data needed by the pipeline engine.
  *
  * Contains the source plan, join plans, calculated columns, filters,
- * aggregates, sorts, subtotal config, and the assembled SQL with params.
+ * aggregates, sorts, subtotal config, column map, and source catalog.
+ * The pipeline engine's stage functions consume these configs to build
+ * and execute temp tables sequentially.
  */
-export interface BuiltQueryPlan {
+export interface QueryPlanConfigs {
   /** Source table plan (base, stacks, table metadata). */
   source: SourcePlan;
   /** Join plans for enabled lookups. */
@@ -100,12 +97,8 @@ export interface BuiltQueryPlan {
   aggMode: string;
   /** Column alias → source mapping. */
   colMap: Map<string, ColMapEntry>;
-  /** The final SQL query string */
-  sql: string;
-  /** Parameterized values in order of appearance */
-  params: unknown[];
-  /** Ordered list of projected column aliases */
-  cols: string[];
+  /** Source table catalog (table ID → SourceTableEntry). */
+  sourceCatalog: Map<string, SourceTableEntry>;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────────
@@ -115,25 +108,32 @@ export interface BuiltQueryPlan {
 // ── Public API ──────────────────────────────────────────────────────────────────
 
 /**
- * Build a complete query plan from a report specification and table definitions.
+ * Build query plan configs from a report specification and table definitions.
  *
  * This is the main orchestrator that ties together all query modules:
  * source catalog, column catalog, lookup resolver, calc expressions,
- * WHERE/JOINs/aggregates, and the appropriate query builder dispatch.
+ * WHERE/JOINs/aggregates. Returns configs consumed by the pipeline engine's
+ * stage functions.
  *
  * @param reportSpec - The typed report specification defining the full report
  *                     pipeline (base table, lookups, calc stages, filters,
  *                     sorts, aggregation config, and output columns).
  * @param tables     - Raw table definitions keyed by table ID. Each entry
  *                     contains id, name, cols, and rowCount.
- * @returns A complete BuiltQueryPlan containing the intermediate plan data,
- *          the final SQL query, parameterized values, and projected column list.
+ * @returns A QueryPlanConfigs containing all intermediate plan data needed
+ *          by the pipeline engine stage functions.
  * @throws If the reportSpec has no base table defined.
  */
 export function buildQueryPlan(
   reportSpec: ReportSpec,
   tables: Record<string, DbTable>,
-): BuiltQueryPlan {
+): QueryPlanConfigs {
+  // ── 0. Validate base table ─────────────────────────────────────────────────
+  const baseId = reportSpec.pipeline.base;
+  if (!baseId || !tables[baseId]) {
+    throw new Error(`buildQueryPlan: base table "${baseId || '(none)'}" is not loaded`);
+  }
+
   // ── 1. Build source catalog from tables ────────────────────────────────────
   const sourceCatalog = buildSourceCatalog(tables);
 
@@ -192,12 +192,6 @@ export function buildQueryPlan(
   const calcStages = reportSpec.pipeline.calculatedColumns || [];
   const calculatedColumns = buildCalcExpressions(calcStages, colMap);
 
-  // Build calcExprs map for query builders: alias → SQL expression
-  const calcExprs = new Map<string, string>();
-  for (const col of calculatedColumns) {
-    calcExprs.set(col.alias, col.sql);
-  }
-
   // ── 7. Filters ─────────────────────────────────────────────────────────────
   const filters = (reportSpec.filters || []).filter(f => f.enabled !== false && f.col);
 
@@ -211,52 +205,19 @@ export function buildQueryPlan(
   const orderedAliases = colOrder.length > 0
     ? colOrder.filter(a => colMap.has(a) || aggAliases.includes(a))
     : [...colMap.keys(), ...aggAliases];
-  const selectedColumns = orderedAliases;
+  // Exclude band columns from selectedColumns — they are handled separately
+  // by the band query engine, not the main pipeline SELECT.
+  const selectedColumns = orderedAliases.filter(a => {
+    const entry = colMap.get(a);
+    return !entry || entry.kind !== 'band';
+  });
 
   // ── 9. Sorts ───────────────────────────────────────────────────────────────
   const sorts = (reportSpec.sorts || []).filter(
     s => s.enabled !== false && s.col && colMap.has(s.col),
   );
 
-  // ── 10. Dispatch to the appropriate query builder ──────────────────────────
-  let sql: string;
-  let params: unknown[];
-  let cols: string[];
-
-  switch (aggMode) {
-    case 'group': {
-      const result = buildGroupedQuery(reportSpec, colMap, sourceCatalog, calcExprs);
-      sql = result.sql;
-      params = result.params;
-      cols = result.cols;
-      break;
-    }
-    case 'totals': {
-      const result = buildTotalsQuery(reportSpec, colMap, sourceCatalog, calcExprs);
-      if (!result) throw new Error('buildQueryPlan: no totals to build');
-      sql = result.sql;
-      params = result.params;
-      cols = result.cols;
-      break;
-    }
-    case 'subtotals': {
-      const result = buildSubtotalsQuery(reportSpec, colMap, sourceCatalog, calcExprs);
-      if (!result) throw new Error('buildQueryPlan: no subtotals to build');
-      sql = result.sql;
-      params = result.params;
-      cols = result.cols;
-      break;
-    }
-    default: {
-      const result = buildDetailQuery(reportSpec, colMap, sourceCatalog, calcExprs);
-      sql = result.sql;
-      params = result.params;
-      cols = result.cols;
-      break;
-    }
-  }
-
-  // ── 11. Return complete query plan ─────────────────────────────────────────
+  // ── 10. Return complete query plan configs ──────────────────────────────
   return {
     source,
     joins,
@@ -275,8 +236,6 @@ export function buildQueryPlan(
     subtotalStrategy: reportSpec.aggregation.subtotalStrategy || 'combined',
     aggMode: reportSpec.aggregation.mode || 'none',
     colMap,
-    sql,
-    params,
-    cols,
+    sourceCatalog,
   };
 }

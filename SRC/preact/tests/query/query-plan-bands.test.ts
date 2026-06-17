@@ -3,14 +3,13 @@
  *
  * Verifies that when detailBands are in the catalogCtx:
  * 1. Band columns appear in plan.colMap (available for UI column picker)
- * 2. Band columns do NOT appear in plan.sql SELECT (no JOIN in FROM clause)
- * 3. Band columns do NOT appear in plan.cols (projected output list)
- * 4. This works across all aggregation modes (detail, totals, subtotals, grouped)
+ * 2. Band columns do NOT appear in plan.selectedColumns (projected output list)
+ * 3. This works across all aggregation modes (detail, totals, subtotals, grouped)
  */
 import { describe, it, expect } from 'vitest';
 import { buildQueryPlan } from '../../query/query-plan';
 import type { DetailBandSpec } from '../../types';
-import { makeReportSpec, standardTables, sqlContains } from './helpers';
+import { makeReportSpec, standardTables } from './helpers';
 
 describe('Query Plan — Band Column Handling', () => {
   // ── Extended fixtures (need a child table for bands) ──────────────────────
@@ -80,10 +79,10 @@ describe('Query Plan — Band Column Handling', () => {
     });
   });
 
-  // ── Band columns NOT in SQL SELECT ────────────────────────────────────────
+  // ── Band columns NOT in selectedColumns ──────────────────────────────────
 
-  describe('band columns excluded from SQL', () => {
-    it('should NOT project band columns in detail mode SQL', () => {
+  describe('band columns excluded from selectedColumns', () => {
+    it('should NOT project band columns in detail mode', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
@@ -96,15 +95,12 @@ describe('Query Plan — Band Column Handling', () => {
       });
       const plan = buildQueryPlan(spec, tablesWithItems());
       expect(plan.aggMode).toBe('none');
-      // SQL should NOT contain band column aliases
-      expect(sqlContains(plan.sql, '_band_0_Product')).toBe(false);
-      expect(sqlContains(plan.sql, '_band_0_Qty')).toBe(false);
-      // plan.cols should NOT include band columns
-      expect(plan.cols).not.toContain('_band_0_Product');
-      expect(plan.cols).not.toContain('_band_0_Qty');
+      // selectedColumns should NOT include band columns
+      expect(plan.selectedColumns).not.toContain('_band_0_Product');
+      expect(plan.selectedColumns).not.toContain('_band_0_Qty');
     });
 
-    it('should NOT project band columns in totals mode SQL', () => {
+    it('should NOT project band columns in totals mode', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
@@ -129,11 +125,10 @@ describe('Query Plan — Band Column Handling', () => {
       });
       const plan = buildQueryPlan(spec, tablesWithItems());
       expect(plan.aggMode).toBe('totals');
-      expect(sqlContains(plan.sql, '_band_0_Product')).toBe(false);
-      expect(plan.cols).not.toContain('_band_0_Product');
+      expect(plan.selectedColumns).not.toContain('_band_0_Product');
     });
 
-    it('should NOT project band columns in subtotals mode SQL', () => {
+    it('should NOT project band columns in subtotals mode', () => {
       const spec = makeReportSpec({
         outputColumns: ['Company', 'Amount'],
         pipeline: {
@@ -159,11 +154,10 @@ describe('Query Plan — Band Column Handling', () => {
       });
       const plan = buildQueryPlan(spec, tablesWithItems());
       expect(plan.aggMode).toBe('subtotals');
-      expect(sqlContains(plan.sql, '_band_0_Product')).toBe(false);
-      expect(plan.cols).not.toContain('_band_0_Product');
+      expect(plan.selectedColumns).not.toContain('_band_0_Product');
     });
 
-    it('should NOT project band columns in grouped mode SQL', () => {
+    it('should NOT project band columns in grouped mode', () => {
       const spec = makeReportSpec({
         pipeline: {
           base: 'Orders',
@@ -188,8 +182,7 @@ describe('Query Plan — Band Column Handling', () => {
       });
       const plan = buildQueryPlan(spec, tablesWithItems());
       expect(plan.aggMode).toBe('group');
-      expect(sqlContains(plan.sql, '_band_0_Product')).toBe(false);
-      expect(plan.cols).not.toContain('_band_0_Product');
+      expect(plan.selectedColumns).not.toContain('_band_0_Product');
     });
   });
 
@@ -208,11 +201,12 @@ describe('Query Plan — Band Column Handling', () => {
         },
       });
       const plan = buildQueryPlan(spec, tablesWithItems());
-      // Base columns should be in SQL and cols
-      expect(plan.cols).toContain('OrderId');
-      expect(plan.cols).toContain('Company');
-      expect(plan.cols).toContain('Amount');
-      expect(sqlContains(plan.sql, '"Orders"')).toBe(true);
+      // Base columns should be in selectedColumns
+      expect(plan.selectedColumns).toContain('OrderId');
+      expect(plan.selectedColumns).toContain('Company');
+      expect(plan.selectedColumns).toContain('Amount');
+      // Source base table should be Orders
+      expect(plan.source.base).toBe('Orders');
     });
   });
 
@@ -238,7 +232,7 @@ describe('Query Plan — Band Column Handling', () => {
   // ── Sort on band column is skipped ────────────────────────────────────────
 
   describe('sort on band column', () => {
-    it('should not include band column sorts in SQL ORDER BY', () => {
+    it('should include sort config for band columns (filtered at stage level)', () => {
       const spec = makeReportSpec({
         sorts: [
           { col: 'Amount', dir: 'ASC', enabled: true },
@@ -254,10 +248,11 @@ describe('Query Plan — Band Column Handling', () => {
         },
       });
       const plan = buildQueryPlan(spec, tablesWithItems());
-      // Should contain Amount sort
-      expect(sqlContains(plan.sql, '"Amount" ASC')).toBe(true);
-      // Should NOT contain band column sort
-      expect(sqlContains(plan.sql, '_band_0_Product')).toBe(false);
+      // Both sorts are in config since both cols are in colMap
+      // Band column sort filtering happens at the pipeline stage level, not config level
+      expect(plan.sorts.length).toBe(2);
+      expect(plan.sorts[0].col).toBe('Amount');
+      expect(plan.sorts[1].col).toBe('_band_0_Product');
     });
   });
 });

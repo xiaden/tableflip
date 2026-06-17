@@ -44,6 +44,9 @@ describe('State Constructors', () => {
       expect(state.sorts).toEqual([]);
       expect(state.result).toBeNull();
       expect(state.detailBands).toEqual([]);
+      expect(state.includeSourceColumn).toBe(false);
+      expect(state.sourceColumnName).toBe('Source Sheet');
+      expect(state.stackAliases).toEqual({});
     });
 
     it('should apply overrides', () => {
@@ -99,6 +102,9 @@ describe('State Constructors', () => {
       expect(rpt.pipeline.lookups).toEqual([]);
       expect(rpt.pipeline.calculatedColumns).toEqual([]);
       expect(rpt.pipeline.detailBands).toEqual([]);
+      expect(rpt.pipeline.includeSourceColumn).toBe(false);
+      expect(rpt.pipeline.sourceColumnName).toBe('Source Sheet');
+      expect(rpt.pipeline.stackAliases).toEqual({});
       expect(rpt.outputColumns).toEqual([]);
       expect(rpt.filters).toEqual([]);
       expect(rpt.sorts).toEqual([]);
@@ -219,7 +225,7 @@ describe('State Constructors', () => {
   });
 
   describe('buildReportSpecFromState()', () => {
-    it('should include all 6 fields from a full AppState', () => {
+    it('should include all 9 fields from a full AppState', () => {
       const state = createAppState({
         base: 'Orders',
         baseCols: ['OrderID', 'Customer'],
@@ -230,7 +236,8 @@ describe('State Constructors', () => {
       });
       const spec = buildReportSpecFromState(state);
       expect(Object.keys(spec).sort()).toEqual([
-        'base', 'baseCols', 'calcStages', 'detailBands', 'lookups', 'stacks',
+        'base', 'baseCols', 'calcStages', 'detailBands',
+        'includeSourceColumn', 'lookups', 'sourceColumnName', 'stackAliases', 'stacks',
       ]);
     });
 
@@ -252,6 +259,9 @@ describe('State Constructors', () => {
       expect(spec.lookups).toBe(lookups);
       expect(spec.calcStages).toBe(state.calcStages);
       expect(spec.detailBands).toBe(detailBands);
+      expect(spec.includeSourceColumn).toBe(state.includeSourceColumn);
+      expect(spec.sourceColumnName).toBe(state.sourceColumnName);
+      expect(spec.stackAliases).toEqual(state.stackAliases);
     });
 
     it('should default detailBands to [] when state.detailBands is undefined', () => {

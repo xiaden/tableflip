@@ -40,13 +40,22 @@ export interface CalcBuilderProps {
   onTextPartChange?: (j: number, prop: string, val: string) => void;
   onTextAddPart?: () => void;
   onTextRemovePart?: (j: number) => void;
+  onMathStepChange?: (stepIdx: number, prop: string, val: string) => void;
+  onMathAddStep?: () => void;
+  onMathRemoveStep?: (stepIdx: number) => void;
 }
 
-/** Compact inline select styling shared across calc builder. */
-const compactSelectSx = {
-  '& .MuiSelect-select': { py: 0.5, px: 1, fontSize: '0.78rem', minHeight: 'unset' },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)' },
-};
+/** Available step types for math mode step chain. */
+const MATH_STEP_TYPES = ['column', 'number', 'text'] as const;
+
+/** Available math operators for step chain. */
+const MATH_OPS = [
+  { value: '+', label: '+' },
+  { value: '-', label: '\u2212' },
+  { value: '*', label: '\u00D7' },
+  { value: '/', label: '\u00F7' },
+  { value: '%', label: '%' },
+] as const;
 
 /** Helper: render a column <Select> with column options. */
 function ColSelect({ value, sx, onChange, colOpts }: {
@@ -60,7 +69,7 @@ function ColSelect({ value, sx, onChange, colOpts }: {
       <Select
         value={value}
         onChange={e => onChange(e.target.value as string)}
-        sx={{ minWidth: 160, ...compactSelectSx, ...sx }}
+        sx={{ minWidth: 160, ...sx }}
         displayEmpty
       >
         <MenuItem value="">{'—'} column {'—'}</MenuItem>
@@ -74,34 +83,133 @@ function ColSelect({ value, sx, onChange, colOpts }: {
 
 // ── Math Builder ───────────────────────────────────────────────────────────────
 
-export function MathBuilder({ calc, colOptsFor, onPropChange }: CalcBuilderProps) {
+/**
+ * Render a single step row for the math step chain.
+ * Step 0 has no operator selector. Operator selector only appears for step > 0.
+ * Remove button only appears when more than 1 step exists.
+ */
+function MathStepRow({ step, idx, colOptsFor, onStepChange, onRemove, canRemove }: {
+  step: { type?: string; value?: string; op?: string };
+  idx: number;
+  colOptsFor: (sel: string) => ColOption[];
+  onStepChange: (prop: string, val: string) => void;
+  onRemove?: () => void;
+  canRemove: boolean;
+}) {
+  const stepType = step.type || 'column';
+  const stepVal = step.value || '';
+
+  return (
+    <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: idx === 0 ? 0.75 : 0.5 }}>
+      <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem', minWidth: idx === 0 ? 40 : undefined }}>
+        {idx === 0 ? 'Steps' : ''}
+      </Box>
+      <FormControl size="small">
+        <Select
+          value={stepType}
+          onChange={e => onStepChange('type', e.target.value as string)}
+          sx={{ width: 80, flexShrink: 0 }}
+        >
+          {MATH_STEP_TYPES.map(t => (
+            <MenuItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      {stepType === 'column' ? (
+        <ColSelect value={stepVal} sx={{ minWidth: 150 }} onChange={v => onStepChange('value', v)} colOpts={colOptsFor(stepVal)} />
+      ) : (
+        <TextField
+          value={stepVal}
+          type={stepType === 'number' ? 'number' : 'text'}
+          placeholder={stepType === 'number' ? 'number' : 'text'}
+          onChange={e => onStepChange('value', e.target.value)}
+          size="small"
+          sx={{ minWidth: 150 }}
+        />
+      )}
+      {idx > 0 && (
+        <FormControl size="small">
+          <Select
+            value={step.op || '+'}
+            onChange={e => onStepChange('op', e.target.value as string)}
+            sx={{ width: 62, flexShrink: 0 }}
+          >
+            {MATH_OPS.map(o => (
+              <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      )}
+      {canRemove && onRemove && (
+        <Button
+          variant="outlined"
+          color="error"
+          size="small"
+          onClick={onRemove}
+          disabled={!canRemove}
+          sx={{ flexShrink: 0, py: 0, px: 0.75, fontSize: '0.7rem', minWidth: 'unset' }}
+        >{'✕'}</Button>
+      )}
+    </Box>
+  );
+}
+
+export function MathBuilder({ calc, colOptsFor, onPropChange, onMathStepChange, onMathAddStep, onMathRemoveStep }: CalcBuilderProps) {
   const math = calc.math as { strategy?: string; steps?: Array<{ type?: string; value?: string; op?: string }> } | undefined;
   const steps = math?.steps || [];
-  const firstStep = steps[0] || {};
-  const hasOperators = steps.length > 1;
-
-  const mathOp = hasOperators ? (steps[1]?.op || '+') : '+';
-  const leftCol = firstStep.type === 'column' ? (firstStep.value || '') : '';
-  const rightCol = hasOperators && steps[1]?.type === 'column' ? (steps[1].value || '') : '';
 
   const isRollingAvg = (calc as Record<string, unknown>).mathOp === 'ROLLAVG';
   const isPctTotal = (calc as Record<string, unknown>).mathOp === 'PCTTOTAL';
+  const isArith = !isRollingAvg && !isPctTotal;
   const windowVal = Math.max(1, parseInt((calc as Record<string, unknown>).window as string || '7', 10) || 7);
 
-  const leftOpts = colOptsFor(leftCol);
-  const rightOpts = colOptsFor(rightCol);
-
   const mathType = isRollingAvg ? 'ROLLAVG' : isPctTotal ? 'PCTTOTAL' : 'ARITH';
+
+  /** Render a single step as the source for ROLLAVG/PCTTOTAL modes. */
+  const renderSourceStep = () => {
+    const step = steps[0] || {};
+    const stepType = step.type || 'column';
+    const stepVal = step.value || '';
+    const doChange = onMathStepChange ? (p: string, v: string) => onMathStepChange(0, p, v) : () => {};
+
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+        <FormControl size="small">
+          <Select
+            value={stepType}
+            onChange={e => doChange('type', e.target.value as string)}
+            sx={{ width: 80, flexShrink: 0 }}
+          >
+            {MATH_STEP_TYPES.map(t => (
+              <MenuItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        {stepType === 'column' ? (
+          <ColSelect value={stepVal} sx={{ minWidth: 150 }} onChange={v => doChange('value', v)} colOpts={colOptsFor(stepVal)} />
+        ) : (
+          <TextField
+            value={stepVal}
+            type={stepType === 'number' ? 'number' : 'text'}
+            placeholder={stepType === 'number' ? 'number' : 'text'}
+            onChange={e => doChange('value', e.target.value)}
+            size="small"
+            sx={{ minWidth: 150 }}
+          />
+        )}
+      </Box>
+    );
+  };
 
   return (
     <>
       <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-        <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>Type <Tip text={"Arithmetic — add, subtract, multiply, or divide two columns.\n\nRolling Avg — a moving average over a sliding window of rows (like a 7-day average).\n\n% of Total — each row's value as a percentage of the grand total."} /></Box>
+        <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>Type <Tip text={"Arithmetic — add, subtract, multiply, or divide columns and numbers.\n\nRolling Avg — a moving average over a sliding window of rows (like a 7-day average).\n\n% of Total — each row's value as a percentage of the grand total."} /></Box>
         <FormControl size="small">
           <Select
             value={mathType}
             onChange={e => onPropChange('mathOp', e.target.value as string)}
-            sx={{ width: 140, flexShrink: 0, ...compactSelectSx }}
+            sx={{ width: 140, flexShrink: 0 }}
           >
             <MenuItem value="ARITH">Arithmetic</MenuItem>
             <MenuItem value="ROLLAVG">Rolling Avg</MenuItem>
@@ -109,28 +217,35 @@ export function MathBuilder({ calc, colOptsFor, onPropChange }: CalcBuilderProps
           </Select>
         </FormControl>
       </Box>
-      {!isRollingAvg && !isPctTotal && (
-        <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75 }}>
-          <ColSelect value={leftCol} sx={{ minWidth: 160 }} onChange={v => onPropChange('leftCol', v)} colOpts={leftOpts} />
-          <FormControl size="small">
-            <Select
-              value={mathOp}
-              onChange={e => onPropChange('mathOperator', e.target.value as string)}
-              sx={{ width: 70, flexShrink: 0, ...compactSelectSx }}
-            >
-              <MenuItem value="+">+</MenuItem>
-              <MenuItem value="-">{'−'}</MenuItem>
-              <MenuItem value="*">{'×'}</MenuItem>
-              <MenuItem value="/">{'÷'}</MenuItem>
-            </Select>
-          </FormControl>
-          <ColSelect value={rightCol} sx={{ minWidth: 160 }} onChange={v => onPropChange('rightCol', v)} colOpts={rightOpts} />
-        </Box>
+
+      {isArith && (
+        <>
+          {steps.map((step, idx) => (
+            <MathStepRow
+              key={idx}
+              step={step}
+              idx={idx}
+              colOptsFor={colOptsFor}
+              onStepChange={(prop, val) => onMathStepChange?.(idx, prop, val)}
+              onRemove={() => onMathRemoveStep?.(idx)}
+              canRemove={steps.length > 1}
+            />
+          ))}
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => onMathAddStep?.()}
+            sx={{ mt: 0.5, fontSize: '0.72rem', textTransform: 'none' }}
+          >
+            + Add Step
+          </Button>
+        </>
       )}
+
       {isRollingAvg && (
         <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75 }}>
           <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>Source</Box>
-          <ColSelect value={leftCol} sx={{ minWidth: 190 }} onChange={v => onPropChange('leftCol', v)} colOpts={leftOpts} />
+          {renderSourceStep()}
           <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem', ml: 0.75 }}>Window <Tip text={"How many rows to include in the moving average.\n\nFor example, 7 means the average of the current row and the 6 rows above it — like a 7-day moving average."} /></Box>
           <TextField
             type="number"
@@ -138,14 +253,15 @@ export function MathBuilder({ calc, colOptsFor, onPropChange }: CalcBuilderProps
             onChange={e => onPropChange('window', e.target.value)}
             size="small"
             slotProps={{ htmlInput: { min: 1, step: 1 } }}
-            sx={{ width: 80, flexShrink: 0, '& input': { py: 0.5, px: 1, fontSize: '0.78rem' } }}
+            sx={{ width: 80, flexShrink: 0 }}
           />
         </Box>
       )}
+
       {isPctTotal && (
         <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75 }}>
           <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>Source <Tip text="The column whose values will be expressed as a percentage of the total. Each row will show what share of the grand total it represents." /></Box>
-          <ColSelect value={leftCol} sx={{ minWidth: 190 }} onChange={v => onPropChange('leftCol', v)} colOpts={leftOpts} />
+          {renderSourceStep()}
         </Box>
       )}
     </>
@@ -166,12 +282,6 @@ export function TextEditBuilder(
     onPropChange('textOperation', newOp);
   };
 
-  /** Shared tab-row radio selector for text operations. */
-  const toggleBtnSx = {
-    py: 0.25, px: 1, fontSize: '0.75rem', textTransform: 'none' as const,
-    color: 'rgba(255,255,255,0.7)',
-    '&.Mui-selected': { color: '#fff', bgcolor: 'rgba(255,255,255,0.12)' },
-  };
   const textOpTabs = (
     <ToggleButtonGroup
       value={op}
@@ -179,7 +289,7 @@ export function TextEditBuilder(
       onChange={(_e, val) => { if (val) handleOpChange(val); }}
       size="small"
       className="tab-row"
-      sx={{ mt: 1, '& .MuiToggleButton-root': toggleBtnSx }}
+      sx={{ mt: 1 }}
     >
       {TEXT_OPS.map(o => (
         <ToggleButton key={o} value={o}>
@@ -204,7 +314,7 @@ export function TextEditBuilder(
               <Select
                 value={part.type || 'column'}
                 onChange={e => onTextPartChange?.(j, 'type', e.target.value as string)}
-                sx={{ width: 70, flexShrink: 0, ...compactSelectSx }}
+                sx={{ width: 70, flexShrink: 0 }}
               >
                 <MenuItem value="column">Column</MenuItem>
                 <MenuItem value="text">Text</MenuItem>
@@ -221,7 +331,7 @@ export function TextEditBuilder(
                 placeholder={part.type === 'number' ? 'number' : 'text'}
                 onChange={e => onTextPartChange?.(j, 'value', e.target.value)}
                 size="small"
-                sx={{ minWidth: 160, '& input': { py: 0.5, px: 1, fontSize: '0.78rem' } }}
+                sx={{ minWidth: 160 }}
               />
             )}
             <Button
@@ -267,7 +377,7 @@ export function TextEditBuilder(
             onChange={e => onPropChange('textCount', e.target.value)}
             size="small"
             slotProps={{ htmlInput: { min: 1, step: 1 } }}
-            sx={{ width: 80, flexShrink: 0, '& input': { py: 0.5, px: 1, fontSize: '0.78rem' } }}
+            sx={{ width: 80, flexShrink: 0 }}
           />
         </Box>
       </>
@@ -297,7 +407,7 @@ export function TextEditBuilder(
             onChange={e => onPropChange('textStart', e.target.value)}
             size="small"
             slotProps={{ htmlInput: { min: 1, step: 1 } }}
-            sx={{ width: 80, flexShrink: 0, '& input': { py: 0.5, px: 1, fontSize: '0.78rem' } }}
+            sx={{ width: 80, flexShrink: 0 }}
           />
           <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem', ml: 0.75 }}>Length</Box>
           <TextField
@@ -306,7 +416,7 @@ export function TextEditBuilder(
             onChange={e => onPropChange('textLength', e.target.value)}
             size="small"
             slotProps={{ htmlInput: { min: 1, step: 1 } }}
-            sx={{ width: 80, flexShrink: 0, '& input': { py: 0.5, px: 1, fontSize: '0.78rem' } }}
+            sx={{ width: 80, flexShrink: 0 }}
           />
         </Box>
       </>
@@ -339,7 +449,7 @@ export function CompareBuilder({ calc, colOptsFor, onPropChange, onCondChange }:
           <Select
             value={glue}
             onChange={e => onPropChange('compareMode', e.target.value as string)}
-            sx={{ width: 80, flexShrink: 0, ...compactSelectSx }}
+            sx={{ width: 80, flexShrink: 0 }}
           >
             <MenuItem value="AND">ALL</MenuItem>
             <MenuItem value="OR">ANY</MenuItem>
@@ -355,7 +465,7 @@ export function CompareBuilder({ calc, colOptsFor, onPropChange, onCondChange }:
             <Select
               value={cond.op || '='}
               onChange={e => handleCondChange(j, 'op', e.target.value as string)}
-              sx={{ width: 62, flexShrink: 0, ...compactSelectSx }}
+              sx={{ width: 62, flexShrink: 0 }}
             >
               {COND_OPS.map(o => (
                 <MenuItem key={o} value={o}>{o}</MenuItem>
@@ -367,7 +477,7 @@ export function CompareBuilder({ calc, colOptsFor, onPropChange, onCondChange }:
             placeholder="value"
             onChange={e => handleCondChange(j, 'val', e.target.value)}
             size="small"
-            sx={{ minWidth: 100, '& input': { py: 0.5, px: 1, fontSize: '0.78rem' } }}
+            sx={{ minWidth: 100 }}
           />
         </Box>
       ))}
@@ -381,17 +491,35 @@ export function CompareBuilder({ calc, colOptsFor, onPropChange, onCondChange }:
 // ── Date Builder ───────────────────────────────────────────────────────────────
 
 const FMT_OPTS: Array<[string, string]> = [['D','D'],['DD','DD'],['M','M'],['MM','MM'],['MMM','MMM'],['YY','YY'],['YYYY','YYYY']];
+const DATE_UNITS = ['days', 'weeks', 'months', 'years'] as const;
 
 export function DateBuilder({ calc, i: _i, colOptsFor, onPropChange }: CalcBuilderProps) {
-  const date = calc.date as { operation?: string; source?: { type?: string; value?: string }; part?: string; output?: string; inputFormat?: { first?: string; second?: string; third?: string } } | undefined;
+  const date = calc.date as {
+    operation?: string;
+    source?: { type?: string; value?: string };
+    source2?: { type?: string; value?: string };
+    part?: string;
+    output?: string;
+    inputFormat?: { first?: string; second?: string; third?: string };
+    unit?: string;
+    operand?: { type?: string; value?: string };
+  } | undefined;
+
+  const op = date?.operation || 'extract';
   const src = date?.source;
+  const src2 = date?.source2;
   const srcCol = src?.type === 'column' ? (src.value || '') : '';
+  const src2Col = src2?.type === 'column' ? (src2.value || '') : '';
   const part = date?.part || 'year';
   const output = date?.output || 'text';
   const fmt = date?.inputFormat || {};
   const fmtFirst = fmt.first || 'MM';
-  const fmtSecond = fmt.second || 'DD';
-  const fmtThird = fmt.third || 'YYYY';
+  const fmt_second = fmt.second || 'DD';
+  const fmt_third = fmt.third || 'YYYY';
+  const unit = date?.unit || 'days';
+  const operand = date?.operand;
+  const operandType = operand?.type || 'number';
+  const operandValue = operand?.value || '';
 
   // Subscribe to store for ISO detection (requires reading column samples)
   const [isoDetected, setIsoDetected] = useState(false);
@@ -408,96 +536,200 @@ export function DateBuilder({ calc, i: _i, colOptsFor, onPropChange }: CalcBuild
   }, [srcCol]);
 
   const textOnly = part === 'year' || part === 'week';
-
   const srcOpts = colOptsFor(srcCol);
+  const src2Opts = colOptsFor(src2Col);
 
-  return (
-    <>
-      <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-        <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>Source</Box>
-        <ColSelect value={srcCol} sx={{ minWidth: 190 }} onChange={v => onPropChange('dateSource', v)} colOpts={srcOpts} />
-      </Box>
-      {isoDetected ? (
-        <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-          <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>Input format</Box>
-          <Box component="span" sx={{ fontSize: '0.72rem', color: 'success.main' }}>ISO (auto-detected)</Box>
-        </Box>
-      ) : (
-        <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-          <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>Input format <Tip text={'D = day (1-9)\nDD = day (01-09)\nM = month (1-9)\nMM = month (01-09)\nMMM = month name (Jan, Feb, ...)\nYY = 2-digit year (23)\nYYYY = 4-digit year (2023)\n\nPick the order your dates use.\nExample: 12/25/2023 → MM/DD/YYYY\nExample: 25-Dec-2023 → DD/MMM/YYYY'} /></Box>
-          <Box sx={{ display: 'flex', gap: 0.25, alignItems: 'center' }}>
-            <FormControl size="small">
-              <Select
-                value={fmtFirst}
-                onChange={e => onPropChange('dateFmtFirst', e.target.value as string)}
-                sx={{ width: 65, ...compactSelectSx }}
-              >
-                {FMT_OPTS.map(([val, label]) => <MenuItem key={val} value={val}>{label}</MenuItem>)}
-              </Select>
-            </FormControl>
-            <Box component="span" sx={{ color: 'text.secondary' }}>/</Box>
-            <FormControl size="small">
-              <Select
-                value={fmtSecond}
-                onChange={e => onPropChange('dateFmtSecond', e.target.value as string)}
-                sx={{ width: 65, ...compactSelectSx }}
-              >
-                {FMT_OPTS.map(([val, label]) => <MenuItem key={val} value={val}>{label}</MenuItem>)}
-              </Select>
-            </FormControl>
-            <Box component="span" sx={{ color: 'text.secondary' }}>/</Box>
-            <FormControl size="small">
-              <Select
-                value={fmtThird}
-                onChange={e => onPropChange('dateFmtThird', e.target.value as string)}
-                sx={{ width: 65, ...compactSelectSx }}
-              >
-                {FMT_OPTS.map(([val, label]) => <MenuItem key={val} value={val}>{label}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Box>
-        </Box>
-      )}
-      <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-        <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>Extract</Box>
+  const opTabs = (
+    <ToggleButtonGroup
+      value={op}
+      exclusive
+      onChange={(_e, val) => { if (val) onPropChange('dateOperation', val); }}
+      size="small"
+      className="tab-row"
+      sx={{ mt: 1 }}
+    >
+      <ToggleButton value="extract">Extract</ToggleButton>
+      <ToggleButton value="duration">Duration</ToggleButton>
+      <ToggleButton value="add">Add</ToggleButton>
+      <ToggleButton value="subtract">Subtract</ToggleButton>
+    </ToggleButtonGroup>
+  );
+
+  const inputFormatSection = isoDetected ? (
+    <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+      <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>Input format</Box>
+      <Box component="span" sx={{ fontSize: '0.72rem', color: 'success.main' }}>ISO (auto-detected)</Box>
+    </Box>
+  ) : (
+    <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+      <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>Input format <Tip text={'D = day (1-9)\nDD = day (01-09)\nM = month (1-9)\nMM = month (01-09)\nMMM = month name (Jan, Feb, ...)\nYY = 2-digit year (23)\nYYYY = 4-digit year (2023)\n\nPick the order your dates use.\nExample: 12/25/2023 → MM/DD/YYYY\nExample: 25-Dec-2023 → DD/MMM/YYYY'} /></Box>
+      <Box sx={{ display: 'flex', gap: 0.25, alignItems: 'center' }}>
         <FormControl size="small">
           <Select
-            value={part}
-            onChange={e => onPropChange('datePart', e.target.value as string)}
-            sx={{ width: 140, flexShrink: 0, ...compactSelectSx }}
+            value={fmtFirst}
+            onChange={e => onPropChange('dateFmtFirst', e.target.value as string)}
+            sx={{ width: 65 }}
           >
-            <MenuItem value="year">Year</MenuItem>
-            <MenuItem value="month">Month</MenuItem>
-            <MenuItem value="day">Day</MenuItem>
-            <MenuItem value="dow">Day of Week</MenuItem>
-            <MenuItem value="week">Week</MenuItem>
-            <MenuItem value="quarter">Quarter</MenuItem>
-            <MenuItem value="julian">Julian Date</MenuItem>
+            {FMT_OPTS.map(([val, label]) => <MenuItem key={val} value={val}>{label}</MenuItem>)}
+          </Select>
+        </FormControl>
+        <Box component="span" sx={{ color: 'text.secondary' }}>/</Box>
+        <FormControl size="small">
+          <Select
+            value={fmt_second}
+            onChange={e => onPropChange('dateFmtSecond', e.target.value as string)}
+            sx={{ width: 65 }}
+          >
+            {FMT_OPTS.map(([val, label]) => <MenuItem key={val} value={val}>{label}</MenuItem>)}
+          </Select>
+        </FormControl>
+        <Box component="span" sx={{ color: 'text.secondary' }}>/</Box>
+        <FormControl size="small">
+          <Select
+            value={fmt_third}
+            onChange={e => onPropChange('dateFmtThird', e.target.value as string)}
+            sx={{ width: 65 }}
+          >
+            {FMT_OPTS.map(([val, label]) => <MenuItem key={val} value={val}>{label}</MenuItem>)}
           </Select>
         </FormControl>
       </Box>
-      <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-        <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>Format</Box>
-        <ToggleButtonGroup
-          value={output}
-          exclusive
-          onChange={(_e, val) => { if (val) onPropChange('dateOutput', val); }}
-          size="small"
-          className="tab-row"
-          sx={{
-            '& .MuiToggleButton-root': {
-              py: 0.25, px: 1, fontSize: '0.75rem', textTransform: 'none',
-              color: 'rgba(255,255,255,0.7)',
-              '&.Mui-selected': { color: '#fff', bgcolor: 'rgba(255,255,255,0.12)' },
-              '&.Mui-disabled': { color: 'rgba(255,255,255,0.3)' },
-            },
-          }}
-        >
-          <ToggleButton value="number">Number</ToggleButton>
-          <ToggleButton value="short" disabled={textOnly}>Short</ToggleButton>
-          <ToggleButton value="text" disabled={textOnly}>Full</ToggleButton>
-        </ToggleButtonGroup>
+    </Box>
+  );
+
+  // ── Extract builder ──────────────────────────────────────────────────────
+
+  if (op === 'extract') {
+    return (
+      <>
+        {opTabs}
+        <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+          <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>Source</Box>
+          <ColSelect value={srcCol} sx={{ minWidth: 190 }} onChange={v => onPropChange('dateSource', v)} colOpts={srcOpts} />
+        </Box>
+        {inputFormatSection}
+        <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+          <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>Extract</Box>
+          <FormControl size="small">
+            <Select
+              value={part}
+              onChange={e => onPropChange('datePart', e.target.value as string)}
+              sx={{ width: 140, flexShrink: 0 }}
+            >
+              <MenuItem value="year">Year</MenuItem>
+              <MenuItem value="month">Month</MenuItem>
+              <MenuItem value="day">Day</MenuItem>
+              <MenuItem value="dow">Day of Week</MenuItem>
+              <MenuItem value="week">Week</MenuItem>
+              <MenuItem value="quarter">Quarter</MenuItem>
+              <MenuItem value="julian">Julian Date</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+        <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+          <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>Format</Box>
+          <ToggleButtonGroup
+            value={output}
+            exclusive
+            onChange={(_e, val) => { if (val) onPropChange('dateOutput', val); }}
+            size="small"
+            className="tab-row"
+          >
+            <ToggleButton value="number">Number</ToggleButton>
+            <ToggleButton value="short" disabled={textOnly}>Short</ToggleButton>
+            <ToggleButton value="text" disabled={textOnly}>Full</ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+      </>
+    );
+  }
+
+  // ── Duration builder ─────────────────────────────────────────────────────
+
+  if (op === 'duration') {
+    return (
+      <>
+        {opTabs}
+        <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+          <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>Start date</Box>
+          <ColSelect value={srcCol} sx={{ minWidth: 190 }} onChange={v => onPropChange('dateSource', v)} colOpts={srcOpts} />
+        </Box>
+        {inputFormatSection}
+        <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+          <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>End date</Box>
+          <ColSelect value={src2Col} sx={{ minWidth: 190 }} onChange={v => onPropChange('dateSource2', v)} colOpts={src2Opts} />
+        </Box>
+        <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+          <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>Unit</Box>
+          <FormControl size="small">
+            <Select
+              value={unit}
+              onChange={e => onPropChange('dateUnit', e.target.value as string)}
+              sx={{ width: 100, flexShrink: 0 }}
+            >
+              {DATE_UNITS.map(u => (
+                <MenuItem key={u} value={u}>{u.charAt(0).toUpperCase() + u.slice(1)}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+        <Tip text={"Calculates the difference between two dates in the selected unit.\n\n• Days: Total days between dates\n• Weeks: Total weeks (rounded down)\n• Months: Year and month difference\n• Years: Year difference"} />
+      </>
+    );
+  }
+
+  // ── Add / Subtract builder ───────────────────────────────────────────────
+
+  return (
+    <>
+      {opTabs}
+      <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+        <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>Source date</Box>
+        <ColSelect value={srcCol} sx={{ minWidth: 190 }} onChange={v => onPropChange('dateSource', v)} colOpts={srcOpts} />
       </Box>
+      {inputFormatSection}
+      <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+        <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>{op === 'add' ? 'Add' : 'Subtract'}</Box>
+        <FormControl size="small">
+          <Select
+            value={operandType}
+            onChange={e => onPropChange('dateOperandType', e.target.value as string)}
+            sx={{ width: 80, flexShrink: 0 }}
+          >
+            <MenuItem value="number">Number</MenuItem>
+            <MenuItem value="column">Column</MenuItem>
+          </Select>
+        </FormControl>
+        {operandType === 'column' ? (
+          <ColSelect value={operandValue} sx={{ minWidth: 150 }} onChange={v => onPropChange('dateOperandValue', v)} colOpts={colOptsFor(operandValue)} />
+        ) : (
+          <TextField
+            value={operandValue}
+            type="number"
+            placeholder="number"
+            onChange={e => onPropChange('dateOperandValue', e.target.value)}
+            size="small"
+            sx={{ minWidth: 100 }}
+          />
+        )}
+      </Box>
+      <Box className="pl-key-pair" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+        <Box className="pl-key-pair-label" sx={{ fontSize: '0.78rem' }}>Unit</Box>
+        <FormControl size="small">
+          <Select
+            value={unit}
+            onChange={e => onPropChange('dateUnit', e.target.value as string)}
+            sx={{ width: 100, flexShrink: 0 }}
+          >
+            {DATE_UNITS.map(u => (
+              <MenuItem key={u} value={u}>{u.charAt(0).toUpperCase() + u.slice(1)}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
+      <Tip text={op === 'add'
+        ? "Adds the specified amount to the source date.\n\n• Days: Add N days\n• Weeks: Add N weeks (7×N days)\n• Months: Add N months\n• Years: Add N years"
+        : "Subtracts the specified amount from the source date.\n\n• Days: Subtract N days\n• Weeks: Subtract N weeks (7×N days)\n• Months: Subtract N months\n• Years: Subtract N years"} />
     </>
   );
 }

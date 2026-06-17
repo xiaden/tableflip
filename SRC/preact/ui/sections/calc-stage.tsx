@@ -41,18 +41,18 @@ export interface CalcStageProps {
 }
 
 export function CalcStageSection({ i }: CalcStageProps) {
-  const state = useStore(s => s);
+  const { calcStages, aggMode, tables } = useStore(s => ({ calcStages: s.calcStages, aggMode: s.aggMode, tables: s.tables }));
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; items: CtxMenuItem[] } | null>(null);
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
 
-  const calc = state.calcStages[i];
+  const calc = calcStages[i];
   if (!calc) return null;
 
-  const aggMode = state.aggMode || 'none';
+  const effectiveAggMode = aggMode || 'none';
   const alias = (calc.alias || '').trim();
   const mode: CalcMode = calc.mode || 'math';
-  const reportSpec = buildReportSpecFromState(state);
-  const sourceCatalog = buildSourceCatalog(state.tables);
+  const reportSpec = buildReportSpecFromState(getStore().getState());
+  const sourceCatalog = buildSourceCatalog(tables);
   const cols = projectedCols(reportSpec, sourceCatalog);
   const colMap = buildColSourceMap();
 
@@ -136,27 +136,6 @@ export function CalcStageSection({ i }: CalcStageProps) {
           calcDraft.math = defaults[val]?.();
           break;
         }
-        case 'mathOperator': {
-          const math = calcDraft.math as { steps?: Array<{ type?: string; value?: string; op?: string }> } | undefined;
-          if (math?.steps) {
-            if (math.steps.length < 2) math.steps.push({ type: 'column', value: '', op: val });
-            else math.steps[1].op = val;
-          }
-          break;
-        }
-        case 'leftCol': {
-          const math = calcDraft.math as { steps?: Array<{ type?: string; value?: string }> } | undefined;
-          if (math?.steps && math.steps.length > 0) math.steps[0] = { type: 'column', value: val };
-          break;
-        }
-        case 'rightCol': {
-          const math = calcDraft.math as { steps?: Array<{ type?: string; value?: string; op?: string }> } | undefined;
-          if (math?.steps) {
-            if (math.steps.length < 2) math.steps.push({ type: 'column', value: '', op: '+' });
-            math.steps[1] = { ...math.steps[1], type: 'column', value: val };
-          }
-          break;
-        }
         case 'window':
           (calcDraft as Record<string, unknown>).window = String(Math.max(1, parseInt(val, 10) || 7));
           break;
@@ -222,6 +201,84 @@ export function CalcStageSection({ i }: CalcStageProps) {
           (date.inputFormat as Record<string, string>)[key] = val;
           break;
         }
+        case 'dateOperation': {
+          if (!calcDraft.date) calcDraft.date = {};
+          const date = calcDraft.date as Record<string, unknown>;
+          date.operation = val;
+          // Set defaults for new operations
+          if (val === 'duration') {
+            date.source2 = { type: 'column', value: '' };
+            date.unit = 'days';
+          } else if (val === 'add' || val === 'subtract') {
+            date.operand = { type: 'number', value: '' };
+            date.unit = 'days';
+          }
+          break;
+        }
+        case 'dateSource2': {
+          const date = calcDraft.date as { source2?: { type: string; value: string } } | undefined;
+          if (date) date.source2 = { type: 'column', value: val };
+          break;
+        }
+        case 'dateUnit': {
+          const date = calcDraft.date as { unit?: string } | undefined;
+          if (date) date.unit = val;
+          break;
+        }
+        case 'dateOperandType': {
+          const date = calcDraft.date as { operand?: { type: string; value: string } } | undefined;
+          if (date) {
+            if (!date.operand) date.operand = { type: val, value: '' };
+            else {
+              date.operand.type = val;
+              date.operand.value = '';
+            }
+          }
+          break;
+        }
+        case 'dateOperandValue': {
+          const date = calcDraft.date as { operand?: { type: string; value: string } } | undefined;
+          if (date?.operand) date.operand.value = val;
+          break;
+        }
+      }
+    });
+  }, [updateCalc]);
+
+  const handleMathStepChange = useCallback((stepIdx: number, prop: string, val: string) => {
+    updateCalc(calcDraft => {
+      const math = calcDraft.math as { steps?: Array<{ type?: string; value?: string; op?: string }> } | undefined;
+      if (!math?.steps?.[stepIdx]) return;
+      const step = math.steps[stepIdx];
+      switch (prop) {
+        case 'type':
+          step.type = val;
+          step.value = '';
+          break;
+        case 'value':
+          step.value = val;
+          break;
+        case 'op':
+          step.op = val;
+          break;
+      }
+    });
+  }, [updateCalc]);
+
+  const handleMathAddStep = useCallback(() => {
+    updateCalc(calcDraft => {
+      const math = calcDraft.math as { steps?: Array<{ type?: string; value?: string; op?: string }> } | undefined;
+      if (math) {
+        (math.steps ??= []).push({ type: 'column', value: '', op: '+' });
+      }
+    });
+  }, [updateCalc]);
+
+  const handleMathRemoveStep = useCallback((stepIdx: number) => {
+    updateCalc(calcDraft => {
+      const math = calcDraft.math as { steps?: Array<{ type?: string; value?: string; op?: string }> } | undefined;
+      if (math?.steps && math.steps.length > 1) {
+        math.steps.splice(stepIdx, 1);
       }
     });
   }, [updateCalc]);
@@ -315,7 +372,7 @@ export function CalcStageSection({ i }: CalcStageProps) {
             value={calc.alias || ''}
             onChange={e => handleAliasChange(e.target.value)}
             size="small"
-            sx={{ flex: 1, minWidth: 180, '& input': { py: 0.5, px: 1, fontSize: '0.78rem' } }}
+            sx={{ flex: 1, minWidth: 180 }}
           />
           <Button variant="contained" color="error" size="small" sx={{ flexShrink: 0, minWidth: 'unset', py: 0.25, px: 1 }} onClick={removeCalcStage}>{'✕'}</Button>
         </div>
@@ -325,13 +382,7 @@ export function CalcStageSection({ i }: CalcStageProps) {
             exclusive
             onChange={(_e, val) => { if (val) handleModeChange(val as CalcMode); }}
             size="small"
-            sx={{
-              '& .MuiToggleButton-root': {
-                py: 0.25, px: 1, fontSize: '0.75rem', textTransform: 'none',
-                color: 'rgba(255,255,255,0.7)',
-                '&.Mui-selected': { color: '#fff', bgcolor: 'rgba(255,255,255,0.12)' },
-              },
-            }}
+
           >
             {(['math', 'text', 'compare', 'date'] as CalcMode[]).map(m => (
               <ToggleButton key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</ToggleButton>
@@ -344,6 +395,9 @@ export function CalcStageSection({ i }: CalcStageProps) {
           onTextPartChange={handleTextPartChange}
           onTextAddPart={handleTextAddPart}
           onTextRemovePart={handleTextRemovePart}
+          onMathStepChange={handleMathStepChange}
+          onMathAddStep={handleMathAddStep}
+          onMathRemoveStep={handleMathRemoveStep}
         />
         {alias && (
           <div className="pl-lookup-cols" style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
@@ -352,7 +406,7 @@ export function CalcStageSection({ i }: CalcStageProps) {
             <Chip
               col={alias}
               label={(() => { const src = colMap.get(alias); return src && src.kind !== 'calc' ? colLabel(src.tid, src.col) : alias; })()}
-              selected={_isAliasVisibleInLayout(alias, aggMode)}
+              selected={_isAliasVisibleInLayout(alias, effectiveAggMode)}
               draggable={false}
               chipClass="pl-col-chip"
               dataAttrs={{ 'data-ci': String(i), 'data-ccc': alias }}

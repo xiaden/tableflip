@@ -30,18 +30,15 @@ The report pipeline transforms user-configurable report specifications into quer
 │  (preact/catalog/)             │  │  (preact/report/)                 │
 │  buildSourceCatalog()          │  │  runReport()          ◄── chokepoint
 │  buildColumnCatalog()  ◄── CP  │  │    ├─ buildQueryPlan()  ◄── CP   │
-│  buildColSourceMap()           │  │    ├─ runDetailBandsMode()        │
-└───────────┬───────────────────┘  │    ├─ runDetailMode()              │
-            │                      │    ├─ runTotalsMode()              │
-            ▼                      │    ├─ runSubtotalsMode()           │
-┌───────────────────────────────┐  │    └─ runGroupedMode()             │
-│  Query Layer                    │  │  buildResultSet()  ───→ ResultSet │
-│  (preact/query/)                │  │  publishReportOutput()           │
-│  buildQueryPlan()    ◄── CP     │  │  deriveValidation()              │
-│    ├─ sql-detail.ts             │  └──────────────────────────────────┘
-│    ├─ sql-grouped.ts            │
-│    ├─ sql-totals.ts             │
-│    ├─ sql-subtotals.ts          │
+│  buildColSourceMap()           │  │    ├─ PipelineEngine.execute()    │
+└───────────┬───────────────────┘  │    ├─ runDetailBandsMode()        │
+            │                      │    └─ pipeline-stages/ (6 stages)  │
+            ▼                      │  │  buildResultSet()  ───→ ResultSet │
+┌───────────────────────────────┐  │  │  publishReportOutput()           │
+│  Query Layer                    │  │  └──────────────────────────────────┘
+│  (preact/query/)                │  │  deriveValidation()              │
+│  buildQueryPlan()    ◄── CP     │  └──────────────────────────────────┘
+│    ├─ pipeline-stages/          │
 │    ├─ sql-detail-bands.ts       │
 │    ├─ sql-where.ts              │
 │    ├─ sql-joins.ts              │
@@ -68,16 +65,16 @@ The report pipeline transforms user-configurable report specifications into quer
 | **Core** (`core/`) | SQLite init, query execution (`execQuery`), identifier quoting (`quoteId`), reactive store (`Store`), date format utils, state factories (`createAppState`) | Column resolution, SQL generation, business logic |
 | **Catalog** (`catalog/`) | Building source table metadata (`source-catalog`), resolving column aliases to physical/calc/band entries (`column-catalog`), projection helpers (`projectedCols`, `projectedColsUpToLookup`) | SQL generation, report execution |
 | **Query** (`query/`) | SQL generation (SELECT, JOINs, WHERE, GROUP BY, ORDER BY), column reference resolution (`resolveRef`), calc expression generation, lookup validation/expansion, aggregate rendering. All pure functions — no store dependency. | Report execution, result shaping |
-| **Report** (`report/`) | Report execution engine (`runReport` → `buildQueryPlan` → `execQuery` → `buildResultSet`), result set construction, validation (`deriveValidation`), output publishing, report dependency graph, calc validation, aggregation constants | UI rendering, SQL generation details |
+| **Report** (`report/`) | Report execution engine (`runReport` → `buildQueryPlan` → `PipelineEngine.execute()` → `buildResultSet`), pipeline engine (`PipelineEngine` class, six stage functions in `pipeline-stages/`), result set construction, validation (`deriveValidation`), output publishing, report dependency graph, calc validation, aggregation constants | UI rendering, SQL generation details |
 | **UI** (`ui/`) | React component tree, grid rendering (AG Grid), export (XLSX/CSV), pipeline card interactions, aggregation mode UI, tab switching, file loading | Report execution, SQL generation |
 
 ## Key Entrypoints / Chokepoints
 
-### `runReport()` — `report/engine.ts:L544`
-The single entry point for report execution. Takes `(reportSpec, tables, stackRowLimit?)` → `ResultSet`. Dispatches to mode-specific handlers (detail, totals, subtotals, group, detail-bands). This is the function the RunBar calls. **Start here when tracing a pipeline bug.**
+### `runReport()` — `report/engine.ts`
+The single entry point for report execution. Takes `(reportSpec, tables, stackRowLimit?)` → `ResultSet`. Calls `buildQueryPlan()` for configs, then delegates to `PipelineEngine.execute()` which runs six sequential pipeline stages. For detail bands, passes results to `runDetailBandsMode()`. This is the function the RunBar calls. **Start here when tracing a pipeline bug.**
 
-### `buildQueryPlan()` — `query/query-plan.ts:L133`
-The SQL orchestration hub. Builds source catalog → column catalog → source plan → join plans → calc expressions → filters → selected columns → sorts → dispatches to the appropriate SQL builder based on aggMode. Returns `{ sql, params, cols, colMap, ... }`. **Start here when tracing SQL generation issues.**
+### `buildQueryPlan()` — `query/query-plan.ts`
+The config orchestration hub. Builds source catalog → column catalog → source plan → join plans → calc expressions → filters → selected columns → sorts. Returns `QueryPlanConfigs` (no SQL — SQL is generated by pipeline stages). **Start here when tracing config generation issues.**
 
 ### `buildColumnCatalog()` — `catalog/column-catalog.ts:L115`
 The column resolution backbone. Maps every column alias (base + lookup-prefixed + detail-band-prefixed + calc) to its physical source. Determines prefix generation for collision avoidance. **Start here when a column isn't in the output, or when prefix generation seems wrong.**
@@ -92,14 +89,20 @@ The single validation engine. Checks every pipeline stage (base table, stacks, l
 
 1. **User configures report** in PipelineCard/LayoutCard/FilterSortCard (mutates AppState via store.update)
 2. **User clicks Run** (RunBar calls `runReport(spec, tables)`)
-3. `runReport()` calls `buildQueryPlan()` which:
-   - Builds `sourceCatalog` from raw table definitions
-   - Builds `colMap` (column alias → physical/calc/band entry)
-   - Builds join plans from lookups
-   - Generates calc SQL expressions
-   - Dispatches to `sql-detail`, `sql-grouped`, `sql-totals`, or `sql-subtotals`
-4. The SQL + params are passed to `execQuery()` (SQLite WASM)
-5. Raw rows go to `buildResultSet()` → typed `ResultSet`
+3. `runReport()` calls `buildQueryPlan()` which returns `QueryPlanConfigs` (no SQL):
+    - Builds `sourceCatalog` from raw table definitions
+    - Builds `colMap` (column alias → physical/calc/band entry)
+    - Builds join plans from lookups
+    - Generates calc SQL expressions
+    - Extracts filters, selected columns, sorts, aggMode config
+4. `PipelineEngine.execute()` runs six sequential stages, each creating a temp table:
+   - Stage 0: Base (CREATE TABLE from SELECT)
+   - Stage 1: Lookups (LEFT JOIN into new temp table)
+   - Stage 2: Calcs (ADD columns via ALTER/expression)
+   - Stage 3: Filters (DELETE non-matching rows)
+   - Stage 4: Sorts (re-INSERT with ORDER BY)
+   - Stage 5: Aggregation (GROUP BY / pass-through for detail)
+5. Final temp table rows fetched via `SELECT * FROM`, passed to `buildResultSet()` → typed `ResultSet`
 6. If detail bands active and aggMode=none, JS-side stitching in `runDetailBandsMode()`
 7. Result flows back to UI: `store.set('result', resultSet)` → ResultGrid re-renders
 8. For export: `exportAs('xlsx'|'csv')` reads result from store, applies `createResultTable()` (filters internal rows), `enrichRowsWithBandHeaders()`, `styleExportSheet()`
@@ -123,8 +126,8 @@ The single validation engine. Checks every pipeline stage (base table, stacks, l
 
 ### Report Execution
 
-- `runReport()` is the only execution entry point. No other function should call `execQuery()` for report results.
-- `buildResultSet()` is the only result set constructor. Every mode handler calls it.
+- `runReport()` is the only execution entry point. No other function should call `execQuery()` for report results (except `pipeline-engine.ts` stage execution).
+- `buildResultSet()` is the only result set constructor. `PipelineEngine.execute()` and `runDetailBandsMode()` call it.
 - `invalidateValidation()` must be called after any state mutation, or validation stays stale (trap in AGENTS.md).
 - `STACK_ROW_LIMIT = 10_000` caps detail-band stacking mode cross-product rows.
 - `RowExplosionError` is thrown for stacking mode overflow — the UI catches this and shows a dialog.
@@ -156,7 +159,7 @@ The single validation engine. Checks every pipeline stage (base table, stacks, l
 ### "The report isn't showing the right columns"
 1. Check `colMap` in `buildColumnCatalog()` — is the alias even registered?
 2. Check lookup prefixing in `tablePrefix()` — is the column collision-avoiding correctly?
-3. Check `buildDetailQuery()` / `buildGroupedQuery()` `filteredProjected` — are band columns being skipped correctly?
+3. Check `executeBaseStage()` in `pipeline-stages/` — verify that band columns are excluded from the base SELECT.
 4. Check `outputColumns` in the report spec — is there a stale column order hiding the column?
 5. Check `deriveValidation()` for stale-column-order warnings.
 
@@ -166,8 +169,8 @@ The single validation engine. Checks every pipeline stage (base table, stacks, l
 3. Check `buildColumnCatalog()` — if a column isn't in the colMap, the JOIN won't reference it.
 
 ### "The totals/subtotals are wrong"
-1. Totals: check `runTotalsMode()` in `engine.ts` — it runs two queries and pads detail rows for new agg columns.
-2. Subtotals: check `buildSubtotalsQuery()` — internal marker columns (`_row_type`, `_sort_group_*`) drive ordering.
+1. Totals: check `executeAggregationStage()` in `pipeline-stages/` — it handles totals mode by adding a `_row_type` marker and producing a totals row.
+2. Subtotals: check `executeAggregationStage()` — internal marker columns (`_row_type`, `_sort_group_*`) drive ordering.
 3. Calc columns with `PCTTOTAL` or `ROLLAVG` ops produce incorrect totals/subtotals — validation warns about this.
 4. Check `aggregation-constants.ts` for valid function names — wrong names silently produce no aggregation.
 
@@ -198,18 +201,18 @@ The single validation engine. Checks every pipeline stage (base table, stacks, l
 
 ## Sources
 
-- `SRC/preact/report/engine.ts` — Report execution engine, mode dispatchers
+- `SRC/preact/report/engine.ts` — Report execution entry point, pipeline engine integration, detail bands
+- `SRC/preact/report/pipeline-engine.ts` — PipelineEngine class, stage orchestration, singleton accessors
+- `SRC/preact/report/pipeline-stages/` — Six stage functions (base, lookup, calc, filter, sort, aggregation)
 - `SRC/preact/query/query-plan.ts` — Query plan orchestrator
 - `SRC/preact/catalog/column-catalog.ts` — Column alias resolution
 - `SRC/preact/report/validation.ts` — Full validation logic
 - `SRC/preact/report/result-set.ts` — Result set construction
 - `SRC/preact/report/report-output.ts` — Output publishing
-- `SRC/preact/query/sql-detail.ts` — Detail SQL gen (canonical example)
 - `SRC/preact/query/sql-joins.ts` — JOIN clause generation
 - `SRC/preact/query/sql-where.ts` — WHERE clause generation
 - `SRC/preact/query/sql-calcs.ts` — Calc expression rendering
 - `SRC/preact/query/sql-aggregates.ts` — Aggregate expression rendering
-- `SRC/preact/query/sql-subtotals.ts` — Subtotals UNION ALL SQL
 - `SRC/preact/query/sql-detail-bands.ts` — Band query generation
 - `SRC/preact/query/resolve-ref.ts` — Shared alias→ref resolver
 - `SRC/preact/query/lookup-resolver.ts` — Lookup validation/expansion

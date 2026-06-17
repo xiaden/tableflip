@@ -13,7 +13,7 @@ describe('buildPayload', () => {
     const state = createAppState({ base: 'Orders' });
     const payload = buildPayload(state);
 
-    expect(payload.v).toBe(2);
+    expect(payload.v).toBe(3);
     expect(payload.base).toBe('Orders');
     expect(payload.baseCols).toEqual([]);
     expect(payload.stacks).toEqual([]);
@@ -41,6 +41,9 @@ describe('buildPayload', () => {
     expect(payload.tableColors).toEqual({});
     expect(payload.columnLabels).toEqual({});
     expect(payload.detailBands).toEqual([]);
+    expect(payload.includeSourceColumn).toBe(false);
+    expect(payload.sourceColumnName).toBe('Source Sheet');
+    expect(payload.stackAliases).toEqual({});
   });
 
   it('should convert selCols Set to array', () => {

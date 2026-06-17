@@ -6,7 +6,7 @@ description: CSS dead-code analysis for style.css. Which selectors are used, dea
 # CSS Dead-Code Analysis (style.css)
 
 ## Mental Model
-`style.css` is the main application stylesheet (901 lines). It contains application-specific layout/component styles plus AG Grid overrides. A significant portion is dead — leftover from earlier iterations (Tabulator, old lookup UI, etc.). One CSS variable bug exists.
+`style.css` is the main application stylesheet, located at `SRC/public/css/style.css` (served by Vite via `publicDir`). Currently ~437 lines (was 901 before CSS cleanup). It contains application-specific layout/component styles plus AG Grid overrides. A significant portion is dead — leftover from earlier iterations (Tabulator, old lookup UI, etc.). One CSS variable bug exists.
 
 ## Coverage
 **Documented:** Full dead-code audit of all 901 lines of style.css against all .ts/.tsx/.js/.jsx/.html files in SRC/
@@ -43,5 +43,5 @@ description: CSS dead-code analysis for style.css. Which selectors are used, dea
 - When removing dead CSS, remove the ENTIRE Tabulator block (lines 654-665) as a unit
 
 ## Sources
-- `style.css` (901 lines, full read)
+- `SRC/public/css/style.css` (437 lines after CSS cleanup, was 901)
 - All `.ts`, `.tsx`, `.js`, `.jsx`, `.html` files under `SRC/` (grep searches for each CSS selector)

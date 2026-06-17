@@ -24,10 +24,9 @@ export interface RunBarProps {
 }
 
 export function RunBar({ onResult }: RunBarProps) {
-  const state = useStore(s => s);
+  const { base } = useStore(s => ({ base: s.base }));
   const [runStatus, setRunStatus] = useState<string>('');
 
-  const base = state.base;
   const hasBaseConfigured = !!base;
 
   if (!hasBaseConfigured) return null;

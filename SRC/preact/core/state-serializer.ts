@@ -86,6 +86,9 @@ export function buildPayload(state: AppState): Record<string, unknown> {
       label:     typeof b.label === 'string' ? b.label : '',
     })),
     columnTypeOverrides: JSON.parse(JSON.stringify(state.columnTypeOverrides || {})),
+    includeSourceColumn: !!state.includeSourceColumn,
+    sourceColumnName: state.sourceColumnName || 'Source Sheet',
+    stackAliases: { ...(state.stackAliases || {}) },
   };
 }
 
