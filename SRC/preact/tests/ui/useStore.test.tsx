@@ -172,14 +172,17 @@ describe('useStore', () => {
       );
 
       expect(screen.getByTestId('tables').textContent).toBe('tbl1');
+      expect(renderCount).toBeGreaterThanOrEqual(1);
 
       // Update an unrelated field (activeTab) — tables reference should stay stable
+      const renderCountBefore = renderCount;
       act(() => {
         getStore().set('activeTab', 'output');
       });
 
-      // The displayed value should not change
+      // The displayed value should not change, and no re-render should occur
       expect(screen.getByTestId('tables').textContent).toBe('tbl1');
+      expect(renderCount).toBe(renderCountBefore);
     });
 
     it('does not re-render when a different primitive changes', () => {
@@ -197,13 +200,17 @@ describe('useStore', () => {
         </Harness>,
       );
 
+      expect(renderCount).toBeGreaterThanOrEqual(1);
+
       // Change activeTab — base reader should not re-render
+      const renderCountBefore = renderCount;
       act(() => {
         getStore().set('activeTab', 'output');
       });
 
-      // The displayed value should be unchanged
+      // The displayed value should be unchanged, and no re-render should occur
       expect(screen.getByTestId('base').textContent).toBe('');
+      expect(renderCount).toBe(renderCountBefore);
     });
   });
 

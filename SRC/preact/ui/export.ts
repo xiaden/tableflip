@@ -4,9 +4,9 @@
  * Ported from `SRC/js/ui/export.ts`. Key differences:
  * - No window assignment (exportAs)
  * - State reads from store instead of db global
- * - Uses preact utils for toast/dl
- * - Uses preact catalog for colSourceMap
- * - Uses preact validation for report status check
+ * - Uses core utils for toast/dl
+ * - Uses catalog layer for colSourceMap
+ * - Uses validation layer for report status check
  */
 
 import { getStore } from '../core/store';

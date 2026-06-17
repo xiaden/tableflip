@@ -17,11 +17,11 @@ beforeAll(async () => {
   const SQL = await initSqlJsFn({ wasmBinary });
   sqlDb = new SQL.Database();
 
-  // 2. Set globals required by sqldb.ts and preact modules
+  // 2. Set globals required by sqldb.ts and UI layer modules
   (globalThis as any).sqlDb = sqlDb;
   (window as any).sqlDb = sqlDb;
 
-  // 3. Initialize the preact store with default state
+  // 3. Initialize the store with default state
   initStore();
 
   // 4. Create Orders table (used by sqldb tests)

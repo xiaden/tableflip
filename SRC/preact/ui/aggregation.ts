@@ -6,7 +6,7 @@
  * for aggregation-related UI operations.
  *
  * Ported from SRC/js/ui/aggregation.ts. Key differences:
- * - No direct DOM manipulation — rendering is handled by Preact components
+ * - No direct DOM manipulation — rendering is handled by React/MUI components
  * - No window assignments
  * - State mutations go through store.update() instead of direct db mutation
  * - renderAggregation/renderSubtotalsSection replaced by store-driven reactivity
