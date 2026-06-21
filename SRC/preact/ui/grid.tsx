@@ -32,6 +32,7 @@ import { execQuery, quoteId } from '../core/sqldb';
 import { invalidateValidation } from '../report/validation';
 import { ContextMenu, type CtxMenuItem } from './components/context-menu';
 import { buildOverlayDescriptors } from '../report/overlay-grouping';
+import { ThreeRowHeader } from './three-row-header';
 
 /**
  * Synchronous display label computation (avoids async colDisplayLabel).
@@ -238,7 +239,20 @@ export function refreshPreviewGridLayout(): void {
 function _saveResultColState(): void {
   if (_resultGridApi) {
     const colState = _resultGridApi.getColumnState() as unknown as Record<string, unknown> | null;
-    getStore().update(draft => { draft.colState = colState; });
+    getStore().update(draft => {
+      draft.colState = colState;
+      // P8-S3: Also save column widths to _ui.columnWidths for persistence
+      if (colState && Array.isArray(colState)) {
+        const widths: Record<string, number> = {};
+        for (const cs of colState as Array<Record<string, unknown>>) {
+          if (typeof cs.colId === 'string' && typeof cs.width === 'number') {
+            widths[cs.colId] = cs.width;
+          }
+        }
+        if (!draft._ui) draft._ui = {};
+        draft._ui.columnWidths = widths;
+      }
+    });
   }
 }
 
@@ -386,6 +400,7 @@ export function ResultGrid({ result, onRenameDone }: ResultGridProps) {
         rowData={gridData.rowData}
         columnDefs={gridData.columnDefs}
         defaultColDef={DEFAULT_COL_DEF}
+        headerHeight={90}
         pagination={true}
         paginationPageSize={500}
         paginationPageSizeSelector={[100, 250, 500, 1000, 5000]}
@@ -609,6 +624,7 @@ export function PreviewGrid({ tableId }: PreviewGridProps) {
         rowData={previewRows}
         columnDefs={columnDefs as ColDef[]}
         defaultColDef={DEFAULT_COL_DEF}
+        headerHeight={90}
         pagination={true}
         paginationPageSize={200}
         paginationPageSizeSelector={[100, 200, 500, 1000]}
@@ -807,7 +823,7 @@ function makeResultCols(cols: string[], onRenameDone?: () => void, onTypeContext
       floatingFilter: true,
       sortable: true,
       resizable: true,
-      headerComponent: ColumnHeader,
+      headerComponent: ThreeRowHeader,
       headerComponentParams: {
         label: dispLabel,
         color,
@@ -860,7 +876,7 @@ function makePreviewCols(tid: string, physCols: string[], onShowPreviewMenu?: ((
       floatingFilter: true,
       sortable: true,
       resizable: true,
-      headerComponent: ColumnHeader,
+      headerComponent: ThreeRowHeader,
       headerComponentParams: {
         label,
         color,

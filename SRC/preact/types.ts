@@ -204,6 +204,17 @@ export interface AppState {
   includeSourceColumn: boolean;
   sourceColumnName: string;
   stackAliases: Record<string, string>;
+
+  /**
+   * Transient UI-only state (not serialized).
+   * Holds ephemeral UI flags like sidebar collapse state.
+   * Per ADR-006, this field is excluded from serialization.
+   */
+  _ui?: {
+    sidebarCollapsed?: boolean;
+    /** Column widths keyed by column field name. Persisted alongside colState for width restoration. */
+    columnWidths?: Record<string, number>;
+  };
 }
 
 /**

@@ -6,13 +6,12 @@
  * - No global `db` import — reads from `getStore().getState()`
  * - Payload building is separated into `buildPayload()` for testability
  * - `saveState()` handles the UI flow (prompt for name, trigger download)
- * - Calls `saveActiveAggModeState()` and `ensureAggModeState()` to sync agg mode state
+ * - No longer calls per-mode save/restore helpers (removed in Phase 5)
  */
 
 import { getStore } from './store';
 import { toast, dl } from './utils';
 import { STATE_VERSION } from './state-schema';
-import { saveActiveAggModeState, ensureAggModeState } from '../ui/aggregation';
 import type { AppState } from '../types';
 
 /**
@@ -101,9 +100,6 @@ export function buildPayload(state: AppState): Record<string, unknown> {
 export function saveState(): void {
   const state = getStore().getState();
   if (!state.base) { toast('Nothing to save — load a data file first.', 'err'); return; }
-
-  saveActiveAggModeState();
-  ensureAggModeState();
 
   const raw = typeof window !== 'undefined' ? window.prompt('Save query as:', 'my-query') : null;
   if (raw === null) return;

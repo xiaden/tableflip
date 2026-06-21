@@ -47,6 +47,7 @@ describe('State Constructors', () => {
       expect(state.includeSourceColumn).toBe(false);
       expect(state.sourceColumnName).toBe('Source Sheet');
       expect(state.stackAliases).toEqual({});
+      expect(state._ui).toEqual({});
     });
 
     it('should apply overrides', () => {

@@ -1,3 +1,7 @@
+/**
+ * State factory functions — creates default AppState, WorkspaceState, ReportSpec,
+ * and sub-spec objects with sensible defaults.
+ */
 import type { AppState, WorkspaceState, ReportSpec, LookupSpec, FilterSpec, SortSpec, OutputColumnSpec, DetailBandSpec } from '../types';
 
 /**
@@ -44,6 +48,7 @@ export function createAppState(overrides?: Partial<AppState>): AppState {
     includeSourceColumn: false,
     sourceColumnName: 'Source Sheet',
     stackAliases: {},
+    _ui: {},
   }, overrides || {});
 }
 

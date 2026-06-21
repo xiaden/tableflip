@@ -70,23 +70,10 @@ export type { PreviewResult } from './report/preview-builder';
 // ── UI Layer ──────────────────────────────────────────────────────────────────
 
 export { App } from './ui/app';
-export { Sidebar } from './ui/sidebar';
 export { Loader } from './ui/file-loader';
 export { loadSpreadsheet, loadSheets, ingestSheet } from './ui/loader';
-export { PipelineCard } from './ui/cards/pipeline-card';
-export { LayoutCard } from './ui/cards/layout-card';
-export { FilterSortCard } from './ui/cards/filter-sort-card';
-export { RunBar } from './ui/sections/run-bar';
-export { ColumnChips, selectAllCols, selectNoneCols } from './ui/sections/column-chips';
-export { MergeToggles, setMergeGroupUnderline } from './ui/sections/merge-toggles';
 export { FilterList, addFilter } from './ui/sections/filter-list';
 export { SortList, addSort } from './ui/sections/sort-list';
-export { BaseStage } from './ui/sections/base-stage';
-export { StackSheets } from './ui/sections/stack-sheets';
-export { PipelineArrow } from './ui/sections/pipeline-arrow';
-export { LookupStage } from './ui/sections/lookup-stage';
-export { CalcStageSection } from './ui/sections/calc-stage';
-export { DetailBandStage } from './ui/sections/detail-band-stage';
 export { Tip } from './ui/components/tip';
 export { Modal } from './ui/components/modal';
 export { ContextMenu } from './ui/components/context-menu';
@@ -94,11 +81,9 @@ export { Chip } from './ui/components/chip';
 export { RenameModal, resolveRenameTarget } from './ui/components/rename-modal';
 export { MathBuilder, TextEditBuilder, CompareBuilder, DateBuilder, calcModeComponents } from './ui/components/calc-builder';
 export type { CalcBuilderProps, ColOption } from './ui/components/calc-builder';
-export { switchTab } from './ui/tabs';
 export { ResultGrid, PreviewGrid, refreshResultGridLayout, refreshPreviewGridLayout } from './ui/grid';
 export { exportAs } from './ui/export';
 export {
-  setAggMode,
   addAggregate,
   removeAggregate,
   touchAggregate,
@@ -106,9 +91,6 @@ export {
   setSubtotalSpacer,
   setSubtotalOnTop,
   setSubtotalStrategy,
-  loadAggModeState,
-  saveActiveAggModeState,
-  ensureAggModeState,
 } from './ui/aggregation';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
