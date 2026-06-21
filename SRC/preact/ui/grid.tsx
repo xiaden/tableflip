@@ -23,13 +23,14 @@ import type { GridApi, GridReadyEvent, ColDef, RowClassParams, RowStyle, IsFullW
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
-import type { ColSourceEntry, ColumnType, OverlayDescriptor, BandResultSet } from '../types';
+import type { ColSourceEntry, ColumnType, OverlayDescriptor } from '../types';
 import { getStore } from '../core/store';
 import { colLabel, getTableColor, setColLabel } from '../core/utils';
 import { buildColSourceMap } from '../catalog/column-catalog';
 import { resolveRenameTarget, RenameModal, type RenameTarget } from './components/rename-modal';
 import { execQuery, quoteId } from '../core/sqldb';
 import { invalidateValidation } from '../report/validation';
+import type { ResultSet } from '../report/result-set';
 import { ContextMenu, type CtxMenuItem } from './components/context-menu';
 import { buildOverlayDescriptors } from '../report/overlay-grouping';
 import { ThreeRowHeader } from './three-row-header';
@@ -308,18 +309,18 @@ export function ResultGrid({ result, onRenameDone }: ResultGridProps) {
 
   // Compute grid data (rowData, columnDefs, band-specific options) via useMemo
   const gridData = useMemo(() => {
-    const { rows, totalsRow, cols } = result as {
-      rows: Record<string, unknown>[];
-      totalsRow: Record<string, unknown> | null;
-      cols: string[];
-    };
+    // result is a ResultSet from runReport(): { columns, rows, metadata: { totalsRow?, ... }, bandResult? }
+    const rs = result as unknown as ResultSet;
+    const rows = rs.rows;
+    const columns = rs.columns;
+    const totalsRow = rs.metadata?.totalsRow ?? null;
 
     // Check for overlay band path
-    const bandResult = (result as Record<string, unknown>).bandResult as BandResultSet | undefined;
+    const bandResult = rs.bandResult;
 
     const hasData = bandResult
       ? bandResult.parentRows.length > 0
-      : rows.length > 0 || totalsRow !== null;
+      : rows.length > 0 || totalsRow != null;
 
     if (!hasData) {
       return { hasData: false, rowData: [], columnDefs: [] as ColDef[], getRowStyle: undefined,
@@ -353,7 +354,7 @@ export function ResultGrid({ result, onRenameDone }: ResultGridProps) {
     } else {
       // ── Standard (non-band) path ───────────────────────────────────
       tableData = totalsRow ? [...rows, { ...totalsRow, _isTotalsRow: true }] : rows;
-      colDefs = makeResultCols(cols, onRenameDone, onTypeContextMenu);
+      colDefs = makeResultCols(columns, onRenameDone, onTypeContextMenu);
       bandStyler = createBandRowStyler(rows);
     }
 

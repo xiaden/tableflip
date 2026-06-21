@@ -17,12 +17,21 @@ import {
 } from '../../ui/grid';
 import { initStore } from '../../core/store';
 
+const { mockBuildColSourceMap } = vi.hoisted(() => ({
+  mockBuildColSourceMap: vi.fn(() => new Map()),
+}));
+
+vi.mock('../../catalog/column-catalog', () => ({
+  buildColSourceMap: () => mockBuildColSourceMap(),
+}));
+
 beforeEach(() => {
   initStore();
 });
 
 afterEach(() => {
   cleanup();
+  vi.clearAllMocks();
 });
 
 // ── ColumnHeader ─────────────────────────────────────────────────────────────
@@ -343,6 +352,86 @@ describe('ResultGrid', () => {
     const emptyDiv = container.querySelector('.empty');
     expect(emptyDiv).toBeTruthy();
     expect(container.textContent).toContain('No rows matched your query');
+  });
+
+  it('renders grid with ResultSet shape (columns not cols) from runReport()', () => {
+    // This is the exact shape returned by runReport() via buildResultSet().
+    // The old code destructured `cols` from the result, but ResultSet uses
+    // `columns` — causing `undefined.filter(...)` crash on any result with data.
+    const result = {
+      columns: ['A', 'B'],
+      rows: [{ A: 1, B: 2 }],
+      metadata: {
+        rowCount: 1,
+        generatedAt: Date.now(),
+        aggMode: 'none',
+        displayCols: ['A', 'B'],
+        totalsRow: null,
+      },
+    };
+
+    const { container } = render(<ResultGrid result={result} />);
+
+    // Should render the AG Grid wrapper (not crash)
+    const gridEl = container.querySelector('.ag-theme-balham-dark');
+    expect(gridEl).toBeTruthy();
+  });
+
+  it('renders grid with ResultSet shape including totalsRow from metadata', () => {
+    // totalsRow is nested under metadata in the ResultSet shape, not at top level.
+    // The old code destructured `totalsRow` from the top level — silently lost it.
+    const result = {
+      columns: ['A', 'B'],
+      rows: [{ A: 1, B: 2 }],
+      metadata: {
+        rowCount: 1,
+        generatedAt: Date.now(),
+        aggMode: 'none',
+        displayCols: ['A', 'B'],
+        totalsRow: { A: 99, B: 88 },
+      },
+    };
+
+    const { container } = render(<ResultGrid result={result} />);
+
+    // Should render without crash
+    const gridEl = container.querySelector('.ag-theme-balham-dark');
+    expect(gridEl).toBeTruthy();
+  });
+
+  it('renders grid with ResultSet bandResult overlay path', () => {
+    // The overlay band path uses bandResult.parentCols and bandResult.bandResults.
+    // Verify this path also renders without crash with correct shape.
+    const result = {
+      columns: ['A', 'B'],
+      rows: [{ A: 1, B: 2 }],
+      metadata: {
+        rowCount: 1,
+        generatedAt: Date.now(),
+        aggMode: 'none',
+        displayCols: ['A', 'B'],
+      },
+      bandResult: {
+        parentRows: [{ A: 1, B: 2 }],
+        parentCols: ['A', 'B'],
+        bandResults: [
+          {
+            band: { id: 'band0', rightId: 'table1', leftId: 'table0', enabled: true, keyPairs: [{ left: 'A', right: 'C' }], label: 'Band 0', schemaName: '' },
+            rows: [{ C: 'x', D: 10 }],
+            cols: ['C', 'D'],
+            parentKeyAliases: ['A'],
+            childKeyCols: ['C'],
+          },
+        ],
+        bandLabels: { band0: 'Band 0' },
+      },
+    };
+
+    const { container } = render(<ResultGrid result={result} />);
+
+    // Should render without crash
+    const gridEl = container.querySelector('.ag-theme-balham-dark');
+    expect(gridEl).toBeTruthy();
   });
 });
 

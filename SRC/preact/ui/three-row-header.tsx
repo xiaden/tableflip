@@ -22,14 +22,14 @@
  *          output columns). Shows red error state if no matching lookup exists.
  */
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import type { DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import ChipMUI from '@mui/material/Chip';
-import Tooltip from '@mui/material/Tooltip';
 import type { IHeaderParams } from 'ag-grid-community';
 import { getStore } from '../core/store';
+import { toast } from '../core/utils';
 import { invalidateValidation } from '../report/validation';
 import { _afterCombineChange } from '../query/layout-selection';
 import { buildColSourceMap } from '../catalog/column-catalog';
@@ -500,9 +500,18 @@ export function ThreeRowHeader(props: ThreeRowHeaderProps) {
   const columnErrorMsg = headerField ? columnErrors[headerField] : undefined;
   const hasColumnError = !!columnErrorMsg;
 
+  // ADR-009: errors use toast, not tooltip
+  // Fire toast on error state entry (not on every render)
+  const prevErrorRef = useRef(columnErrorMsg);
+  useEffect(() => {
+    if (columnErrorMsg && columnErrorMsg !== prevErrorRef.current) {
+      if (typeof window !== 'undefined') toast(columnErrorMsg, 'err');
+    }
+    prevErrorRef.current = columnErrorMsg;
+  }, [columnErrorMsg]);
+
   return (
-    <Tooltip title={columnErrorMsg || ''} open={hasColumnError ? undefined : false} arrow placement="bottom">
-      <Box
+    <Box
         sx={{
           display: 'flex',
           flexDirection: 'column',
@@ -516,17 +525,11 @@ export function ThreeRowHeader(props: ThreeRowHeaderProps) {
             backgroundColor: 'rgba(255, 0, 0, 0.08)',
             borderRadius: '3px',
           } : {}),
-          // P7-S1: Show × button on hover
-          '& .three-row-header-clear': {
-            opacity: 0,
-          },
-          '&:hover .three-row-header-clear': {
-            opacity: 1,
-          },
+          // × button always visible
         }}
         data-testid="three-row-header"
       >
-        {/* P7-S1: × button — positioned in top-right corner, visible on hover */}
+        {/* × button — positioned in top-right corner, always visible */}
         <Box
           className="three-row-header-clear"
           component="button"
@@ -728,6 +731,5 @@ export function ThreeRowHeader(props: ThreeRowHeaderProps) {
         onClose={handleBandConfigClose}
       />
     </Box>
-    </Tooltip>
   );
 }

@@ -19,10 +19,10 @@ import { resetLayoutSelection } from '../query/layout-selection';
 /**
  * Apply hydrated state to the reactive store and invalidate validation.
  *
- * Merges all properties from `next` into the store's draft state, then
- * applies excluded rows from `nextExcludedRows` (keyed by table ID).
- * Finally invalidates the validation cache so the next `getValidation()`
- * call recomputes from the updated state.
+ * Merges all properties from `next` into the store's draft state, resets
+ * transient UI state (_ui), applies excluded rows from `nextExcludedRows`
+ * (keyed by table ID), and invalidates the validation cache so the next
+ * `getValidation()` call recomputes from the updated state.
  *
  * @param next - Hydrated state properties to merge (from `hydrateState`)
  * @param nextExcludedRows - Excluded row sets keyed by table ID
@@ -30,6 +30,9 @@ import { resetLayoutSelection } from '../query/layout-selection';
 export function applyState(next: Record<string, unknown>, nextExcludedRows: Record<string, Set<number>>): void {
   getStore().update(draft => {
     Object.assign(draft, next);
+    // Reset transient UI state — _ui is not serialized, so loading a config
+    // should start with fresh UI state (sidebar expanded, default column widths).
+    draft._ui = {};
     for (const [tid, set] of Object.entries(nextExcludedRows)) {
       draft.excludedRows[tid] = set;
     }

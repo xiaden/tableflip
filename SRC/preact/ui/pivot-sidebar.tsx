@@ -1,5 +1,5 @@
 /**
- * PivotSidebar — right-side panel for the Report tab.
+ * PivotSidebar — left-side panel for the Report tab.
  *
  * Composes three child sections:
  * 1. TopSection — Import file, Import config, Save config buttons
@@ -22,7 +22,7 @@ import { SheetAccordions } from './sheet-accordions';
 import { CalcAccordion } from './calc-accordion';
 
 /**
- * PivotSidebar — 270px collapsible right sidebar for the Report tab.
+ * PivotSidebar — 270px collapsible left sidebar for the Report tab.
  *
  * Layout (top to bottom):
  * - TopSection (import/save buttons)
@@ -33,8 +33,8 @@ import { CalcAccordion } from './calc-accordion';
  * Collapse behavior:
  * - Width transitions between 270px (expanded) and 0 (collapsed)
  * - overflow: 'hidden' prevents content leaking during transition
- * - borderLeft only visible when expanded
- * - Toggle button peeks out on the left edge when collapsed
+ * - borderRight only visible when expanded
+ * - Toggle button peeks out on the right edge when collapsed
  */
 export function PivotSidebar() {
   // Read collapse state from the transient _ui slice
@@ -59,26 +59,26 @@ export function PivotSidebar() {
         minWidth: sidebarCollapsed ? 0 : 270,
         transition: 'width 0.2s ease',
         overflow: 'hidden',
-        borderLeft: sidebarCollapsed ? 'none' : '1px solid var(--border)',
+        borderRight: sidebarCollapsed ? 'none' : '1px solid var(--border)',
         display: 'flex',
         flexDirection: 'column',
       }}
     >
-      {/* Collapse/expand toggle button — positioned on the left edge */}
+      {/* Collapse/expand toggle button — positioned on the right edge */}
       <IconButton
         size="small"
         onClick={toggleSidebar}
         sx={{
           position: 'absolute',
-          left: sidebarCollapsed ? -24 : 0,
+          right: sidebarCollapsed ? -24 : 0,
           top: 8,
           zIndex: 10,
           width: 24,
           height: 24,
-          borderRadius: '4px 0 0 4px',
+          borderRadius: '0 4px 4px 0',
           backgroundColor: 'var(--bg2)',
           border: '1px solid var(--border)',
-          borderRight: 'none',
+          borderLeft: 'none',
           color: 'var(--muted)',
           p: 0,
           '&:hover': {
@@ -98,9 +98,9 @@ export function PivotSidebar() {
           strokeLinejoin="round"
         >
           {sidebarCollapsed ? (
-            <polyline points="9 18 15 12 9 6" />
-          ) : (
             <polyline points="15 18 9 12 15 6" />
+          ) : (
+            <polyline points="9 18 15 12 9 6" />
           )}
         </svg>
       </IconButton>

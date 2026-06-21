@@ -55,9 +55,9 @@ describe('PivotMain', () => {
     it('renders ResultGrid when store.result has rows', () => {
       getStore().update(draft => {
         draft.result = {
+          columns: ['A', 'B'],
           rows: [{ A: 1, B: 2 }],
-          totalsRow: null,
-          cols: ['A', 'B'],
+          metadata: { rowCount: 1, generatedAt: Date.now(), aggMode: 'none', displayCols: ['A', 'B'], totalsRow: null },
         } as any;
       });
 

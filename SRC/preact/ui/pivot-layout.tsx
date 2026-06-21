@@ -1,7 +1,7 @@
 /**
  * PivotLayout — top-level layout for the Report tab.
  *
- * Composes MenuBar (top), PivotMain (center), and PivotSidebar (right).
+ * Composes MenuBar (top), PivotSidebar (left), and PivotMain (center).
  * Mounts the auto-preview subscription on mount via initAutoPreview() and
  * tears it down on unmount via destroyAutoPreview().
  */
@@ -25,8 +25,8 @@ export function PivotLayout() {
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <MenuBar />
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <PivotMain />
         <PivotSidebar />
+        <PivotMain />
       </Box>
     </Box>
   );

@@ -8,7 +8,7 @@
 - [DD-preact-to-react-conversion](artifacts/designs/pending/DD-preact-to-react-conversion.md) — React+MUI foundation already executed. This DD builds on the live React+MUI+AG Grid React stack.
 - [Feature Mapping Reference](artifacts/designs/parts/live-chip-table-ui/feature-mapping.md) — Complete mapping of every current feature to its location in the new design. Authoritative companion document.
 - [ADR-002: Five-Layer Architecture](artifacts/decisions/ADR-002-five-layer-architecture.md) — UI layer only constraint.
-- [ADR-006: Monolithic State Store](artifacts/decisions/ADR-006-monolithic-state-store-single-source-of-truth-for-reactivity-and-serialization.md) — All mutations via store.update()/store.set(). _ui field additive only.
+- [ADR-006: Monolithic State Store](artifacts/decisions/ADR-006-monolithic-state-store-single-source-of-truth-for-reactivity-and-serialization.md) — All mutations via store.update()/store.set(). _ui field is transient (excluded from serialization).
 - [ASR-0002: Non-Technical UX Language](artifacts/requirements/ASR-0002-non-technical-ux-language.md) — No JOIN/SQL/WHERE in user-facing text.
 
 ---
@@ -70,7 +70,7 @@ The 3-tab layout has specific usability problems: (1) users can't see the effect
 4. Preserve AG Grid React — Keep declarative <AgGridReact>; implement three-row headers via headerComponentFramework.
 5. All existing functionality preserved — Stacks, lookups, calculated columns, detail bands, filters, sorts, aggregates, totals, subtotals, merges, XLSX/CSV export, column rename, row exclusion.
 6. UI-layer only — No changes to Core/Catalog/Query/Report.
-7. Backward-compatible state — Optional _ui field additive only; existing .rcjson files load without modification.
+7. Backward-compatible state — _ui field is transient (never serialized); existing .rcjson files load without modification.
 8. Performance budget — DnD → state change < 5ms, debounce 400ms, runReport ~100-500ms, AG Grid update ~50-200ms. Total ~200-600ms.
 
 ---
@@ -78,7 +78,7 @@ The 3-tab layout has specific usability problems: (1) users can't see the effect
 ## Constraints
 
 1. Five-layer architecture preserved (ADR-002): Only SRC/preact/ui/ changes.
-2. Monolithic store preserved (ADR-006): All mutations via store.update()/store.set(). _ui field additive only.
+2. Monolithic store preserved (ADR-006): All mutations via store.update()/store.set(). _ui field is transient.
 3. AG Grid React v33.3.2 stays. Three-row headers via headerComponentFramework (available since v31+).
 4. No breaking changes to AppState serialization. _ui field optional, transient fields reset on load.
 5. All existing functionality preserved.
