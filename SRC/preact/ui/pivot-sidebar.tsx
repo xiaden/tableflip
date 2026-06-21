@@ -57,6 +57,7 @@ export function PivotSidebar() {
         position: 'relative',
         width: sidebarCollapsed ? 0 : 270,
         minWidth: sidebarCollapsed ? 0 : 270,
+        height: '100%',
         transition: 'width 0.2s ease',
         overflow: 'hidden',
         borderRight: sidebarCollapsed ? 'none' : '1px solid var(--border)',

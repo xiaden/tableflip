@@ -10,6 +10,7 @@
  * properties and compact component sizing. CssBaseline applies a consistent baseline.
  */
 
+import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
 import { createRoot } from 'react-dom/client';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -17,6 +18,9 @@ import { initDb } from './core/sqldb';
 import { initStore } from './core/store';
 import { App } from './ui/app';
 import theme from './ui/theme';
+
+// AG Grid v33.3.2 requires explicit module registration
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 /**
  * Bootstrap the application.
