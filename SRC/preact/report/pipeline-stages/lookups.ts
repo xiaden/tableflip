@@ -48,10 +48,10 @@ export function executeLookupStage(ctx: StageContext): StageResult {
     const joinType = lk.required ? 'INNER' : 'LEFT';
     const rightTableQuoted = quoteId(lk.rightId);
 
-    // ON conditions: left side is temp table column (unqualified),
+    // ON conditions: left side is temp table column (qualified),
     // right side is the lookup table column
     const onConditions = validPairs.map(p =>
-      `${quoteId(p.left)} = ${rightTableQuoted}.${quoteId(p.right)}`,
+      `${quoteId(prevTableName)}.${quoteId(p.left)} = ${rightTableQuoted}.${quoteId(p.right)}`,
     );
 
     joinClauses.push(

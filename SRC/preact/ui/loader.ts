@@ -297,7 +297,6 @@ export function ingestSheet(wb: XLSXWorkbook, sheetName: string, label: string, 
     draft.excludedRows[id] = new Set<number>();
     draft.tables[id] = { id, name: label, cols, rowCount, samples, ...(Object.keys(colTypes).length ? { colTypes } : {}) };
     draft.tableColors[id] = color;
-    if (!draft.base) draft.base = id;
   });
   _afterCombineChange();
 

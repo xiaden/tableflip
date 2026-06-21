@@ -7,7 +7,9 @@ describe('query-plan', () => {
 
   describe('buildQueryPlan()', () => {
     it('should build a detail mode plan (aggMode=none)', () => {
-      const spec = makeReportSpec();
+      const spec = makeReportSpec({
+        outputColumns: ['OrderId', 'Company', 'Region', 'Amount'],
+      });
       const plan = buildQueryPlan(spec, tables);
       expect(plan.aggMode).toBe('none');
       expect(plan.source.base).toBe('Orders');
@@ -19,6 +21,7 @@ describe('query-plan', () => {
 
     it('should build a group mode plan', () => {
       const spec = makeReportSpec({
+        outputColumns: ['Company', 'Total'],
         aggregation: {
           mode: 'group',
           groupBy: ['Company'],

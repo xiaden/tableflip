@@ -191,6 +191,7 @@ describe('Query Plan — Band Column Handling', () => {
   describe('base columns still projected', () => {
     it('should still project base columns when bands are configured', () => {
       const spec = makeReportSpec({
+        outputColumns: ['OrderId', 'Company', 'Amount'],
         pipeline: {
           base: 'Orders',
           baseCols: [],

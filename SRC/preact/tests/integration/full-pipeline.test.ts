@@ -238,6 +238,7 @@ describe('Integration: Full Pipeline', () => {
       // returns the quoted alias for calc columns. We verify the plan-level
       // integration: calc expressions are built and the column appears in output.
       const s = spec({
+        outputColumns: ['DoubleAmount'],
         pipeline: {
           base: 'Orders',
           baseCols: [],
