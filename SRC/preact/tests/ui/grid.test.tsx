@@ -317,29 +317,24 @@ describe('ColumnHeader', () => {
 // ── ResultGrid ───────────────────────────────────────────────────────────────
 
 describe('ResultGrid', () => {
-  it('shows empty state when result has no rows and no totals', () => {
-    const result = { rows: [], totalsRow: null, cols: ['A', 'B'] };
-    const { container } = render(<ResultGrid result={result} />);
-
-    const emptyDiv = container.querySelector('.empty');
-    expect(emptyDiv).toBeTruthy();
-    expect(container.textContent).toContain('No rows matched your query');
-  });
-
-  it('shows empty state with magnifying glass icon', () => {
-    const result = { rows: [], totalsRow: null, cols: [] };
-    const { container } = render(<ResultGrid result={result} />);
-
-    const icon = container.querySelector('.empty-icon');
-    expect(icon).toBeTruthy();
-    expect(icon!.textContent).toBe('\u{1F50D}');
-  });
-
-  it('shows empty state when bandResult has no parent rows', () => {
+  it('renders grid with __add column when result has no rows', () => {
     const result = {
+      columns: [],
       rows: [],
-      totalsRow: null,
-      cols: [],
+      metadata: { rowCount: 0, generatedAt: Date.now(), aggMode: 'none', displayCols: [] },
+    };
+    const { container } = render(<ResultGrid result={result} />);
+
+    // Grid renders with the __add column as drop target
+    const gridEl = container.querySelector('.ag-theme-balham-dark');
+    expect(gridEl).toBeTruthy();
+  });
+
+  it('renders grid with __add column when bandResult has no parent rows', () => {
+    const result = {
+      columns: [],
+      rows: [],
+      metadata: { rowCount: 0, generatedAt: Date.now(), aggMode: 'none', displayCols: [] },
       bandResult: {
         parentRows: [],
         parentCols: ['A'],
@@ -349,9 +344,9 @@ describe('ResultGrid', () => {
     };
     const { container } = render(<ResultGrid result={result} />);
 
-    const emptyDiv = container.querySelector('.empty');
-    expect(emptyDiv).toBeTruthy();
-    expect(container.textContent).toContain('No rows matched your query');
+    // Grid still renders with the __add column
+    const gridEl = container.querySelector('.ag-theme-balham-dark');
+    expect(gridEl).toBeTruthy();
   });
 
   it('renders grid with ResultSet shape (columns not cols) from runReport()', () => {

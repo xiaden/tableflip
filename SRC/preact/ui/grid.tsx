@@ -322,11 +322,6 @@ export function ResultGrid({ result, onRenameDone }: ResultGridProps) {
       ? bandResult.parentRows.length > 0
       : rows.length > 0 || totalsRow != null;
 
-    if (!hasData) {
-      return { hasData: false, rowData: [], columnDefs: [] as ColDef[], getRowStyle: undefined,
-        isFullWidthRow: undefined, fullWidthCellRenderer: undefined, embedFullWidthRows: undefined };
-    }
-
     let tableData: Record<string, unknown>[];
     let colDefs: ColDef[];
     let bandStyler: (params: { data: Record<string, unknown> }) => Record<string, string> | undefined;
@@ -359,10 +354,10 @@ export function ResultGrid({ result, onRenameDone }: ResultGridProps) {
     }
 
     return {
-      hasData: true,
+      hasData,
       rowData: tableData,
       columnDefs: colDefs,
-      getRowStyle: (params: RowClassParams): RowStyle | undefined => bandStyler!(params as unknown as { data: Record<string, unknown> }),
+      getRowStyle: bandStyler ? (params: RowClassParams): RowStyle | undefined => bandStyler(params as unknown as { data: Record<string, unknown> }) : undefined,
       isFullWidthRow: isFullWidthRow as ((params: IsFullWidthRowParams) => boolean) | undefined,
       fullWidthCellRenderer,
       embedFullWidthRows,
@@ -380,17 +375,6 @@ export function ResultGrid({ result, onRenameDone }: ResultGridProps) {
       });
     }
   }, []);
-
-  const hasData = gridData.hasData;
-
-  if (!hasData) {
-    return (
-      <div className="empty">
-        <div className="empty-icon">{'\u{1F50D}'}</div>
-        <div>No rows matched your query</div>
-      </div>
-    );
-  }
 
   return (
     <>
