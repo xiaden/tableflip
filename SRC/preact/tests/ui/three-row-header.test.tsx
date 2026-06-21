@@ -80,7 +80,11 @@ function makeDropEvent(data: Record<string, unknown>) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(console, 'error').mockImplementation(() => {});
-  mockBuildColSourceMap.mockReturnValue(new Map());
+  // Default colMap entry so headerSource is defined (× button visible)
+  const defaultColMap = new Map([
+    ['TestCol', { tid: 'orders', col: 'TestCol', kind: 'physical' }],
+  ]);
+  mockBuildColSourceMap.mockReturnValue(defaultColMap);
   initStore();
 });
 

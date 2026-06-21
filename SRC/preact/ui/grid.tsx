@@ -396,6 +396,7 @@ export function ResultGrid({ result, onRenameDone }: ResultGridProps) {
     <>
       <AgGridReact
         ref={gridRef}
+        theme="legacy"
         className="ag-theme-balham-dark"
         containerStyle={{ height: '100%', width: '100%' }}
         rowData={gridData.rowData}
@@ -620,6 +621,7 @@ export function PreviewGrid({ tableId }: PreviewGridProps) {
       </span>
       <AgGridReact
         ref={gridRef}
+        theme="legacy"
         className="ag-theme-balham-dark"
         containerStyle={{ height: '100%', width: '100%' }}
         rowData={previewRows}
@@ -802,49 +804,75 @@ function makeResultCols(cols: string[], onRenameDone?: () => void, onTypeContext
   const state = getStore().getState();
   const dataCols = cols.filter(c => c !== '_rowno' && c !== '_row_type' && c !== '_isTotalsRow' && c !== '_band_id' && c !== '_isBandHeader');
 
-  return dataCols.map(c => {
-    const src = colMap.get(c);
-    const dispLabel = _displayLabel(c, colMap);
-    const srcPhys = src as { tid: string; col: string } | undefined;
-    const renamed = (src && src.kind !== 'calc') ? state.columnLabels?.[srcPhys!.tid]?.[srcPhys!.col] : undefined;
-    const color = src ? getTableColor(srcPhys?.tid || '') : null;
+  return [
+    ...dataCols.map(c => {
+      const src = colMap.get(c);
+      const dispLabel = _displayLabel(c, colMap);
+      const srcPhys = src as { tid: string; col: string } | undefined;
+      const renamed = (src && src.kind !== 'calc') ? state.columnLabels?.[srcPhys!.tid]?.[srcPhys!.col] : undefined;
+      const color = src ? getTableColor(srcPhys?.tid || '') : null;
 
-    const doRename = (): void => {
-      const target = resolveRenameTarget(c);
-      if (!target) return;
-      if (onRenameDone) onRenameDone();
-    };
+      const doRename = (): void => {
+        const target = resolveRenameTarget(c);
+        if (!target) return;
+        if (onRenameDone) onRenameDone();
+      };
 
-    return {
-      field: c,
-      headerName: dispLabel,
-      tooltipField: c,
-      minWidth: 110,
-      filter: 'agTextColumnFilter',
-      floatingFilter: true,
-      sortable: true,
-      resizable: true,
+      return {
+        field: c,
+        headerName: dispLabel,
+        tooltipField: c,
+        minWidth: 110,
+        filter: 'agTextColumnFilter',
+        floatingFilter: true,
+        sortable: true,
+        resizable: true,
+        headerComponent: ThreeRowHeader,
+        headerComponentParams: {
+          label: dispLabel,
+          color,
+          renamed,
+          origCol: (src && src.kind !== 'calc') ? src.col : null,
+          onRename: (src && src.kind !== 'calc') ? doRename : null,
+          onClear: (src && src.kind !== 'calc' && renamed)
+            ? () => {
+                setColLabel(src.tid, src.col, src.col);
+                if (onRenameDone) onRenameDone();
+              }
+            : null,
+          onContextMenu: onTypeContextMenu && src && src.kind !== 'calc' ? (e: MouseEvent) => onTypeContextMenu(e, src.tid, src.col) : null,
+        },
+        cellRenderer: (params: { value: unknown }) => {
+          const v = params.value;
+          return v == null ? '' : String(v);
+        },
+      };
+    }),
+    // Dummy "add column" slot — always rendered at the end of the grid.
+    // Has a ThreeRowHeader (drop zone) but no data source. Dropping a chip
+    // on it triggers the "empty cell" path in handleTopRowDrop.
+    {
+      field: '__add',
+      headerName: '',
+      minWidth: 40,
+      width: 40,
+      resizable: false,
+      filter: false,
+      floatingFilter: false,
+      sortable: false,
       headerComponent: ThreeRowHeader,
       headerComponentParams: {
-        label: dispLabel,
-        color,
-        renamed,
-        origCol: (src && src.kind !== 'calc') ? src.col : null,
-        onRename: (src && src.kind !== 'calc') ? doRename : null,
-        onClear: (src && src.kind !== 'calc' && renamed)
-          ? () => {
-              setColLabel(src.tid, src.col, src.col);
-              if (onRenameDone) onRenameDone();
-            }
-          : null,
-        onContextMenu: onTypeContextMenu && src && src.kind !== 'calc' ? (e: MouseEvent) => onTypeContextMenu(e, src.tid, src.col) : null,
+        label: '+',
+        color: null,
+        renamed: undefined,
+        origCol: null,
+        onRename: null,
+        onClear: null,
+        onContextMenu: null,
       },
-      cellRenderer: (params: { value: unknown }) => {
-        const v = params.value;
-        return v == null ? '' : String(v);
-      },
-    };
-  });
+      cellRenderer: () => '',
+    } as ColDef,
+  ];
 }
 
 /**

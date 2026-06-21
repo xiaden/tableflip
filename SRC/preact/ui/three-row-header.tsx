@@ -519,6 +519,8 @@ export function ThreeRowHeader(props: ThreeRowHeaderProps) {
           height: '100%',
           overflow: 'hidden',
           position: 'relative',
+          // Subtle 3D inset shadow for depth between header rows
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.3)',
           // P7-S4: Red border/background when column has an error
           ...(hasColumnError ? {
             border: '1px solid rgba(255, 80, 80, 0.7)',
@@ -529,40 +531,42 @@ export function ThreeRowHeader(props: ThreeRowHeaderProps) {
         }}
         data-testid="three-row-header"
       >
-        {/* × button — positioned in top-right corner, always visible */}
-        <Box
-          className="three-row-header-clear"
-          component="button"
-          type="button"
-          onClick={handleClearColumn}
-          sx={{
-            position: 'absolute',
-            top: 1,
-            right: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 16,
-            height: 16,
-            border: 'none',
-            background: 'rgba(255, 255, 255, 0.15)',
-            color: 'inherit',
-            fontSize: '12px',
-            lineHeight: 1,
-            cursor: 'pointer',
-            borderRadius: '3px',
-            p: 0,
-            zIndex: 2,
-            transition: 'opacity 0.15s ease',
-            '&:hover': {
-              background: 'rgba(255, 80, 80, 0.5)',
-              color: '#fff',
-            },
-          }}
-          title="Clear column"
-        >
-          {'\u00d7'}
-        </Box>
+        {/* × button — positioned in top-right corner, hidden on dummy add column */}
+        {headerSource && (
+          <Box
+            className="three-row-header-clear"
+            component="button"
+            type="button"
+            onClick={handleClearColumn}
+            sx={{
+              position: 'absolute',
+              top: 1,
+              right: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 16,
+              height: 16,
+              border: 'none',
+              background: 'rgba(255, 255, 255, 0.15)',
+              color: 'inherit',
+              fontSize: '12px',
+              lineHeight: 1,
+              cursor: 'pointer',
+              borderRadius: '3px',
+              p: 0,
+              zIndex: 2,
+              transition: 'opacity 0.15s ease',
+              '&:hover': {
+                background: 'rgba(255, 80, 80, 0.5)',
+                color: '#fff',
+              },
+            }}
+            title="Clear column"
+          >
+            {'\u00d7'}
+          </Box>
+        )}
       {/* Top row: column label / join key pairs / report column chips */}
       <Box
         sx={{
@@ -573,7 +577,9 @@ export function ThreeRowHeader(props: ThreeRowHeaderProps) {
           gap: '3px',
           px: '4px',
           overflow: 'hidden',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          backgroundColor: 'rgba(255,255,255,0.06)',
+          borderBottom: '1px solid var(--border)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)',
         }}
         data-row="top"
         onDragOver={handleDragOver}
@@ -631,7 +637,9 @@ export function ThreeRowHeader(props: ThreeRowHeaderProps) {
           gap: '2px',
           px: '4px',
           overflow: 'hidden',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          backgroundColor: 'rgba(255,255,255,0.03)',
+          borderBottom: '1px solid var(--border)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02)',
         }}
         data-row="middle"
         onDragOver={handleDragOver}
@@ -707,6 +715,8 @@ export function ThreeRowHeader(props: ThreeRowHeaderProps) {
           gap: '2px',
           px: '4px',
           overflow: 'hidden',
+          backgroundColor: 'rgba(255,255,255,0.02)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02), inset 0 -1px 0 rgba(0,0,0,0.15)',
         }}
         data-row="bottom"
         onDragOver={handleDragOver}

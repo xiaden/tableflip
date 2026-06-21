@@ -231,7 +231,6 @@ export function _afterCombineChange(): void {
   store.update(draft => {
     const selCols = draft.selCols as unknown as Set<string>;
     if (selCols instanceof Set) {
-      nowCols.forEach(c => { if (!_seenCols.has(c)) { selCols.add(c); _seenCols.add(c); } });
       const nowSet = new Set(nowCols);
       for (const c of [...selCols]) { if (!nowSet.has(c) && !_disabledCardCols.has(c)) selCols.delete(c); }
     }
