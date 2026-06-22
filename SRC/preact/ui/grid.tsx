@@ -838,8 +838,8 @@ function makeResultCols(cols: string[], onRenameDone?: () => void, onTypeContext
     {
       field: '__add',
       headerName: '',
-      width: 80,
-      minWidth: 80,
+      width: 200,
+      minWidth: 200,
       resizable: false,
       filter: false,
       floatingFilter: false,
