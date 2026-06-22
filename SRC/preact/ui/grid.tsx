@@ -348,8 +348,16 @@ export function ResultGrid({ result, onRenameDone }: ResultGridProps) {
       embedFullWidthRows = true;
     } else {
       // ── Standard (non-band) path ───────────────────────────────────
+      // Filter columns to only those in colOrder (user-selected columns).
+      // The query layer returns all columns, but the UI only shows what
+      // the user has explicitly added via chip drops.
+      const state = getStore().getState();
+      const colOrder = state.colOrder;
+      const displayCols = colOrder.length > 0
+        ? columns.filter(c => colOrder.includes(c))
+        : [];
       tableData = totalsRow ? [...rows, { ...totalsRow, _isTotalsRow: true }] : rows;
-      colDefs = makeResultCols(columns, onRenameDone, onTypeContextMenu);
+      colDefs = makeResultCols(displayCols, onRenameDone, onTypeContextMenu);
       bandStyler = createBandRowStyler(rows);
     }
 

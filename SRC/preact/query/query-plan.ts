@@ -204,7 +204,7 @@ export function buildQueryPlan(
   const colOrder = reportSpec.outputColumns;
   const orderedAliases = colOrder.length > 0
     ? colOrder.filter(a => colMap.has(a) || aggAliases.includes(a))
-    : aggAliases;
+    : [...colMap.keys(), ...aggAliases];
   // Exclude band columns from selectedColumns — they are handled separately
   // by the band query engine, not the main pipeline SELECT.
   const selectedColumns = orderedAliases.filter(a => {

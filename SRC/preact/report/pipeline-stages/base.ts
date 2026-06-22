@@ -55,24 +55,11 @@ export function executeBaseStage(ctx: StageContext): StageResult {
     throw new Error('executeBaseStage: no valid base table');
   }
 
-  // Determine projected columns: explicit baseCols, or fall back to outputColumns
-  // (what the user has selected via chip drops), or all base table columns.
+  // Determine projected columns: explicit baseCols or all base table columns
   const explicitBaseCols = pipeline.baseCols ?? [];
-  const outputCols = reportSpec.outputColumns ?? [];
-  let projectedCols: string[];
-  if (explicitBaseCols.length > 0) {
-    projectedCols = explicitBaseCols;
-  } else if (outputCols.length > 0) {
-    // Use only columns that exist in the base table
-    projectedCols = outputCols.filter(c => baseTable.cols.includes(c));
-    // If no output columns match the base table (e.g. all from lookups),
-    // fall back to all base columns so the pipeline has something to work with
-    if (projectedCols.length === 0) {
-      projectedCols = baseTable.cols;
-    }
-  } else {
-    projectedCols = baseTable.cols;
-  }
+  const projectedCols = explicitBaseCols.length > 0
+    ? explicitBaseCols
+    : baseTable.cols;
 
   if (projectedCols.length === 0) {
     throw new Error('executeBaseStage: no columns to project');
