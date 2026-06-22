@@ -447,7 +447,31 @@ export function ThreeRowHeader(props: ThreeRowHeaderProps) {
 
     // Look up the header column's source in the column catalog
     const headerSource = colMap.get(headerField);
-    if (!headerSource || headerSource.kind === 'calc' || headerSource.kind === 'band') {
+
+    // For the __add column (no source), accept chip drops and create a new lookup
+    if (!headerSource) {
+      const currentState = store.getState();
+      if (!currentState.base || !chipTableId || currentState.base === chipTableId) return;
+      store.update(draft => {
+        draft.lookups.push({
+          rightId: chipTableId,
+          keyPairs: [{ left: chipColumnName, right: chipColumnName }],
+          cols: [chipColumnName],
+          required: false,
+          enabled: true,
+          duplicatePolicy: { mode: 'first' },
+        });
+        (draft.selCols as Set<string>).add(chipColumnName);
+        if (!draft.colOrder.includes(chipColumnName)) {
+          draft.colOrder.push(chipColumnName);
+        }
+      });
+      invalidateValidation();
+      _afterCombineChange();
+      return;
+    }
+
+    if (headerSource.kind === 'calc' || headerSource.kind === 'band') {
       // Header column has no physical source (calc/band) — can't be a join key
       setColumnErrors(prev => ({ ...prev, [headerField]: 'No physical source column for join key' }));
       return;
@@ -462,19 +486,32 @@ export function ThreeRowHeader(props: ThreeRowHeaderProps) {
       lk => lk.rightId === chipTableId && headerTableId === currentState.base
     );
 
-    if (lookupIdx < 0) {
-      // P4-S5: No matching lookup exists — show red error state for this column
-      setColumnErrors(prev => ({ ...prev, [headerField]: 'No matching lookup for this sheet pair' }));
-      return;
-    }
-
-    // P4-S2: Add the extra key pair to the existing lookup
-    store.update(draft => {
-      draft.lookups[lookupIdx].keyPairs.push({
-        left: headerField,
-        right: chipColumnName,
+    if (lookupIdx >= 0) {
+      // Add the extra key pair to the existing lookup
+      store.update(draft => {
+        draft.lookups[lookupIdx].keyPairs.push({
+          left: headerField,
+          right: chipColumnName,
+        });
       });
-    });
+    } else {
+      // No matching lookup — create a new one
+      if (headerTableId === chipTableId) return; // Same table, no join needed
+      store.update(draft => {
+        draft.lookups.push({
+          rightId: chipTableId,
+          keyPairs: [{ left: headerField, right: chipColumnName }],
+          cols: [chipColumnName],
+          required: false,
+          enabled: true,
+          duplicatePolicy: { mode: 'first' },
+        });
+        (draft.selCols as Set<string>).add(chipColumnName);
+        if (!draft.colOrder.includes(chipColumnName)) {
+          draft.colOrder.push(chipColumnName);
+        }
+      });
+    }
 
     // Clear error state for this column on success
     setColumnErrors(prev => {
@@ -484,7 +521,7 @@ export function ThreeRowHeader(props: ThreeRowHeaderProps) {
       return next;
     });
 
-    // P4-S6: Invalidate validation after store mutation
+    // Invalidate validation after store mutation
     invalidateValidation();
 
     // Notify pipeline that combine structure changed (key pairs affect joins)
