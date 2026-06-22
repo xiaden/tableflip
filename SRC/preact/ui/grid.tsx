@@ -387,6 +387,7 @@ export function ResultGrid({ result, onRenameDone }: ResultGridProps) {
         columnDefs={gridData.columnDefs}
         defaultColDef={DEFAULT_COL_DEF}
         headerHeight={90}
+        floatingFilterHeight={28}
         pagination={true}
         paginationPageSize={500}
         paginationPageSizeSelector={[100, 250, 500, 1000, 5000]}
@@ -612,6 +613,7 @@ export function PreviewGrid({ tableId }: PreviewGridProps) {
         columnDefs={columnDefs as ColDef[]}
         defaultColDef={DEFAULT_COL_DEF}
         headerHeight={90}
+        floatingFilterHeight={28}
         pagination={true}
         paginationPageSize={200}
         paginationPageSizeSelector={[100, 200, 500, 1000]}
@@ -838,8 +840,8 @@ function makeResultCols(cols: string[], onRenameDone?: () => void, onTypeContext
     {
       field: '__add',
       headerName: '',
-      width: 200,
-      minWidth: 200,
+      width: 180,
+      minWidth: 180,
       resizable: false,
       filter: false,
       floatingFilter: false,
@@ -847,13 +849,14 @@ function makeResultCols(cols: string[], onRenameDone?: () => void, onTypeContext
       suppressSizeToFit: true,
       headerComponent: ThreeRowHeader,
       headerComponentParams: {
-        label: '+',
+        label: '',
         color: null,
         renamed: undefined,
         origCol: null,
         onRename: null,
         onClear: null,
         onContextMenu: null,
+        placeholders: { top: 'Add column', middle: 'Detail rows', bottom: 'Match key' },
       },
       cellRenderer: () => '',
     } as ColDef,

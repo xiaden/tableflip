@@ -57,6 +57,8 @@ export interface ThreeRowHeaderCustomParams {
   onClear: (() => void) | null;
   /** Callback for right-click context menu */
   onContextMenu: ((e: MouseEvent) => void) | null;
+  /** Placeholder text for the blank column's three rows */
+  placeholders?: { top?: string; middle?: string; bottom?: string };
 }
 
 /**
@@ -94,7 +96,7 @@ function parseDropData(e: ReactDragEvent): Record<string, unknown> | null {
  * The bottom row is reserved for extra match key chips.
  */
 export function ThreeRowHeader(props: ThreeRowHeaderProps) {
-  const { displayName, progressSort, label, color, column } = props;
+  const { displayName, progressSort, label, color, column, placeholders } = props;
 
   // Use the computed label (from headerComponentParams) or fall back to displayName (from AG Grid)
   const displayLabel = label || displayName || '';
@@ -580,6 +582,7 @@ export function ThreeRowHeader(props: ThreeRowHeaderProps) {
           backgroundColor: 'rgba(255,255,255,0.06)',
           borderBottom: '1px solid var(--border)',
           boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)',
+          mb: '3px',
         }}
         data-row="top"
         onDragOver={handleDragOver}
@@ -606,6 +609,19 @@ export function ThreeRowHeader(props: ThreeRowHeaderProps) {
             rightTableId={joinPairLookup.rightId}
             lookupIndex={joinPairIdx}
             onGearClick={handleGearClick}
+          />
+        ) : placeholders?.top ? (
+          <ChipMUI
+            label={placeholders.top}
+            size="small"
+            sx={{
+              height: 20,
+              fontSize: '0.65rem',
+              backgroundColor: 'rgba(255,255,255,0.08)',
+              color: 'var(--muted)',
+              borderLeft: '2px solid rgba(255,255,255,0.15)',
+              '& .MuiChip-label': { px: '4px' },
+            }}
           />
         ) : (
           <Typography
@@ -640,6 +656,7 @@ export function ThreeRowHeader(props: ThreeRowHeaderProps) {
           backgroundColor: 'rgba(255,255,255,0.03)',
           borderBottom: '1px solid var(--border)',
           boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02)',
+          mb: '3px',
         }}
         data-row="middle"
         onDragOver={handleDragOver}
@@ -703,6 +720,20 @@ export function ThreeRowHeader(props: ThreeRowHeaderProps) {
             </Box>
           );
         })}
+        {state.detailBands.length === 0 && placeholders?.middle && (
+          <ChipMUI
+            label={placeholders.middle}
+            size="small"
+            sx={{
+              height: 20,
+              fontSize: '0.65rem',
+              backgroundColor: 'rgba(255,255,255,0.06)',
+              color: 'var(--muted)',
+              borderLeft: '2px solid rgba(255,255,255,0.12)',
+              '& .MuiChip-label': { px: '4px' },
+            }}
+          />
+        )}
       </Box>
 
       {/* Bottom row: extra match key chips */}
@@ -721,7 +752,22 @@ export function ThreeRowHeader(props: ThreeRowHeaderProps) {
         data-row="bottom"
         onDragOver={handleDragOver}
         onDrop={handleBottomRowDrop}
-      />
+      >
+        {placeholders?.bottom && (
+          <ChipMUI
+            label={placeholders.bottom}
+            size="small"
+            sx={{
+              height: 20,
+              fontSize: '0.65rem',
+              backgroundColor: 'rgba(255,255,255,0.04)',
+              color: 'var(--muted)',
+              borderLeft: '2px solid rgba(255,255,255,0.10)',
+              '& .MuiChip-label': { px: '4px' },
+            }}
+          />
+        )}
+      </Box>
 
       {/* P5-S3: Join options popup — rendered when gear icon is clicked */}
       {gearAnchor && gearLookupIdx >= 0 && gearLookupIdx < state.lookups.length && (
