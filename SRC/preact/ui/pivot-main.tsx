@@ -43,19 +43,17 @@ export function PivotMain() {
     } : {}),
   }), [isBlocked]);
 
-  if (!result) {
-    return (
-      <Box sx={wrapperSx}>
-        <Box sx={{ p: 2, color: 'var(--muted)' }}>
-          <Typography variant="body2">No results yet — configure your report and run it</Typography>
-        </Box>
-      </Box>
-    );
-  }
+  // Always render the grid — when no result exists yet, pass a blank result
+  // so the __add column is available as a drop target.
+  const blankResult = {
+    columns: [],
+    rows: [],
+    metadata: { rowCount: 0, generatedAt: Date.now(), aggMode: 'none', displayCols: [] },
+  };
 
   return (
     <Box sx={wrapperSx}>
-      <ResultGrid result={result} onRenameDone={() => invalidateValidation()} />
+      <ResultGrid result={result ?? blankResult} onRenameDone={() => invalidateValidation()} />
     </Box>
   );
 }

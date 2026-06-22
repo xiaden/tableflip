@@ -36,18 +36,21 @@ afterEach(() => {
 });
 
 describe('PivotMain', () => {
-  describe('empty state', () => {
-    it('renders "No results yet" when store.result is null', () => {
-      render(<PivotMain />);
-      expect(screen.getByText(/No results yet/)).toBeTruthy();
+  describe('blank state', () => {
+    it('renders ResultGrid with blank result when store.result is null', () => {
+      const { container } = render(<PivotMain />);
+      // Grid always renders — the __add column is the drop target
+      const gridEl = container.querySelector('.ag-theme-balham-dark');
+      expect(gridEl).toBeTruthy();
     });
 
-    it('renders "No results yet" when store.result is undefined', () => {
+    it('renders ResultGrid when store.result is undefined', () => {
       getStore().update(draft => {
         draft.result = null;
       });
-      render(<PivotMain />);
-      expect(screen.getByText(/No results yet/)).toBeTruthy();
+      const { container } = render(<PivotMain />);
+      const gridEl = container.querySelector('.ag-theme-balham-dark');
+      expect(gridEl).toBeTruthy();
     });
   });
 
