@@ -838,12 +838,13 @@ function makeResultCols(cols: string[], onRenameDone?: () => void, onTypeContext
     {
       field: '__add',
       headerName: '',
-      minWidth: 40,
-      width: 40,
+      width: 80,
+      minWidth: 80,
       resizable: false,
       filter: false,
       floatingFilter: false,
       sortable: false,
+      suppressSizeToFit: true,
       headerComponent: ThreeRowHeader,
       headerComponentParams: {
         label: '+',

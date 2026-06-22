@@ -235,13 +235,10 @@ export function _afterCombineChange(): void {
       for (const c of [...selCols]) { if (!nowSet.has(c) && !_disabledCardCols.has(c)) selCols.delete(c); }
     }
     if (!draft.colOrder) {
-      draft.colOrder = [...nowCols];
+      draft.colOrder = [];
     } else {
       const nowSet = new Set(nowCols);
-      draft.colOrder = [
-        ...draft.colOrder.filter(c => nowSet.has(c)),
-        ...nowCols.filter(c => !draft.colOrder!.includes(c)),
-      ];
+      draft.colOrder = draft.colOrder.filter(c => nowSet.has(c));
     }
   });
   _syncSubtotalByToLayout();
